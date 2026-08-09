@@ -237,13 +237,13 @@
         ];
         
         function getMonthFolder(month) {
-            const numStr = String(month.num).padStart(2, '0');
-            return `${numStr}- Cuentas Diarias ${month.name}`;
-        }
-        
-        function getMonthFile(month) {
-            return `${month.name} ${YEAR}.xlsm`;
-        }
+    const numStr = String(month.num).padStart(2, '0');
+    return `${numStr}- CUENTAS DIARIAS ${month.name.toUpperCase()}`;
+}
+
+function getMonthFile(month) {
+    return `${month.name.toUpperCase()} ${YEAR}.xlsm`;
+}
         
         function getMonthFilePath(month) {
             return `${getMonthFolder(month)}/${getMonthFile(month)}`;
