@@ -219,7 +219,7 @@
         }
         
         function getMonthFile(month) {
-            return `${month.name} ${YEAR}.xlsm`;
+            return `${month.name.toUpperCase()} ${YEAR}.xlsm`;
         }
         
         function getMonthFilePath(month) {
@@ -460,4 +460,3 @@
         });
     </script>
 </body>
-</html>
