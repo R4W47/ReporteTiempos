@@ -271,9 +271,9 @@
         ];
         
         function getMonthFolder(month) {
-            const numStr = String(month.num).padStart(2, '0');
-            return `${numStr}- Cuentas Diarias ${month.name}`;
-        }
+    const numStr = String(month.num).padStart(2, '0');
+    return `${numStr}- CUENTAS DIARIAS ${month.name.toUpperCase()}`;
+}
         
         function getDaysInMonth(month) {
             return new Date(YEAR, month.num, 0).getDate();
