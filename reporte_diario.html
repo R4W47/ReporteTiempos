@@ -271,9 +271,9 @@
         ];
         
         function getMonthFolder(month) {
-    const numStr = String(month.num).padStart(2, '0');
-    return `${numStr}- CUENTAS DIARIAS ${month.name.toUpperCase()}`;
-}
+            const numStr = String(month.num).padStart(2, '0');
+            return `${numStr}- CUENTAS DIARIAS ${month.name.toUpperCase()}`;
+        }
         
         function getDaysInMonth(month) {
             return new Date(YEAR, month.num, 0).getDate();
@@ -461,10 +461,21 @@
                 return;
             }
             
-            let columns = Object.keys(json[0]);
+            const rawColumns = Object.keys(json[0]);
             
-            columns = columns.filter(col => 
-                json.some(row => row[col] !== '' && row[col] !== null && row[col] !== undefined)
+            // Ocultar filas de sorteos sin ninguna venta/comisión/premio (siempre se conserva "Totales")
+            const rowsWithSales = json.filter(row => {
+                const firstColVal = (row[rawColumns[0]] || '').toString().toLowerCase();
+                if (firstColVal.includes('total')) return true;
+                for (let i = 1; i < rawColumns.length; i++) {
+                    const num = parseFloat((row[rawColumns[i]] || '0').toString().replace(',', '.'));
+                    if (!isNaN(num) && num !== 0) return true;
+                }
+                return false;
+            });
+            
+            let columns = rawColumns.filter(col => 
+                rowsWithSales.some(row => row[col] !== '' && row[col] !== null && row[col] !== undefined)
             );
             
             let html = '<table><thead><tr>';
@@ -473,7 +484,7 @@
             });
             html += '</tr></thead><tbody>';
             
-            json.forEach(row => {
+            rowsWithSales.forEach(row => {
                 html += '<tr>';
                 columns.forEach(col => {
                     html += `<td>${row[col]}</td>`;
