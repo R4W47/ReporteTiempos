@@ -253,6 +253,9 @@
 
     <script>
         // ===== CONFIGURACIÓN =====
+        // URL de tu Worker de Cloudflare (el proxy que lee del repositorio privado)
+        const WORKER_URL = 'https://frosty-base-53ff.watsonmraul.workers.dev/';
+        
         const YEAR = new Date().getFullYear();
         
         const MONTHS = [
@@ -348,7 +351,7 @@
             statusEl.innerHTML = `<div class="status-message loading">⏳ Cargando lista de vendedores desde ${filePath}...</div>`;
             
             try {
-                const response = await fetch(filePath + '?t=' + Date.now(), { cache: 'no-store' });
+                const response = await fetch(WORKER_URL + '?path=' + encodeURIComponent(filePath) + '&t=' + Date.now(), { cache: 'no-store' });
                 if (!response.ok) throw new Error('No se encontró el archivo ' + filePath);
                 
                 const arrayBuffer = await response.arrayBuffer();
