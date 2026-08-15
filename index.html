@@ -216,6 +216,9 @@
 
     <script>
         // ===== CONFIGURACIÓN =====
+        // URL de tu Worker de Cloudflare (el proxy que lee del repositorio privado)
+        const WORKER_URL = 'https://frosty-base-53ff.watsonmraul.workers.dev/';
+        
         // Año que se usa para armar el nombre del archivo mensual, ej: "Agosto 2026.xlsm"
         const YEAR = new Date().getFullYear();
         
@@ -237,13 +240,13 @@
         ];
         
         function getMonthFolder(month) {
-    const numStr = String(month.num).padStart(2, '0');
-    return `${numStr}- CUENTAS DIARIAS ${month.name.toUpperCase()}`;
-}
-
-function getMonthFile(month) {
-    return `${month.name.toUpperCase()} ${YEAR}.xlsm`;
-}
+            const numStr = String(month.num).padStart(2, '0');
+            return `${numStr}- CUENTAS DIARIAS ${month.name.toUpperCase()}`;
+        }
+        
+        function getMonthFile(month) {
+            return `${month.name.toUpperCase()} ${YEAR}.xlsm`;
+        }
         
         function getMonthFilePath(month) {
             return `${getMonthFolder(month)}/${getMonthFile(month)}`;
@@ -284,7 +287,7 @@ function getMonthFile(month) {
             statusEl.innerHTML = `<div class="status-message loading">⏳ Cargando lista de vendedores desde ${filePath}...</div>`;
             
             try {
-                const response = await fetch(filePath + '?t=' + Date.now(), { cache: 'no-store' });
+                const response = await fetch(WORKER_URL + '?path=' + encodeURIComponent(filePath) + '&t=' + Date.now(), { cache: 'no-store' });
                 if (!response.ok) throw new Error('No se encontró el archivo ' + filePath);
                 
                 const arrayBuffer = await response.arrayBuffer();
