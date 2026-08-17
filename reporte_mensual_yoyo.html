@@ -6,8 +6,8 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Visor de Ventas</title>
-    <!-- VERSION_MARKER: v4 -->
+    <title>Reporte Mensual - Yoyo</title>
+    <!-- VERSION_MARKER: v1 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
@@ -59,11 +59,6 @@
         .search-box-wrapper {
             display: flex;
             gap: 8px;
-            margin-bottom: 15px;
-        }
-        
-        .search-box-wrapper:last-child {
-            margin-bottom: 0;
         }
         
         select {
@@ -73,11 +68,6 @@
             border-radius: 5px;
             font-size: 16px;
             background: white;
-        }
-        
-        select:disabled {
-            background: #e0e0e0;
-            color: #999;
         }
         
         #exportBtn {
@@ -168,10 +158,6 @@
                 font-size: 1.2em;
             }
             
-            .search-box-wrapper {
-                flex-direction: column;
-            }
-            
             table {
                 font-size: 11px;
             }
@@ -185,7 +171,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>📊 Reporte por Vendedor</h1>
+            <h1>📊 Reporte Mensual — Yoyo</h1>
         </div>
         
         <div class="search-section">
@@ -193,13 +179,6 @@
             <div class="search-box-wrapper">
                 <select id="monthSelect">
                     <option value="">-- Elige un mes --</option>
-                </select>
-            </div>
-            
-            <label for="vendorSelect">Vendedor:</label>
-            <div class="search-box-wrapper">
-                <select id="vendorSelect" disabled>
-                    <option value="">-- Elige primero un mes --</option>
                 </select>
                 <button id="exportBtn" disabled>📷 Exportar imagen</button>
             </div>
@@ -209,7 +188,7 @@
         
         <div id="viewer" class="viewer">
             <div class="info-message">
-                <p>👆 Elige un mes y luego un vendedor</p>
+                <p>👆 Elige un mes</p>
             </div>
         </div>
     </div>
@@ -221,11 +200,9 @@
         // Contraseña recibida desde la pantalla de acceso (index.html)
         const APP_PASSWORD = new URLSearchParams(window.location.search).get('pw') || '';
         
-        // Año que se usa para armar el nombre del archivo mensual, ej: "Agosto 2026.xlsm"
         const YEAR = new Date().getFullYear();
+        const VENDOR_NAME = 'Yoyo'; // Nombre exacto tal como aparece en la hoja "Resumen"
         
-        // Patrón de carpetas: "NN- Cuentas Diarias <Mes>"
-        // Patrón de archivo: "<Mes> <Año>.xlsm"
         const MONTHS = [
             { num: 1, name: 'Enero' },
             { num: 2, name: 'Febrero' },
@@ -254,8 +231,8 @@
             return `${getMonthFolder(month)}/${getMonthFile(month)}`;
         }
         
-        let vendorMap = []; // [{ name: "Juan Perez", sheet: "Vendedor1" }, ...]
         let monthWorkbook = null;
+        let currentVendorSheet = null;
         
         // ===== Llenar el select de meses =====
         const monthSelect = document.getElementById('monthSelect');
@@ -267,26 +244,24 @@
         });
         
         monthSelect.addEventListener('change', function() {
-            const vendorSelect = document.getElementById('vendorSelect');
             const exportBtn = document.getElementById('exportBtn');
             const viewer = document.getElementById('viewer');
             
-            vendorSelect.innerHTML = '<option value="">-- Elige un vendedor --</option>';
-            vendorSelect.disabled = true;
             exportBtn.disabled = true;
-            viewer.innerHTML = '<div class="info-message"><p>👆 Elige un vendedor</p></div>';
+            viewer.innerHTML = '<div class="info-message"><p>👆 Elige un mes</p></div>';
+            document.getElementById('statusMessage').innerHTML = '';
             
             if (this.value === '') return;
             
             const month = MONTHS[this.value];
-            loadVendorMap(month);
+            loadAndShowVendor(month);
         });
         
-        // ===== Cargar el archivo mensual del mes elegido y construir el mapa de vendedores =====
-        async function loadVendorMap(month) {
+        // ===== Cargar el archivo mensual, ubicar a Yoyo en el Resumen, y mostrar su hoja =====
+        async function loadAndShowVendor(month) {
             const statusEl = document.getElementById('statusMessage');
             const filePath = getMonthFilePath(month);
-            statusEl.innerHTML = `<div class="status-message loading">⏳ Cargando lista de vendedores desde ${filePath}...</div>`;
+            statusEl.innerHTML = `<div class="status-message loading">⏳ Cargando ${filePath}...</div>`;
             
             try {
                 const response = await fetch(WORKER_URL + '?path=' + encodeURIComponent(filePath) + '&pw=' + encodeURIComponent(APP_PASSWORD) + '&t=' + Date.now(), { cache: 'no-store' });
@@ -303,67 +278,106 @@
                 const resumenSheet = monthWorkbook.Sheets['Resumen'];
                 const rows = XLSX.utils.sheet_to_json(resumenSheet, { header: 1, defval: '' });
                 
-                // Columna A, empieza en fila 3 (índice 2). A3 -> Vendedor1, A4 -> Vendedor2...
-                const EXCLUDE = ['totales', 'ir a resumen', 'grafico dinamico', 'gráfico dinámico'];
-                vendorMap = [];
+                let vendorSheet = null;
                 for (let i = 2; i < rows.length; i++) {
                     const name = (rows[i][0] || '').toString().trim();
-                    if (name === '') continue;
-                    if (EXCLUDE.includes(name.toLowerCase())) continue;
-                    const vendorNumber = i - 1;
-                    vendorMap.push({ name: name, sheet: 'Vendedor' + vendorNumber });
+                    if (name.toLowerCase() === VENDOR_NAME.toLowerCase()) {
+                        vendorSheet = 'Vendedor' + (i - 1);
+                        break;
+                    }
                 }
                 
-                if (vendorMap.length === 0) {
-                    throw new Error('No se encontraron nombres en la columna A de "Resumen" a partir de la fila 3');
+                if (!vendorSheet) {
+                    throw new Error(`No se encontró a "${VENDOR_NAME}" en la hoja "Resumen" de ${filePath}`);
                 }
                 
-                populateVendorSelect();
-                
-                statusEl.innerHTML = `<div class="status-message success">✅ ${vendorMap.length} vendedores cargados. Selecciona uno.</div>`;
+                currentVendorSheet = vendorSheet;
+                showVendorSheet(month, vendorSheet);
                 
             } catch (error) {
                 statusEl.innerHTML = `<div class="status-message error">⚠️ ${error.message}</div>`;
             }
         }
         
-        // ===== Llenar el select con los nombres del Resumen =====
-        function populateVendorSelect() {
-            const vendorSelect = document.getElementById('vendorSelect');
-            const exportBtn = document.getElementById('exportBtn');
-            
-            vendorSelect.innerHTML = '<option value="">-- Elige un vendedor --</option>';
-            vendorMap.forEach((v, index) => {
-                const opt = document.createElement('option');
-                opt.value = index;
-                opt.textContent = v.name;
-                vendorSelect.appendChild(opt);
-            });
-            
-            vendorSelect.disabled = false;
-            exportBtn.disabled = true;
+        // ===== Buscar la fila que contiene "Totales" en la primera columna =====
+        function findTotalesRow(sheet, colIndex, startRow, maxRow) {
+            for (let r = startRow; r <= maxRow; r++) {
+                const addr = XLSX.utils.encode_cell({ r: r, c: colIndex });
+                const cell = sheet[addr];
+                if (cell && cell.v !== undefined && cell.v !== null) {
+                    const text = cell.v.toString().toLowerCase();
+                    if (text.includes('total')) return r;
+                }
+            }
+            return null;
         }
         
-        // ===== Mostrar hoja al elegir vendedor =====
-        document.getElementById('vendorSelect').addEventListener('change', function() {
+        // ===== Mostrar hoja del vendedor como tabla =====
+        function showVendorSheet(month, sheetName) {
             const statusEl = document.getElementById('statusMessage');
+            const viewer = document.getElementById('viewer');
             const exportBtn = document.getElementById('exportBtn');
             
-            if (this.value === '') {
-                exportBtn.disabled = true;
+            const sheet = monthWorkbook.Sheets[sheetName];
+            if (!sheet) {
+                statusEl.innerHTML = `<div class="status-message error">⚠️ No existe la hoja "${sheetName}" en el archivo</div>`;
+                viewer.innerHTML = '';
                 return;
             }
             
-            showVendorSheet(vendorMap[this.value]);
+            statusEl.innerHTML = `<div class="status-message success">✅ Mostrando datos de: ${VENDOR_NAME} (${sheetName})</div>`;
+            
+            const fullRange = XLSX.utils.decode_range(sheet['!ref']);
+            const scanLimit = Math.max(fullRange.e.r, 60);
+            let endRow = findTotalesRow(sheet, fullRange.s.c, 4, scanLimit);
+            if (endRow === null) endRow = fullRange.e.r;
+            const colEnd = Math.max(fullRange.e.c, 14);
+            
+            const range = {
+                s: { r: 3, c: fullRange.s.c },
+                e: { r: endRow, c: colEnd }
+            };
+            const json = XLSX.utils.sheet_to_json(sheet, { range: range, defval: '', blankrows: true });
+            
+            const daysInMonth = new Date(YEAR, month.num, 0).getDate();
+            const filteredJson = json.filter((row, idx) => {
+                if (idx >= 1 && idx <= 31 && idx > daysInMonth) return false;
+                return true;
+            });
+            
+            if (filteredJson.length === 0) {
+                viewer.innerHTML = '<div class="info-message"><p>Esta hoja no tiene datos tabulados detectables.</p></div>';
+                return;
+            }
+            
+            let columns = Object.keys(filteredJson[0]);
+            columns = columns.filter(col => 
+                filteredJson.some(row => row[col] !== '' && row[col] !== null && row[col] !== undefined)
+            );
+            
+            let html = '<table><thead><tr>';
+            columns.forEach(col => {
+                html += `<th>${col}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            
+            filteredJson.forEach(row => {
+                html += '<tr>';
+                columns.forEach(col => {
+                    html += `<td>${row[col]}</td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+            
+            viewer.innerHTML = html;
             exportBtn.disabled = false;
-        });
+        }
         
         // ===== Exportar la tabla visible como imagen =====
         document.getElementById('exportBtn').addEventListener('click', async function() {
             const viewer = document.getElementById('viewer');
             const statusEl = document.getElementById('statusMessage');
-            const vendorSelect = document.getElementById('vendorSelect');
-            const monthSelect = document.getElementById('monthSelect');
             
             if (!viewer.querySelector('table')) {
                 statusEl.innerHTML = '<div class="status-message error">⚠️ No hay ninguna tabla para exportar</div>';
@@ -375,12 +389,9 @@
             
             try {
                 const table = viewer.querySelector('table');
-                const vendorName = vendorMap[vendorSelect.value].name;
                 const month = MONTHS[monthSelect.value];
                 const monthYearLabel = getMonthFile(month).replace('.xlsm', '');
                 
-                // Clonar la tabla y colocarla fuera de pantalla, sin ninguna restricción
-                // de tamaño ni scroll, para que html2canvas la capture completa.
                 const clone = table.cloneNode(true);
                 clone.querySelectorAll('th').forEach(th => {
                     th.style.position = 'static';
@@ -401,18 +412,14 @@
                 titleEl.style.color = '#2c3e50';
                 titleEl.style.marginBottom = '10px';
                 titleEl.style.whiteSpace = 'nowrap';
-                titleEl.textContent = `${vendorName} — ${monthYearLabel}`;
+                titleEl.textContent = `${VENDOR_NAME} — ${monthYearLabel}`;
                 wrapper.appendChild(titleEl);
                 
                 wrapper.appendChild(clone);
                 document.body.appendChild(wrapper);
                 
-                // Esperar un frame para que el navegador calcule el layout del clon
                 await new Promise(resolve => requestAnimationFrame(resolve));
                 
-                // Los navegadores móviles limitan el tamaño máximo de un canvas.
-                // Calculamos el tamaño real de la tabla y ajustamos el zoom para
-                // no pasarnos de un límite seguro (evita que se corten filas/columnas).
                 const MAX_DIMENSION = 4000;
                 const naturalWidth = wrapper.scrollWidth;
                 const naturalHeight = wrapper.scrollHeight;
@@ -430,7 +437,7 @@
                 document.body.removeChild(wrapper);
                 
                 canvas.toBlob(async (blob) => {
-                    const fileName = `Reporte ${vendorName} ${month.name}.png`;
+                    const fileName = `Reporte ${VENDOR_NAME} ${month.name}.png`;
                     const filesArray = [new File([blob], fileName, { type: 'image/png' })];
                     
                     if (navigator.canShare && navigator.canShare({ files: filesArray })) {
@@ -456,88 +463,6 @@
                 this.textContent = '📷 Exportar imagen';
             }
         });
-        
-        // ===== Buscar la fila que contiene "Totales" en la primera columna =====
-        function findTotalesRow(sheet, colIndex, startRow, maxRow) {
-            for (let r = startRow; r <= maxRow; r++) {
-                const addr = XLSX.utils.encode_cell({ r: r, c: colIndex });
-                const cell = sheet[addr];
-                if (cell && cell.v !== undefined && cell.v !== null) {
-                    const text = cell.v.toString().toLowerCase();
-                    if (text.includes('total')) return r;
-                }
-            }
-            return null;
-        }
-        
-        // ===== Mostrar hoja del vendedor como tabla =====
-        function showVendorSheet(vendor) {
-            const statusEl = document.getElementById('statusMessage');
-            const viewer = document.getElementById('viewer');
-            
-            const sheet = monthWorkbook.Sheets[vendor.sheet];
-            if (!sheet) {
-                statusEl.innerHTML = `<div class="status-message error">⚠️ Se encontró a "${vendor.name}" pero no existe la hoja "${vendor.sheet}" en el archivo</div>`;
-                viewer.innerHTML = '';
-                return;
-            }
-            
-            statusEl.innerHTML = `<div class="status-message success">✅ Mostrando datos de: ${vendor.name} (${vendor.sheet})</div>`;
-            
-            // Encabezados en fila 4 (índice 3). Buscamos automáticamente la fila
-            // de "Totales" para saber hasta dónde leer, sin depender de un número fijo.
-            const fullRange = XLSX.utils.decode_range(sheet['!ref']);
-            const scanLimit = Math.max(fullRange.e.r, 60);
-            let endRow = findTotalesRow(sheet, fullRange.s.c, 4, scanLimit);
-            if (endRow === null) endRow = Math.max(fullRange.e.r, 36);
-            const colEnd = Math.max(fullRange.e.c, 14);
-            
-            const range = {
-                s: { r: 3, c: fullRange.s.c },
-                e: { r: endRow, c: colEnd }
-            };
-            const json = XLSX.utils.sheet_to_json(sheet, { range: range, defval: '', blankrows: true });
-            
-            // La plantilla siempre trae filas para los 31 días (Saldo, Dia1...Dia31, Totales).
-            // Ocultamos las filas de días que no existen en el mes seleccionado
-            // (ej. Dia 31 en meses de 30 días, o Dia 30/31 en febrero).
-            const currentMonth = MONTHS[monthSelect.value];
-            const daysInMonth = new Date(YEAR, currentMonth.num, 0).getDate();
-            const filteredJson = json.filter((row, idx) => {
-                // idx 0 = fila "Saldo", idx 1 = Dia1, idx 2 = Dia2, ... idx 31 = Dia31
-                if (idx >= 1 && idx <= 31 && idx > daysInMonth) return false;
-                return true;
-            });
-            
-            if (filteredJson.length === 0) {
-                viewer.innerHTML = '<div class="info-message"><p>Esta hoja no tiene datos tabulados detectables.</p></div>';
-                return;
-            }
-            
-            let columns = Object.keys(filteredJson[0]);
-            
-            // Quitar columnas donde todas las filas están vacías
-            columns = columns.filter(col => 
-                filteredJson.some(row => row[col] !== '' && row[col] !== null && row[col] !== undefined)
-            );
-            
-            let html = '<table><thead><tr>';
-            columns.forEach(col => {
-                html += `<th>${col}</th>`;
-            });
-            html += '</tr></thead><tbody>';
-            
-            filteredJson.forEach(row => {
-                html += '<tr>';
-                columns.forEach(col => {
-                    html += `<td>${row[col]}</td>`;
-                });
-                html += '</tr>';
-            });
-            html += '</tbody></table>';
-            
-            viewer.innerHTML = html;
-        }
     </script>
 </body>
 </html>

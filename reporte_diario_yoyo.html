@@ -6,8 +6,8 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Visor de Ventas</title>
-    <!-- VERSION_MARKER: v4 -->
+    <title>Reporte Diario - Yoyo</title>
+    <!-- VERSION_MARKER: v1 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
@@ -56,18 +56,16 @@
             color: #2c3e50;
         }
         
-        .search-box-wrapper {
-            display: flex;
-            gap: 8px;
+        .field-block {
             margin-bottom: 15px;
         }
         
-        .search-box-wrapper:last-child {
+        .field-block:last-child {
             margin-bottom: 0;
         }
         
         select {
-            flex: 1;
+            width: 100%;
             padding: 12px;
             border: 2px solid #3498db;
             border-radius: 5px;
@@ -75,12 +73,34 @@
             background: white;
         }
         
-        select:disabled {
-            background: #e0e0e0;
-            color: #999;
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+            margin-top: 8px;
+        }
+        
+        .day-btn {
+            padding: 10px 4px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            text-align: center;
+        }
+        
+        .day-btn:hover {
+            background: #2980b9;
+        }
+        
+        .day-btn.selected {
+            background: #e74c3c;
         }
         
         #exportBtn {
+            width: 100%;
             padding: 12px 20px;
             background: #27ae60;
             color: white;
@@ -168,10 +188,6 @@
                 font-size: 1.2em;
             }
             
-            .search-box-wrapper {
-                flex-direction: column;
-            }
-            
             table {
                 font-size: 11px;
             }
@@ -179,28 +195,34 @@
             th, td {
                 padding: 6px;
             }
+            
+            .day-btn {
+                padding: 8px 2px;
+                font-size: 12px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>📊 Reporte por Vendedor</h1>
+            <h1>📅 Reporte Diario — Yoyo</h1>
         </div>
         
         <div class="search-section">
-            <label for="monthSelect">Mes:</label>
-            <div class="search-box-wrapper">
+            <div class="field-block">
+                <label for="monthSelect">Mes:</label>
                 <select id="monthSelect">
                     <option value="">-- Elige un mes --</option>
                 </select>
             </div>
             
-            <label for="vendorSelect">Vendedor:</label>
-            <div class="search-box-wrapper">
-                <select id="vendorSelect" disabled>
-                    <option value="">-- Elige primero un mes --</option>
-                </select>
+            <div class="field-block">
+                <label>Día:</label>
+                <div id="calendarGrid" class="calendar-grid"></div>
+            </div>
+            
+            <div class="field-block">
                 <button id="exportBtn" disabled>📷 Exportar imagen</button>
             </div>
         </div>
@@ -209,7 +231,7 @@
         
         <div id="viewer" class="viewer">
             <div class="info-message">
-                <p>👆 Elige un mes y luego un vendedor</p>
+                <p>👆 Elige un mes y luego un día</p>
             </div>
         </div>
     </div>
@@ -221,11 +243,9 @@
         // Contraseña recibida desde la pantalla de acceso (index.html)
         const APP_PASSWORD = new URLSearchParams(window.location.search).get('pw') || '';
         
-        // Año que se usa para armar el nombre del archivo mensual, ej: "Agosto 2026.xlsm"
         const YEAR = new Date().getFullYear();
+        const VENDOR_NAME = 'Yoyo'; // Nombre exacto tal como aparece en la hoja "Resumen"
         
-        // Patrón de carpetas: "NN- Cuentas Diarias <Mes>"
-        // Patrón de archivo: "<Mes> <Año>.xlsm"
         const MONTHS = [
             { num: 1, name: 'Enero' },
             { num: 2, name: 'Febrero' },
@@ -246,16 +266,21 @@
             return `${numStr}- CUENTAS DIARIAS ${month.name.toUpperCase()}`;
         }
         
-        function getMonthFile(month) {
-            return `${month.name.toUpperCase()} ${YEAR}.xlsm`;
+        function getDaysInMonth(month) {
+            return new Date(YEAR, month.num, 0).getDate();
         }
         
-        function getMonthFilePath(month) {
-            return `${getMonthFolder(month)}/${getMonthFile(month)}`;
+        function getDayFileName(dayNum) {
+            return `DIA ${String(dayNum).padStart(2, '0')}.xlsm`;
         }
         
-        let vendorMap = []; // [{ name: "Juan Perez", sheet: "Vendedor1" }, ...]
-        let monthWorkbook = null;
+        function getDayFilePath(month, dayNum) {
+            return `${getMonthFolder(month)}/${getDayFileName(dayNum)}`;
+        }
+        
+        let dayWorkbook = null;
+        let selectedDay = null;
+        let selectedMonth = null;
         
         // ===== Llenar el select de meses =====
         const monthSelect = document.getElementById('monthSelect');
@@ -266,27 +291,63 @@
             monthSelect.appendChild(opt);
         });
         
-        monthSelect.addEventListener('change', function() {
-            const vendorSelect = document.getElementById('vendorSelect');
+        function resetViewer() {
             const exportBtn = document.getElementById('exportBtn');
             const viewer = document.getElementById('viewer');
-            
-            vendorSelect.innerHTML = '<option value="">-- Elige un vendedor --</option>';
-            vendorSelect.disabled = true;
             exportBtn.disabled = true;
-            viewer.innerHTML = '<div class="info-message"><p>👆 Elige un vendedor</p></div>';
+            viewer.innerHTML = '<div class="info-message"><p>👆 Elige un día</p></div>';
+        }
+        
+        monthSelect.addEventListener('change', function() {
+            const calendarGrid = document.getElementById('calendarGrid');
+            calendarGrid.innerHTML = '';
+            selectedDay = null;
+            resetViewer();
+            document.getElementById('statusMessage').innerHTML = '';
             
             if (this.value === '') return;
             
-            const month = MONTHS[this.value];
-            loadVendorMap(month);
+            selectedMonth = MONTHS[this.value];
+            const daysInMonth = getDaysInMonth(selectedMonth);
+            
+            for (let d = 1; d <= daysInMonth; d++) {
+                const btn = document.createElement('button');
+                btn.className = 'day-btn';
+                btn.textContent = d;
+                btn.type = 'button';
+                btn.onclick = () => selectDay(d, btn);
+                calendarGrid.appendChild(btn);
+            }
         });
         
-        // ===== Cargar el archivo mensual del mes elegido y construir el mapa de vendedores =====
-        async function loadVendorMap(month) {
+        function selectDay(dayNum, btnEl) {
+            document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('selected'));
+            btnEl.classList.add('selected');
+            selectedDay = dayNum;
+            loadAndShowVendor(selectedMonth, dayNum);
+        }
+        
+        // ===== Buscar la fila que contiene "Totales" en la primera columna =====
+        function findTotalesRow(sheet, colIndex, startRow, maxRow) {
+            for (let r = startRow; r <= maxRow; r++) {
+                const addr = XLSX.utils.encode_cell({ r: r, c: colIndex });
+                const cell = sheet[addr];
+                if (cell && cell.v !== undefined && cell.v !== null) {
+                    const text = cell.v.toString().toLowerCase();
+                    if (text.includes('total')) return r;
+                }
+            }
+            return null;
+        }
+        
+        // ===== Cargar el archivo del día, ubicar a Yoyo en el Resumen, y mostrar su hoja =====
+        async function loadAndShowVendor(month, dayNum) {
             const statusEl = document.getElementById('statusMessage');
-            const filePath = getMonthFilePath(month);
-            statusEl.innerHTML = `<div class="status-message loading">⏳ Cargando lista de vendedores desde ${filePath}...</div>`;
+            const exportBtn = document.getElementById('exportBtn');
+            const viewer = document.getElementById('viewer');
+            const filePath = getDayFilePath(month, dayNum);
+            statusEl.innerHTML = `<div class="status-message loading">⏳ Cargando ${filePath}...</div>`;
+            exportBtn.disabled = true;
             
             try {
                 const response = await fetch(WORKER_URL + '?path=' + encodeURIComponent(filePath) + '&pw=' + encodeURIComponent(APP_PASSWORD) + '&t=' + Date.now(), { cache: 'no-store' });
@@ -294,76 +355,96 @@
                 
                 const arrayBuffer = await response.arrayBuffer();
                 const data = new Uint8Array(arrayBuffer);
-                monthWorkbook = XLSX.read(data, { type: 'array' });
+                dayWorkbook = XLSX.read(data, { type: 'array' });
                 
-                if (!monthWorkbook.Sheets['Resumen']) {
+                if (!dayWorkbook.Sheets['Resumen']) {
                     throw new Error('No se encontró una hoja llamada "Resumen" en ' + filePath);
                 }
                 
-                const resumenSheet = monthWorkbook.Sheets['Resumen'];
+                const resumenSheet = dayWorkbook.Sheets['Resumen'];
                 const rows = XLSX.utils.sheet_to_json(resumenSheet, { header: 1, defval: '' });
                 
-                // Columna A, empieza en fila 3 (índice 2). A3 -> Vendedor1, A4 -> Vendedor2...
-                const EXCLUDE = ['totales', 'ir a resumen', 'grafico dinamico', 'gráfico dinámico'];
-                vendorMap = [];
+                let vendorSheetName = null;
                 for (let i = 2; i < rows.length; i++) {
                     const name = (rows[i][0] || '').toString().trim();
-                    if (name === '') continue;
-                    if (EXCLUDE.includes(name.toLowerCase())) continue;
-                    const vendorNumber = i - 1;
-                    vendorMap.push({ name: name, sheet: 'Vendedor' + vendorNumber });
+                    if (name.toLowerCase() === VENDOR_NAME.toLowerCase()) {
+                        vendorSheetName = 'Vendedor' + (i - 1);
+                        break;
+                    }
                 }
                 
-                if (vendorMap.length === 0) {
-                    throw new Error('No se encontraron nombres en la columna A de "Resumen" a partir de la fila 3');
+                if (!vendorSheetName) {
+                    throw new Error(`No se encontró a "${VENDOR_NAME}" en la hoja "Resumen" de ${filePath}`);
                 }
                 
-                populateVendorSelect();
+                const sheet = dayWorkbook.Sheets[vendorSheetName];
+                if (!sheet) {
+                    throw new Error(`Se encontró a "${VENDOR_NAME}" pero no existe la hoja "${vendorSheetName}" en el archivo`);
+                }
                 
-                statusEl.innerHTML = `<div class="status-message success">✅ ${vendorMap.length} vendedores cargados. Selecciona uno.</div>`;
+                statusEl.innerHTML = `<div class="status-message success">✅ Mostrando datos de: ${VENDOR_NAME} (${vendorSheetName})</div>`;
+                
+                const fullRange = XLSX.utils.decode_range(sheet['!ref']);
+                const scanLimit = Math.max(fullRange.e.r, 60);
+                let endRow = findTotalesRow(sheet, fullRange.s.c, 4, scanLimit);
+                if (endRow === null) endRow = fullRange.e.r;
+                const colEnd = 6; // Columna G
+                
+                const range = {
+                    s: { r: 3, c: fullRange.s.c },
+                    e: { r: endRow, c: colEnd }
+                };
+                const json = XLSX.utils.sheet_to_json(sheet, { range: range, defval: '', blankrows: true });
+                
+                if (json.length === 0) {
+                    viewer.innerHTML = '<div class="info-message"><p>Esta hoja no tiene datos tabulados detectables.</p></div>';
+                    return;
+                }
+                
+                const rawColumns = Object.keys(json[0]);
+                
+                // Ocultar filas de sorteos sin ninguna venta/comisión/premio (siempre se conserva "Totales")
+                const rowsWithSales = json.filter(row => {
+                    const firstColVal = (row[rawColumns[0]] || '').toString().toLowerCase();
+                    if (firstColVal.includes('total')) return true;
+                    for (let i = 1; i < rawColumns.length; i++) {
+                        const num = parseFloat((row[rawColumns[i]] || '0').toString().replace(',', '.'));
+                        if (!isNaN(num) && num !== 0) return true;
+                    }
+                    return false;
+                });
+                
+                let columns = rawColumns.filter(col => 
+                    rowsWithSales.some(row => row[col] !== '' && row[col] !== null && row[col] !== undefined)
+                );
+                
+                let html = '<table><thead><tr>';
+                columns.forEach(col => {
+                    html += `<th>${col}</th>`;
+                });
+                html += '</tr></thead><tbody>';
+                
+                rowsWithSales.forEach(row => {
+                    html += '<tr>';
+                    columns.forEach(col => {
+                        html += `<td>${row[col]}</td>`;
+                    });
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+                
+                viewer.innerHTML = html;
+                exportBtn.disabled = false;
                 
             } catch (error) {
                 statusEl.innerHTML = `<div class="status-message error">⚠️ ${error.message}</div>`;
             }
         }
         
-        // ===== Llenar el select con los nombres del Resumen =====
-        function populateVendorSelect() {
-            const vendorSelect = document.getElementById('vendorSelect');
-            const exportBtn = document.getElementById('exportBtn');
-            
-            vendorSelect.innerHTML = '<option value="">-- Elige un vendedor --</option>';
-            vendorMap.forEach((v, index) => {
-                const opt = document.createElement('option');
-                opt.value = index;
-                opt.textContent = v.name;
-                vendorSelect.appendChild(opt);
-            });
-            
-            vendorSelect.disabled = false;
-            exportBtn.disabled = true;
-        }
-        
-        // ===== Mostrar hoja al elegir vendedor =====
-        document.getElementById('vendorSelect').addEventListener('change', function() {
-            const statusEl = document.getElementById('statusMessage');
-            const exportBtn = document.getElementById('exportBtn');
-            
-            if (this.value === '') {
-                exportBtn.disabled = true;
-                return;
-            }
-            
-            showVendorSheet(vendorMap[this.value]);
-            exportBtn.disabled = false;
-        });
-        
         // ===== Exportar la tabla visible como imagen =====
         document.getElementById('exportBtn').addEventListener('click', async function() {
             const viewer = document.getElementById('viewer');
             const statusEl = document.getElementById('statusMessage');
-            const vendorSelect = document.getElementById('vendorSelect');
-            const monthSelect = document.getElementById('monthSelect');
             
             if (!viewer.querySelector('table')) {
                 statusEl.innerHTML = '<div class="status-message error">⚠️ No hay ninguna tabla para exportar</div>';
@@ -375,12 +456,8 @@
             
             try {
                 const table = viewer.querySelector('table');
-                const vendorName = vendorMap[vendorSelect.value].name;
-                const month = MONTHS[monthSelect.value];
-                const monthYearLabel = getMonthFile(month).replace('.xlsm', '');
+                const dateLabel = `Dia ${selectedDay} - ${selectedMonth.name} ${YEAR}`;
                 
-                // Clonar la tabla y colocarla fuera de pantalla, sin ninguna restricción
-                // de tamaño ni scroll, para que html2canvas la capture completa.
                 const clone = table.cloneNode(true);
                 clone.querySelectorAll('th').forEach(th => {
                     th.style.position = 'static';
@@ -401,18 +478,14 @@
                 titleEl.style.color = '#2c3e50';
                 titleEl.style.marginBottom = '10px';
                 titleEl.style.whiteSpace = 'nowrap';
-                titleEl.textContent = `${vendorName} — ${monthYearLabel}`;
+                titleEl.textContent = `${VENDOR_NAME} — ${dateLabel}`;
                 wrapper.appendChild(titleEl);
                 
                 wrapper.appendChild(clone);
                 document.body.appendChild(wrapper);
                 
-                // Esperar un frame para que el navegador calcule el layout del clon
                 await new Promise(resolve => requestAnimationFrame(resolve));
                 
-                // Los navegadores móviles limitan el tamaño máximo de un canvas.
-                // Calculamos el tamaño real de la tabla y ajustamos el zoom para
-                // no pasarnos de un límite seguro (evita que se corten filas/columnas).
                 const MAX_DIMENSION = 4000;
                 const naturalWidth = wrapper.scrollWidth;
                 const naturalHeight = wrapper.scrollHeight;
@@ -430,7 +503,7 @@
                 document.body.removeChild(wrapper);
                 
                 canvas.toBlob(async (blob) => {
-                    const fileName = `Reporte ${vendorName} ${month.name}.png`;
+                    const fileName = `Reporte ${VENDOR_NAME} Dia${selectedDay} ${selectedMonth.name}.png`;
                     const filesArray = [new File([blob], fileName, { type: 'image/png' })];
                     
                     if (navigator.canShare && navigator.canShare({ files: filesArray })) {
@@ -456,88 +529,6 @@
                 this.textContent = '📷 Exportar imagen';
             }
         });
-        
-        // ===== Buscar la fila que contiene "Totales" en la primera columna =====
-        function findTotalesRow(sheet, colIndex, startRow, maxRow) {
-            for (let r = startRow; r <= maxRow; r++) {
-                const addr = XLSX.utils.encode_cell({ r: r, c: colIndex });
-                const cell = sheet[addr];
-                if (cell && cell.v !== undefined && cell.v !== null) {
-                    const text = cell.v.toString().toLowerCase();
-                    if (text.includes('total')) return r;
-                }
-            }
-            return null;
-        }
-        
-        // ===== Mostrar hoja del vendedor como tabla =====
-        function showVendorSheet(vendor) {
-            const statusEl = document.getElementById('statusMessage');
-            const viewer = document.getElementById('viewer');
-            
-            const sheet = monthWorkbook.Sheets[vendor.sheet];
-            if (!sheet) {
-                statusEl.innerHTML = `<div class="status-message error">⚠️ Se encontró a "${vendor.name}" pero no existe la hoja "${vendor.sheet}" en el archivo</div>`;
-                viewer.innerHTML = '';
-                return;
-            }
-            
-            statusEl.innerHTML = `<div class="status-message success">✅ Mostrando datos de: ${vendor.name} (${vendor.sheet})</div>`;
-            
-            // Encabezados en fila 4 (índice 3). Buscamos automáticamente la fila
-            // de "Totales" para saber hasta dónde leer, sin depender de un número fijo.
-            const fullRange = XLSX.utils.decode_range(sheet['!ref']);
-            const scanLimit = Math.max(fullRange.e.r, 60);
-            let endRow = findTotalesRow(sheet, fullRange.s.c, 4, scanLimit);
-            if (endRow === null) endRow = Math.max(fullRange.e.r, 36);
-            const colEnd = Math.max(fullRange.e.c, 14);
-            
-            const range = {
-                s: { r: 3, c: fullRange.s.c },
-                e: { r: endRow, c: colEnd }
-            };
-            const json = XLSX.utils.sheet_to_json(sheet, { range: range, defval: '', blankrows: true });
-            
-            // La plantilla siempre trae filas para los 31 días (Saldo, Dia1...Dia31, Totales).
-            // Ocultamos las filas de días que no existen en el mes seleccionado
-            // (ej. Dia 31 en meses de 30 días, o Dia 30/31 en febrero).
-            const currentMonth = MONTHS[monthSelect.value];
-            const daysInMonth = new Date(YEAR, currentMonth.num, 0).getDate();
-            const filteredJson = json.filter((row, idx) => {
-                // idx 0 = fila "Saldo", idx 1 = Dia1, idx 2 = Dia2, ... idx 31 = Dia31
-                if (idx >= 1 && idx <= 31 && idx > daysInMonth) return false;
-                return true;
-            });
-            
-            if (filteredJson.length === 0) {
-                viewer.innerHTML = '<div class="info-message"><p>Esta hoja no tiene datos tabulados detectables.</p></div>';
-                return;
-            }
-            
-            let columns = Object.keys(filteredJson[0]);
-            
-            // Quitar columnas donde todas las filas están vacías
-            columns = columns.filter(col => 
-                filteredJson.some(row => row[col] !== '' && row[col] !== null && row[col] !== undefined)
-            );
-            
-            let html = '<table><thead><tr>';
-            columns.forEach(col => {
-                html += `<th>${col}</th>`;
-            });
-            html += '</tr></thead><tbody>';
-            
-            filteredJson.forEach(row => {
-                html += '<tr>';
-                columns.forEach(col => {
-                    html += `<td>${row[col]}</td>`;
-                });
-                html += '</tr>';
-            });
-            html += '</tbody></table>';
-            
-            viewer.innerHTML = html;
-        }
     </script>
 </body>
 </html>
