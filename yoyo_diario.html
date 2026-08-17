@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Reporte Diario - Yoyo</title>
+    <!-- VERSION_MARKER: v1 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 10px;
+        }
+        
+        .container {
+            max-width: 100%;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 1.5em;
+            margin-bottom: 5px;
+        }
+        
+        .search-section {
+            padding: 15px;
+            background: #ecf0f1;
+            border-bottom: 2px solid #bdc3c7;
+        }
+        
+        .search-section label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .field-block {
+            margin-bottom: 15px;
+        }
+        
+        .field-block:last-child {
+            margin-bottom: 0;
+        }
+        
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #3498db;
+            border-radius: 5px;
+            font-size: 16px;
+            background: white;
+        }
+        
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+            margin-top: 8px;
+        }
+        
+        .day-btn {
+            padding: 10px 4px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            text-align: center;
+        }
+        
+        .day-btn:hover {
+            background: #2980b9;
+        }
+        
+        .day-btn.selected {
+            background: #e74c3c;
+        }
+        
+        #exportBtn {
+            width: 100%;
+            padding: 12px 20px;
+            background: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        
+        #exportBtn:hover {
+            background: #219150;
+        }
+        
+        #exportBtn:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+        
+        .status-message {
+            padding: 12px 15px;
+            font-size: 14px;
+        }
+        
+        .status-message.error {
+            background: #fdecea;
+            color: #c0392b;
+        }
+        
+        .status-message.success {
+            background: #eafaf1;
+            color: #27ae60;
+        }
+        
+        .status-message.loading {
+            background: #eaf2fa;
+            color: #2980b9;
+        }
+        
+        .viewer {
+            padding: 15px;
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 65vh;
+        }
+        
+        .info-message {
+            text-align: center;
+            padding: 40px 20px;
+            color: #7f8c8d;
+        }
+        
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            font-size: 13px;
+        }
+        
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            white-space: nowrap;
+        }
+        
+        th {
+            background-color: #3498db;
+            color: white;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        
+        tr:hover {
+            background-color: #e8f4f8;
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.2em;
+            }
+            
+            table {
+                font-size: 11px;
+            }
+            
+            th, td {
+                padding: 6px;
+            }
+            
+            .day-btn {
+                padding: 8px 2px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📅 Reporte Diario — Yoyo</h1>
+        </div>
+        
+        <div class="search-section">
+            <div class="field-block">
+                <label for="monthSelect">Mes:</label>
+                <select id="monthSelect">
+                    <option value="">-- Elige un mes --</option>
+                </select>
+            </div>
+            
+            <div class="field-block">
+                <label>Día:</label>
+                <div id="calendarGrid" class="calendar-grid"></div>
+            </div>
+            
+            <div class="field-block">
+                <button id="exportBtn" disabled>📷 Exportar imagen</button>
+            </div>
+        </div>
+        
+        <div id="statusMessage"></div>
+        
+        <div id="viewer" class="viewer">
+            <div class="info-message">
+                <p>👆 Elige un mes y luego un día</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===== CONFIGURACIÓN =====
+        // URL de tu Worker de Cloudflare (el proxy que lee del repositorio privado)
+        const WORKER_URL = 'https://frosty-base-53ff.watsonmraul.workers.dev/';
+        // Contraseña recibida desde la pantalla de acceso (index.html)
+        const APP_PASSWORD = new URLSearchParams(window.location.search).get('pw') || '';
+        
+        const YEAR = new Date().getFullYear();
+        const VENDOR_NAME = 'Yoyo'; // Nombre exacto tal como aparece en la hoja "Resumen"
+        
+        const MONTHS = [
+            { num: 1, name: 'Enero' },
+            { num: 2, name: 'Febrero' },
+            { num: 3, name: 'Marzo' },
+            { num: 4, name: 'Abril' },
+            { num: 5, name: 'Mayo' },
+            { num: 6, name: 'Junio' },
+            { num: 7, name: 'Julio' },
+            { num: 8, name: 'Agosto' },
+            { num: 9, name: 'Septiembre' },
+            { num: 10, name: 'Octubre' },
+            { num: 11, name: 'Noviembre' },
+            { num: 12, name: 'Diciembre' }
+        ];
+        
+        function getMonthFolder(month) {
+            const numStr = String(month.num).padStart(2, '0');
+            return `${numStr}- CUENTAS DIARIAS ${month.name.toUpperCase()}`;
+        }
+        
+        function getDaysInMonth(month) {
+            return new Date(YEAR, month.num, 0).getDate();
+        }
+        
+        function getDayFileName(dayNum) {
+            return `DIA ${String(dayNum).padStart(2, '0')}.xlsm`;
+        }
+        
+        function getDayFilePath(month, dayNum) {
+            return `${getMonthFolder(month)}/${getDayFileName(dayNum)}`;
+        }
+        
+        let dayWorkbook = null;
+        let selectedDay = null;
+        let selectedMonth = null;
+        
+        // ===== Llenar el select de meses =====
+        const monthSelect = document.getElementById('monthSelect');
+        MONTHS.forEach((m, index) => {
+            const opt = document.createElement('option');
+            opt.value = index;
+            opt.textContent = m.name;
+            monthSelect.appendChild(opt);
+        });
+        
+        function resetViewer() {
+            const exportBtn = document.getElementById('exportBtn');
+            const viewer = document.getElementById('viewer');
+            exportBtn.disabled = true;
+            viewer.innerHTML = '<div class="info-message"><p>👆 Elige un día</p></div>';
+        }
+        
+        monthSelect.addEventListener('change', function() {
+            const calendarGrid = document.getElementById('calendarGrid');
+            calendarGrid.innerHTML = '';
+            selectedDay = null;
+            resetViewer();
+            document.getElementById('statusMessage').innerHTML = '';
+            
+            if (this.value === '') return;
+            
+            selectedMonth = MONTHS[this.value];
+            const daysInMonth = getDaysInMonth(selectedMonth);
+            
+            for (let d = 1; d <= daysInMonth; d++) {
+                const btn = document.createElement('button');
+                btn.className = 'day-btn';
+                btn.textContent = d;
+                btn.type = 'button';
+                btn.onclick = () => selectDay(d, btn);
+                calendarGrid.appendChild(btn);
+            }
+        });
+        
+        function selectDay(dayNum, btnEl) {
+            document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('selected'));
+            btnEl.classList.add('selected');
+            selectedDay = dayNum;
+            loadAndShowVendor(selectedMonth, dayNum);
+        }
+        
+        // ===== Buscar la fila que contiene "Totales" en la primera columna =====
+        function findTotalesRow(sheet, colIndex, startRow, maxRow) {
+            for (let r = startRow; r <= maxRow; r++) {
+                const addr = XLSX.utils.encode_cell({ r: r, c: colIndex });
+                const cell = sheet[addr];
+                if (cell && cell.v !== undefined && cell.v !== null) {
+                    const text = cell.v.toString().toLowerCase();
+                    if (text.includes('total')) return r;
+                }
+            }
+            return null;
+        }
+        
+        // ===== Cargar el archivo del día, ubicar a Yoyo en el Resumen, y mostrar su hoja =====
+        async function loadAndShowVendor(month, dayNum) {
+            const statusEl = document.getElementById('statusMessage');
+            const exportBtn = document.getElementById('exportBtn');
+            const viewer = document.getElementById('viewer');
+            const filePath = getDayFilePath(month, dayNum);
+            statusEl.innerHTML = `<div class="status-message loading">⏳ Cargando ${filePath}...</div>`;
+            exportBtn.disabled = true;
+            
+            try {
+                const response = await fetch(WORKER_URL + '?path=' + encodeURIComponent(filePath) + '&pw=' + encodeURIComponent(APP_PASSWORD) + '&t=' + Date.now(), { cache: 'no-store' });
+                if (!response.ok) throw new Error('No se encontró el archivo ' + filePath);
+                
+                const arrayBuffer = await response.arrayBuffer();
+                const data = new Uint8Array(arrayBuffer);
+                dayWorkbook = XLSX.read(data, { type: 'array' });
+                
+                if (!dayWorkbook.Sheets['Resumen']) {
+                    throw new Error('No se encontró una hoja llamada "Resumen" en ' + filePath);
+                }
+                
+                const resumenSheet = dayWorkbook.Sheets['Resumen'];
+                const rows = XLSX.utils.sheet_to_json(resumenSheet, { header: 1, defval: '' });
+                
+                let vendorSheetName = null;
+                for (let i = 2; i < rows.length; i++) {
+                    const name = (rows[i][0] || '').toString().trim();
+                    if (name.toLowerCase() === VENDOR_NAME.toLowerCase()) {
+                        vendorSheetName = 'Vendedor' + (i - 1);
+                        break;
+                    }
+                }
+                
+                if (!vendorSheetName) {
+                    throw new Error(`No se encontró a "${VENDOR_NAME}" en la hoja "Resumen" de ${filePath}`);
+                }
+                
+                const sheet = dayWorkbook.Sheets[vendorSheetName];
+                if (!sheet) {
+                    throw new Error(`Se encontró a "${VENDOR_NAME}" pero no existe la hoja "${vendorSheetName}" en el archivo`);
+                }
+                
+                statusEl.innerHTML = `<div class="status-message success">✅ Mostrando datos de: ${VENDOR_NAME} (${vendorSheetName})</div>`;
+                
+                const fullRange = XLSX.utils.decode_range(sheet['!ref']);
+                const scanLimit = Math.max(fullRange.e.r, 60);
+                let endRow = findTotalesRow(sheet, fullRange.s.c, 4, scanLimit);
+                if (endRow === null) endRow = fullRange.e.r;
+                const colEnd = 6; // Columna G
+                
+                const range = {
+                    s: { r: 3, c: fullRange.s.c },
+                    e: { r: endRow, c: colEnd }
+                };
+                const json = XLSX.utils.sheet_to_json(sheet, { range: range, defval: '', blankrows: true });
+                
+                if (json.length === 0) {
+                    viewer.innerHTML = '<div class="info-message"><p>Esta hoja no tiene datos tabulados detectables.</p></div>';
+                    return;
+                }
+                
+                const rawColumns = Object.keys(json[0]);
+                
+                // Ocultar filas de sorteos sin ninguna venta/comisión/premio (siempre se conserva "Totales")
+                const rowsWithSales = json.filter(row => {
+                    const firstColVal = (row[rawColumns[0]] || '').toString().toLowerCase();
+                    if (firstColVal.includes('total')) return true;
+                    for (let i = 1; i < rawColumns.length; i++) {
+                        const num = parseFloat((row[rawColumns[i]] || '0').toString().replace(',', '.'));
+                        if (!isNaN(num) && num !== 0) return true;
+                    }
+                    return false;
+                });
+                
+                let columns = rawColumns.filter(col => 
+                    rowsWithSales.some(row => row[col] !== '' && row[col] !== null && row[col] !== undefined)
+                );
+                
+                let html = '<table><thead><tr>';
+                columns.forEach(col => {
+                    html += `<th>${col}</th>`;
+                });
+                html += '</tr></thead><tbody>';
+                
+                rowsWithSales.forEach(row => {
+                    html += '<tr>';
+                    columns.forEach(col => {
+                        html += `<td>${row[col]}</td>`;
+                    });
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+                
+                viewer.innerHTML = html;
+                exportBtn.disabled = false;
+                
+            } catch (error) {
+                statusEl.innerHTML = `<div class="status-message error">⚠️ ${error.message}</div>`;
+            }
+        }
+        
+        // ===== Exportar la tabla visible como imagen =====
+        document.getElementById('exportBtn').addEventListener('click', async function() {
+            const viewer = document.getElementById('viewer');
+            const statusEl = document.getElementById('statusMessage');
+            
+            if (!viewer.querySelector('table')) {
+                statusEl.innerHTML = '<div class="status-message error">⚠️ No hay ninguna tabla para exportar</div>';
+                return;
+            }
+            
+            this.disabled = true;
+            this.textContent = '⏳ Generando imagen...';
+            
+            try {
+                const table = viewer.querySelector('table');
+                const dateLabel = `Dia ${selectedDay} - ${selectedMonth.name} ${YEAR}`;
+                
+                const clone = table.cloneNode(true);
+                clone.querySelectorAll('th').forEach(th => {
+                    th.style.position = 'static';
+                });
+                
+                const wrapper = document.createElement('div');
+                wrapper.style.position = 'fixed';
+                wrapper.style.top = '0';
+                wrapper.style.left = '-100000px';
+                wrapper.style.background = '#ffffff';
+                wrapper.style.padding = '10px';
+                wrapper.style.display = 'inline-block';
+                
+                const titleEl = document.createElement('div');
+                titleEl.style.fontFamily = 'Arial, sans-serif';
+                titleEl.style.fontWeight = 'bold';
+                titleEl.style.fontSize = '18px';
+                titleEl.style.color = '#2c3e50';
+                titleEl.style.marginBottom = '10px';
+                titleEl.style.whiteSpace = 'nowrap';
+                titleEl.textContent = `${VENDOR_NAME} — ${dateLabel}`;
+                wrapper.appendChild(titleEl);
+                
+                wrapper.appendChild(clone);
+                document.body.appendChild(wrapper);
+                
+                await new Promise(resolve => requestAnimationFrame(resolve));
+                
+                const MAX_DIMENSION = 4000;
+                const naturalWidth = wrapper.scrollWidth;
+                const naturalHeight = wrapper.scrollHeight;
+                const maxNaturalDim = Math.max(naturalWidth, naturalHeight);
+                let scale = 2;
+                if (maxNaturalDim * scale > MAX_DIMENSION) {
+                    scale = MAX_DIMENSION / maxNaturalDim;
+                }
+                
+                const canvas = await html2canvas(wrapper, {
+                    backgroundColor: '#ffffff',
+                    scale: scale
+                });
+                
+                document.body.removeChild(wrapper);
+                
+                canvas.toBlob(async (blob) => {
+                    const fileName = `Reporte ${VENDOR_NAME} Dia${selectedDay} ${selectedMonth.name}.png`;
+                    const filesArray = [new File([blob], fileName, { type: 'image/png' })];
+                    
+                    if (navigator.canShare && navigator.canShare({ files: filesArray })) {
+                        try {
+                            await navigator.share({ files: filesArray, title: fileName });
+                        } catch (shareError) {
+                            // Si el usuario cancela el share, no hacemos nada más
+                        }
+                    } else {
+                        const link = document.createElement('a');
+                        link.download = fileName;
+                        link.href = URL.createObjectURL(blob);
+                        link.click();
+                    }
+                    
+                    this.disabled = false;
+                    this.textContent = '📷 Exportar imagen';
+                }, 'image/png');
+                
+            } catch (error) {
+                statusEl.innerHTML = `<div class="status-message error">⚠️ Error al generar la imagen: ${error.message}</div>`;
+                this.disabled = false;
+                this.textContent = '📷 Exportar imagen';
+            }
+        });
+    </script>
+</body>
+</html>
