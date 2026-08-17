@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acceso - Reportes de Ventas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 15px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            padding: 30px 25px;
+            width: 100%;
+            max-width: 380px;
+        }
+        
+        .card h1 {
+            text-align: center;
+            color: #2c3e50;
+            font-size: 1.4em;
+            margin-bottom: 25px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: bold;
+            color: #2c3e50;
+            font-size: 14px;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 2px solid #bdc3c7;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        button {
+            width: 100%;
+            padding: 13px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+        
+        button:hover {
+            background: #2980b9;
+        }
+        
+        button:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+        
+        .error-msg {
+            background: #fdecea;
+            color: #c0392b;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            margin-bottom: 15px;
+            display: none;
+        }
+        
+        /* ===== Menú (se muestra después de iniciar sesión) ===== */
+        .menu-card {
+            display: none;
+        }
+        
+        .menu-card h1 {
+            margin-bottom: 5px;
+        }
+        
+        .saludo {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 25px;
+            font-size: 14px;
+        }
+        
+        .menu-item {
+            display: block;
+            width: 100%;
+            padding: 16px;
+            margin-bottom: 12px;
+            background: #ecf0f1;
+            border: 2px solid #bdc3c7;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #2c3e50;
+            font-weight: bold;
+            font-size: 15px;
+            text-align: center;
+            transition: background 0.2s;
+        }
+        
+        .menu-item:hover {
+            background: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+        
+        .menu-item .icon {
+            font-size: 1.3em;
+            display: block;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card" id="loginCard">
+        <h1>🔒 Acceso a Reportes</h1>
+        
+        <div id="errorMsg" class="error-msg"></div>
+        
+        <label for="username">Usuario:</label>
+        <input type="text" id="username" placeholder="Tu usuario" autocomplete="off">
+        
+        <label for="password">Contraseña:</label>
+        <input type="password" id="password" placeholder="••••••••" autocomplete="off">
+        
+        <button id="loginBtn">Entrar</button>
+    </div>
+    
+    <div class="card menu-card" id="menuCard">
+        <h1>📊 Reportes de Ventas</h1>
+        <p class="saludo" id="saludo">Bienvenido</p>
+        
+        <div id="menuLinks"></div>
+    </div>
+
+    <script>
+        // ===== CONFIGURACIÓN =====
+        // URL de tu Worker de Cloudflare
+        const WORKER_URL = 'https://frosty-base-53ff.watsonmraul.workers.dev/';
+        
+        // Reportes según el rol devuelto por el Worker (basado en usuarios.txt)
+        const MENUS_POR_ROL = {
+            general: [
+                { icon: '📊', label: 'Reporte Mensual por Vendedor', file: 'reporte-mensual.html' },
+                { icon: '📅', label: 'Reporte Diario por Vendedor', file: 'reporte-diario.html' }
+            ],
+            yoyo: [
+                { icon: '📊', label: 'Reporte Mensual — Yoyo', file: 'reporte-mensual-yoyo.html' },
+                { icon: '📅', label: 'Reporte Diario — Yoyo', file: 'reporte-diario-yoyo.html' }
+            ]
+        };
+        
+        const loginCard = document.getElementById('loginCard');
+        const menuCard = document.getElementById('menuCard');
+        const errorMsg = document.getElementById('errorMsg');
+        const loginBtn = document.getElementById('loginBtn');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        
+        function showError(text) {
+            errorMsg.textContent = text;
+            errorMsg.style.display = 'block';
+        }
+        
+        function hideError() {
+            errorMsg.style.display = 'none';
+        }
+        
+        async function attemptLogin() {
+            const username = usernameInput.value.trim();
+            const password = passwordInput.value;
+            
+            hideError();
+            
+            if (username === '' || password === '') {
+                showError('⚠️ Ingresa usuario y contraseña');
+                return;
+            }
+            
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Verificando...';
+            
+            try {
+                const response = await fetch(
+                    WORKER_URL + '?user=' + encodeURIComponent(username) + '&pw=' + encodeURIComponent(password),
+                    { cache: 'no-store' }
+                );
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const menuItems = MENUS_POR_ROL[data.role];
+                    
+                    if (!menuItems) {
+                        showError('⚠️ Tu usuario no tiene un rol de reportes asignado');
+                        return;
+                    }
+                    
+                    const pwParam = 'pw=' + encodeURIComponent(password);
+                    const menuLinksEl = document.getElementById('menuLinks');
+                    menuLinksEl.innerHTML = '';
+                    
+                    menuItems.forEach(item => {
+                        const a = document.createElement('a');
+                        a.href = item.file + '?' + pwParam;
+                        a.className = 'menu-item';
+                        a.innerHTML = `<span class="icon">${item.icon}</span>${item.label}`;
+                        menuLinksEl.appendChild(a);
+                    });
+                    
+                    document.getElementById('saludo').textContent = `Bienvenido, ${username}`;
+                    
+                    loginCard.style.display = 'none';
+                    menuCard.style.display = 'block';
+                } else if (response.status === 401) {
+                    showError('⚠️ Usuario o contraseña incorrectos');
+                } else {
+                    showError('⚠️ No se pudo verificar el acceso (intenta de nuevo)');
+                }
+            } catch (error) {
+                showError('⚠️ Error de conexión: ' + error.message);
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Entrar';
+            }
+        }
+        
+        loginBtn.addEventListener('click', attemptLogin);
+        passwordInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') attemptLogin();
+        });
+        usernameInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') attemptLogin();
+        });
+    </script>
+</body>
+</html>
