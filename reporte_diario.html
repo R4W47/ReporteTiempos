@@ -150,7 +150,7 @@
         }
         
         .viewer {
-            padding: 15px;
+            padding: 0 15px 15px 15px;
             overflow-x: auto;
             overflow-y: auto;
             max-height: 65vh;
@@ -374,8 +374,12 @@
                     if (name === '') continue;
                     if (EXCLUDE.includes(name.toLowerCase())) continue;
                     const vendorNumber = i - 1;
+                    if (vendorNumber > 20) continue; // Solo del Vendedor1 al Vendedor20
                     vendorMap.push({ name: name, sheet: 'Vendedor' + vendorNumber });
                 }
+                
+                // Ocultar vendedores sin ninguna venta registrada este día
+                vendorMap = vendorMap.filter(v => sheetHasData(dayWorkbook.Sheets[v.sheet]));
                 
                 if (vendorMap.length === 0) {
                     throw new Error('No se encontraron nombres en la columna A de "Resumen" a partir de la fila 3');
@@ -431,6 +435,25 @@
                 }
             }
             return null;
+        }
+        
+        // ===== Revisar si la hoja de un vendedor tiene alguna venta registrada =====
+        function sheetHasData(sheet) {
+            if (!sheet || !sheet['!ref']) return false;
+            const fullRange = XLSX.utils.decode_range(sheet['!ref']);
+            const scanLimit = Math.max(fullRange.e.r, 60);
+            let totalsRow = findTotalesRow(sheet, fullRange.s.c, 4, scanLimit);
+            if (totalsRow === null) totalsRow = fullRange.e.r;
+            
+            for (let c = fullRange.s.c; c <= fullRange.e.c; c++) {
+                const addr = XLSX.utils.encode_cell({ r: totalsRow, c: c });
+                const cell = sheet[addr];
+                if (cell && cell.v !== undefined && cell.v !== null && cell.v !== '') {
+                    const num = parseFloat(cell.v.toString().replace(',', '.'));
+                    if (!isNaN(num) && num !== 0) return true;
+                }
+            }
+            return false;
         }
         
         // ===== Mostrar hoja del vendedor como tabla =====
