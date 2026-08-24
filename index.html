@@ -169,9 +169,9 @@
                 { icon: '📊', label: 'Reporte Mensual por Vendedor', file: 'reporte_mensual.html' },
                 { icon: '📅', label: 'Reporte Diario por Vendedor', file: 'reporte_diario.html' }
             ],
-            yoyo: [
-                { icon: '📊', label: 'Reporte Mensual — Yoyo', file: 'yoyo_mensual.html' },
-                { icon: '📅', label: 'Reporte Diario — Yoyo', file: 'yoyo_diario.html' }
+            vendedor: [
+                { icon: '📊', label: 'Reporte Mensual', file: 'yoyo_mensual.html' },
+                { icon: '📅', label: 'Reporte Diario', file: 'yoyo_diario.html' }
             ]
         };
         
@@ -221,12 +221,13 @@
                     }
                     
                     const pwParam = 'pw=' + encodeURIComponent(password);
+                    const vendorParam = data.vendedor ? '&vendedor=' + encodeURIComponent(data.vendedor) : '';
                     const menuLinksEl = document.getElementById('menuLinks');
                     menuLinksEl.innerHTML = '';
                     
                     menuItems.forEach(item => {
                         const a = document.createElement('a');
-                        a.href = item.file + '?' + pwParam;
+                        a.href = item.file + '?' + pwParam + vendorParam;
                         a.className = 'menu-item';
                         a.innerHTML = `<span class="icon">${item.icon}</span>${item.label}`;
                         menuLinksEl.appendChild(a);
