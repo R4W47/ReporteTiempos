@@ -174,7 +174,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>📊 Reporte Mensual — Yoyo</h1>
+            <h1 id="pageTitle">📊 Reporte Mensual</h1>
         </div>
         
         <div class="search-section">
@@ -204,7 +204,12 @@
         const APP_PASSWORD = new URLSearchParams(window.location.search).get('pw') || '';
         
         const YEAR = new Date().getFullYear();
-        const VENDOR_NAME = 'Yoyo'; // Nombre exacto tal como aparece en la hoja "Resumen"
+        const VENDOR_NAME = new URLSearchParams(window.location.search).get('vendedor') || ''; // Nombre exacto tal como aparece en la hoja "Resumen"
+        
+        document.getElementById('pageTitle').textContent = VENDOR_NAME
+            ? `📊 Reporte Mensual — ${VENDOR_NAME}`
+            : '📊 Reporte Mensual';
+        document.title = VENDOR_NAME ? `Reporte Mensual - ${VENDOR_NAME}` : 'Reporte Mensual';
         
         const MONTHS = [
             { num: 1, name: 'Enero' },
