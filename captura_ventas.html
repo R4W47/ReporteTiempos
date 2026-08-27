@@ -28,6 +28,7 @@
     .status { padding:10px 20px; font-size:14px; }
     .status.success { background:#eafaf1; color:#27ae60; }
     .status.error { background:#fdecea; color:#c0392b; }
+    .status.warning { background:#fff8e1; color:#8a6d00; }
     .status.loading { background:#eaf2fa; color:#2980b9; }
 
     /* Quitar las flechitas de los campos numéricos */
@@ -102,6 +103,71 @@ let vendedoresDeEsteSorteo = [];
 let bancaConfig = null;
 let table = null;
 
+// ===== Editor personalizado: permite moverse entre celdas con las flechas del teclado =====
+function editorConFlechas(cell, onRendered, success, cancel) {
+    const input = document.createElement("input");
+    input.type = "number";
+    input.min = "0";
+    input.style.width = "100%";
+    input.style.height = "100%";
+    input.style.boxSizing = "border-box";
+    input.style.border = "none";
+    input.style.padding = "4px 8px";
+    input.style.fontSize = "inherit";
+    input.value = cell.getValue() || 0;
+
+    function confirmar() {
+        const val = parseFloat(input.value) || 0;
+        success(val);
+    }
+
+    input.addEventListener("blur", confirmar);
+
+    input.addEventListener("keydown", function(e) {
+        switch (e.key) {
+            case "ArrowUp":
+                e.preventDefault();
+                confirmar();
+                cell.navigateUp();
+                break;
+            case "ArrowDown":
+                e.preventDefault();
+                confirmar();
+                cell.navigateDown();
+                break;
+            case "ArrowLeft":
+                if (input.selectionStart === 0) {
+                    e.preventDefault();
+                    confirmar();
+                    cell.navigateLeft();
+                }
+                break;
+            case "ArrowRight":
+                if (input.selectionStart === input.value.length) {
+                    e.preventDefault();
+                    confirmar();
+                    cell.navigateRight();
+                }
+                break;
+            case "Enter":
+                e.preventDefault();
+                confirmar();
+                cell.navigateDown();
+                break;
+            case "Escape":
+                cancel();
+                break;
+        }
+    });
+
+    onRendered(function() {
+        input.focus();
+        input.select();
+    });
+
+    return input;
+}
+
 const sorteoSelect = document.getElementById('sorteoSelect');
 const fechaInput = document.getElementById('fechaInput');
 const statusEl = document.getElementById('statusMsg');
@@ -145,9 +211,10 @@ async function cargarTabla() {
     tableArea.innerHTML = '';
 
     try {
-        const [respVendedores, respBanca] = await Promise.all([
+        const [respVendedores, respBanca, respExistentes] = await Promise.all([
             fetch(`${WORKER_URL}/api/vendedor-sorteo?sorteo_id=${sorteoId}&pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' }),
-            fetch(`${WORKER_URL}/api/banca-sorteo?sorteo_id=${sorteoId}&pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' })
+            fetch(`${WORKER_URL}/api/banca-sorteo?sorteo_id=${sorteoId}&pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' }),
+            fetch(`${WORKER_URL}/api/ventas?sorteo_id=${sorteoId}&fecha=${fechaInput.value}&pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' })
         ]);
 
         if (!respVendedores.ok) throw new Error('No se pudo cargar la lista de vendedores');
@@ -155,6 +222,8 @@ async function cargarTabla() {
 
         const bancaResults = respBanca.ok ? await respBanca.json() : [];
         bancaConfig = bancaResults.length > 0 ? bancaResults[0] : null;
+
+        const ventasExistentes = respExistentes.ok ? await respExistentes.json() : [];
 
         if (vendedoresDeEsteSorteo.length === 0) {
             tableArea.innerHTML = '<div class="placeholder">⚠️ Ningún vendedor tiene configurado este sorteo</div>';
@@ -165,23 +234,50 @@ async function cargarTabla() {
 
         tableArea.innerHTML = '<div id="grid"></div>';
 
-        const rows = vendedoresDeEsteSorteo.map(v => ({
-            vendedor_id: v.vendedor_id,
-            vendedor: v.nombre,
-            comision_pct: v.comision_pct,
-            multiplicador: v.multiplicador_premio,
-            venta: 0,
-            venta_premio: 0
-        }));
+        // Armar las filas: si un vendedor ya tiene una o más ventas guardadas ese día,
+        // se muestran esas filas reales (editables). Si no tiene ninguna, se agrega
+        // una fila vacía para que pueda digitar por primera vez.
+        let rows = [];
+        vendedoresDeEsteSorteo.forEach(v => {
+            const existentesDeEsteVendedor = ventasExistentes.filter(e => e.vendedor_id === v.vendedor_id);
+
+            if (existentesDeEsteVendedor.length > 0) {
+                existentesDeEsteVendedor.forEach(e => {
+                    rows.push({
+                        id: e.id,
+                        vendedor_id: v.vendedor_id,
+                        vendedor: v.nombre,
+                        comision_pct: e.comision_vendedor_pct,
+                        multiplicador: e.multiplicador_vendedor_premio,
+                        venta: e.monto_venta_total,
+                        venta_premio: e.monto_venta_numero_ganador
+                    });
+                });
+            } else {
+                rows.push({
+                    id: null,
+                    vendedor_id: v.vendedor_id,
+                    vendedor: v.nombre,
+                    comision_pct: v.comision_pct,
+                    multiplicador: v.multiplicador_premio,
+                    venta: 0,
+                    venta_premio: 0
+                });
+            }
+        });
+
+        // Si ya había un número ganador guardado, lo recuperamos también
+        const numeroGanadorExistente = ventasExistentes.find(e => e.numero_ganador)?.numero_ganador;
+        document.getElementById('numeroGanador').value = numeroGanadorExistente || '';
 
         table = new Tabulator("#grid", {
             data: rows,
             layout: "fitColumns",
             columns: [
                 { title: "Vendedor", field: "vendedor", headerSort: false, widthGrow: 2 },
-                { title: "Venta ($)", field: "venta", editor: "number", editorParams: { min: 0 }, hozAlign: "right", widthGrow: 1,
+                { title: "Venta ($)", field: "venta", editor: editorConFlechas, hozAlign: "right", widthGrow: 1,
                   cellEdited: recalcularTotales },
-                { title: "Venta al ganador ($)", field: "venta_premio", editor: "number", editorParams: { min: 0 }, hozAlign: "right", widthGrow: 1,
+                { title: "Venta al ganador ($)", field: "venta_premio", editor: editorConFlechas, hozAlign: "right", widthGrow: 1,
                   cellEdited: recalcularTotales },
                 { title: "Comisión %", field: "comision_pct", hozAlign: "right", widthGrow: 1, headerSort: false, visible: false },
                 { title: "Multiplicador", field: "multiplicador", hozAlign: "right", widthGrow: 1, headerSort: false, visible: false },
@@ -189,7 +285,7 @@ async function cargarTabla() {
                   formatter: function() { return '<button class="btn-duplicar" title="Agregar otra lista de este vendedor">+</button>'; },
                   cellClick: function(e, cell) {
                       const rowData = cell.getRow().getData();
-                      table.addRow({ ...rowData, venta: 0, venta_premio: 0 }, false, cell.getRow());
+                      table.addRow({ ...rowData, id: null, venta: 0, venta_premio: 0 }, false, cell.getRow());
                       recalcularTotales();
                   }
                 }
@@ -197,8 +293,18 @@ async function cargarTabla() {
         });
 
         saveBar.style.display = 'flex';
-        statusEl.innerHTML = '';
         recalcularTotales();
+
+        // Avisar si ya hay ventas guardadas para este sorteo y esta fecha
+        const respExistentes = await fetch(`${WORKER_URL}/api/ventas-existentes?sorteo_id=${sorteoId}&fecha=${fechaInput.value}&pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' });
+        if (respExistentes.ok) {
+            const existentes = await respExistentes.json();
+            if (existentes.cantidad > 0) {
+                statusEl.innerHTML = `<div class="status warning">⚠️ Ya hay ${existentes.cantidad} registro(s) guardados para este sorteo y esta fecha (venta total ya guardada: C${(existentes.venta_total || 0).toLocaleString('es-NI')}). Si guardas de nuevo, se SUMA aparte, no se reemplaza.</div>`;
+                return;
+            }
+        }
+        statusEl.innerHTML = '';
 
     } catch (error) {
         statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
@@ -245,6 +351,7 @@ document.getElementById('saveBtn').addEventListener('click', async function() {
     const btn = this;
 
     const registros = data.map(row => ({
+        id: row.id || null,
         vendedor_id: row.vendedor_id,
         monto_venta_total: row.venta,
         monto_venta_numero_ganador: row.venta_premio,
@@ -270,11 +377,10 @@ document.getElementById('saveBtn').addEventListener('click', async function() {
         const result = await response.json();
 
         if (response.ok && result.ok) {
-            statusEl.innerHTML = `<div class="status success">✅ Se guardaron ${result.insertados} registros correctamente</div>`;
-            // Limpiar los montos para evitar guardar la misma info dos veces por accidente
-            table.getRows().forEach(row => row.update({ venta: 0, venta_premio: 0 }));
-            document.getElementById('numeroGanador').value = '';
-            recalcularTotales();
+            statusEl.innerHTML = `<div class="status success">✅ Se guardaron ${result.procesados} registros correctamente</div>`;
+            // Recargar la tabla fresca (así las filas nuevas ya quedan con su id real,
+            // y un segundo clic accidental en "Guardar" sería una corrección, no un duplicado)
+            await cargarTabla();
         } else {
             throw new Error(result.error || 'Error desconocido al guardar');
         }
