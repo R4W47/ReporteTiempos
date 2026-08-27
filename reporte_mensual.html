@@ -36,6 +36,25 @@
             color: white;
             padding: 15px;
             text-align: center;
+            position: relative;
+        }
+        
+        .btn-menu {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255,255,255,0.15);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 8px 12px;
+            font-size: 13px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .btn-menu:hover {
+            background: rgba(255,255,255,0.25);
         }
         
         .header h1 {
@@ -188,6 +207,7 @@
 <body>
     <div class="container">
         <div class="header">
+            <a href="#" class="btn-menu" id="btnMenu">← Menú</a>
             <h1>📊 Reporte por Vendedor</h1>
         </div>
         
@@ -223,6 +243,8 @@
         const WORKER_URL = 'https://frosty-base-53ff.watsonmraul.workers.dev/';
         // Contraseña recibida desde la pantalla de acceso (index.html)
         const APP_PASSWORD = new URLSearchParams(window.location.search).get('pw') || '';
+        const APP_USER = new URLSearchParams(window.location.search).get('user') || '';
+        document.getElementById('btnMenu').href = `index.html?pw=${encodeURIComponent(APP_PASSWORD)}&user=${encodeURIComponent(APP_USER)}`;
         
         // Año que se usa para armar el nombre del archivo mensual, ej: "Agosto 2026.xlsm"
         const YEAR = new Date().getFullYear();

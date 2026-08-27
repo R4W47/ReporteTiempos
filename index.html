@@ -200,19 +200,8 @@
             errorMsg.style.display = 'none';
         }
         
-        async function attemptLogin() {
-            const username = usernameInput.value.trim();
-            const password = passwordInput.value;
-            
+        async function attemptLoginConDatos(username, password) {
             hideError();
-            
-            if (username === '' || password === '') {
-                showError('⚠️ Ingresa usuario y contraseña');
-                return;
-            }
-            
-            loginBtn.disabled = true;
-            loginBtn.textContent = 'Verificando...';
             
             try {
                 const response = await fetch(
@@ -226,14 +215,14 @@
                     
                     if (!menuItems) {
                         showError('⚠️ Tu usuario no tiene un rol de reportes asignado');
-                        return;
+                        return false;
                     }
                     
                     const menuLinksEl = document.getElementById('menuLinks');
                     menuLinksEl.innerHTML = '';
                     
                     menuItems.forEach(item => {
-                        let href = `${item.file}?pw=${encodeURIComponent(password)}`;
+                        let href = `${item.file}?pw=${encodeURIComponent(password)}&user=${encodeURIComponent(username)}`;
                         if (data.vendedor) href += `&vendedor=${encodeURIComponent(data.vendedor)}`;
                         if (item.extraParams) href += `&${item.extraParams}`;
                         
@@ -248,17 +237,36 @@
                     
                     loginCard.style.display = 'none';
                     menuCard.style.display = 'block';
+                    return true;
                 } else if (response.status === 401) {
                     showError('⚠️ Usuario o contraseña incorrectos');
+                    return false;
                 } else {
                     showError('⚠️ No se pudo verificar el acceso (intenta de nuevo)');
+                    return false;
                 }
             } catch (error) {
                 showError('⚠️ Error de conexión: ' + error.message);
-            } finally {
-                loginBtn.disabled = false;
-                loginBtn.textContent = 'Entrar';
+                return false;
             }
+        }
+        
+        async function attemptLogin() {
+            const username = usernameInput.value.trim();
+            const password = passwordInput.value;
+            
+            if (username === '' || password === '') {
+                showError('⚠️ Ingresa usuario y contraseña');
+                return;
+            }
+            
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Verificando...';
+            
+            await attemptLoginConDatos(username, password);
+            
+            loginBtn.disabled = false;
+            loginBtn.textContent = 'Entrar';
         }
         
         loginBtn.addEventListener('click', attemptLogin);
@@ -268,6 +276,14 @@
         usernameInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') attemptLogin();
         });
+        
+        // ===== Si venimos de un "Volver al menú" con usuario+contraseña en el link, entrar directo =====
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlUser = urlParams.get('user');
+        const urlPw = urlParams.get('pw');
+        if (urlUser && urlPw) {
+            attemptLoginConDatos(urlUser, urlPw);
+        }
     </script>
 </body>
 </html>
