@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Acceso - Reportes de Ventas</title>
     <style>
         * {
@@ -166,13 +169,17 @@
         // Reportes según el rol devuelto por el Worker (basado en usuarios.txt)
         const MENUS_POR_ROL = {
             general: [
-                { icon: '📊', label: 'Reporte Mensual por Vendedor', file: 'reporte_mensual.html' },
-                { icon: '📅', label: 'Reporte Diario por Vendedor', file: 'reporte_diario.html' },
-                { icon: '📝', label: 'Captura de Ventas', file: 'captura_ventas.html' }
+                { icon: '📊', label: 'Reporte Mensual (histórico Excel)', file: 'reporte_mensual.html' },
+                { icon: '📅', label: 'Reporte Diario (histórico Excel)', file: 'reporte_diario.html' },
+                { icon: '📝', label: 'Captura de Ventas', file: 'captura_ventas.html' },
+                { icon: '📊', label: 'Reporte Mensual (Sistema Nuevo)', file: 'reporte_bd.html', extraParams: 'tipo=mensual' },
+                { icon: '📅', label: 'Reporte Diario (Sistema Nuevo)', file: 'reporte_bd.html', extraParams: 'tipo=diario' }
             ],
             vendedor: [
-                { icon: '📊', label: 'Reporte Mensual', file: 'yoyo_mensual.html' },
-                { icon: '📅', label: 'Reporte Diario', file: 'yoyo_diario.html' }
+                { icon: '📊', label: 'Reporte Mensual (histórico Excel)', file: 'yoyo_mensual.html' },
+                { icon: '📅', label: 'Reporte Diario (histórico Excel)', file: 'yoyo_diario.html' },
+                { icon: '📊', label: 'Reporte Mensual (Sistema Nuevo)', file: 'reporte_bd.html', extraParams: 'tipo=mensual' },
+                { icon: '📅', label: 'Reporte Diario (Sistema Nuevo)', file: 'reporte_bd.html', extraParams: 'tipo=diario' }
             ]
         };
         
@@ -221,14 +228,16 @@
                         return;
                     }
                     
-                    const pwParam = 'pw=' + encodeURIComponent(password);
-                    const vendorParam = data.vendedor ? '&vendedor=' + encodeURIComponent(data.vendedor) : '';
                     const menuLinksEl = document.getElementById('menuLinks');
                     menuLinksEl.innerHTML = '';
                     
                     menuItems.forEach(item => {
+                        let href = `${item.file}?pw=${encodeURIComponent(password)}`;
+                        if (data.vendedor) href += `&vendedor=${encodeURIComponent(data.vendedor)}`;
+                        if (item.extraParams) href += `&${item.extraParams}`;
+                        
                         const a = document.createElement('a');
-                        a.href = item.file + '?' + pwParam + vendorParam;
+                        a.href = href;
                         a.className = 'menu-item';
                         a.innerHTML = `<span class="icon">${item.icon}</span>${item.label}`;
                         menuLinksEl.appendChild(a);
