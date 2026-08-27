@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Captura de Ventas</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/tabulator/5.5.2/css/tabulator.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tabulator/5.5.2/js/tabulator.min.js"></script>
+<style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: Arial, sans-serif; background:#f5f5f5; padding:15px; }
+    .container { max-width:900px; margin:0 auto; background:white; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.1); overflow:hidden; }
+    .header { background:#2c3e50; color:white; padding:15px 20px; }
+    .header h1 { font-size:1.3em; }
+    .controls { padding:20px; background:#ecf0f1; display:flex; gap:15px; flex-wrap:wrap; align-items:flex-end; border-bottom:2px solid #bdc3c7; }
+    .field { display:flex; flex-direction:column; gap:5px; }
+    .field label { font-weight:bold; font-size:13px; color:#2c3e50; }
+    .field select, .field input { padding:10px; border:2px solid #3498db; border-radius:5px; font-size:15px; min-width:160px; }
+    #tableArea { padding:20px; }
+    .placeholder { text-align:center; color:#7f8c8d; padding:40px; }
+    .save-bar { padding:15px 20px; background:#ecf0f1; display:flex; justify-content:space-between; align-items:center; border-top:2px solid #bdc3c7; flex-wrap:wrap; gap:10px; }
+    .totales { font-size:14px; color:#2c3e50; }
+    .totales b { color:#27ae60; }
+    .totales b.negativo { color:#c0392b; }
+    #saveBtn { padding:12px 25px; background:#27ae60; color:white; border:none; border-radius:5px; font-size:15px; font-weight:bold; cursor:pointer; }
+    #saveBtn:hover { background:#219150; }
+    #saveBtn:disabled { background:#95a5a6; cursor:not-allowed; }
+    .status { padding:10px 20px; font-size:14px; }
+    .status.success { background:#eafaf1; color:#27ae60; }
+    .status.error { background:#fdecea; color:#c0392b; }
+    .status.loading { background:#eaf2fa; color:#2980b9; }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header"><h1>📝 Captura de Ventas del Día</h1></div>
+
+    <div class="controls">
+        <div class="field">
+            <label>Sorteo</label>
+            <select id="sorteoSelect">
+                <option value="">-- Elige un sorteo --</option>
+            </select>
+        </div>
+        <div class="field">
+            <label>Fecha</label>
+            <input type="date" id="fechaInput">
+        </div>
+        <div class="field">
+            <label>Número ganador</label>
+            <input type="text" id="numeroGanador" placeholder="ej. 35">
+        </div>
+    </div>
+
+    <div id="statusMsg"></div>
+
+    <div id="tableArea">
+        <div class="placeholder">👆 Elige un sorteo y una fecha para cargar la lista de vendedores</div>
+    </div>
+
+    <div class="save-bar" id="saveBar" style="display:none;">
+        <div class="totales">
+            Venta total: <b id="totalVenta">C$0</b> &nbsp;|&nbsp;
+            Ganancia/Pérdida estimada: <b id="totalGanancia">C$0</b>
+        </div>
+        <button id="saveBtn">💾 Guardar ventas del día</button>
+    </div>
+</div>
+
+<script>
+// ===== CONFIGURACIÓN =====
+const WORKER_URL = 'https://frosty-base-53ff.watsonmraul.workers.dev';
+const APP_PASSWORD = new URLSearchParams(window.location.search).get('pw') || '';
+
+let SORTEOS = [];
+let vendedoresDeEsteSorteo = [];
+let bancaConfig = null;
+let table = null;
+
+const sorteoSelect = document.getElementById('sorteoSelect');
+const fechaInput = document.getElementById('fechaInput');
+const statusEl = document.getElementById('statusMsg');
+fechaInput.value = new Date().toISOString().split('T')[0];
+
+// ===== Cargar catálogo de sorteos desde D1 =====
+async function cargarSorteos() {
+    statusEl.innerHTML = '<div class="status loading">⏳ Cargando sorteos...</div>';
+    try {
+        const response = await fetch(`${WORKER_URL}/api/sorteos?pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' });
+        if (!response.ok) throw new Error('No se pudo cargar la lista de sorteos (¿contraseña correcta?)');
+        SORTEOS = await response.json();
+
+        sorteoSelect.innerHTML = '<option value="">-- Elige un sorteo --</option>';
+        SORTEOS.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.id;
+            opt.textContent = s.nombre;
+            sorteoSelect.appendChild(opt);
+        });
+
+        statusEl.innerHTML = '';
+    } catch (error) {
+        statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
+    }
+}
+
+// ===== Al elegir sorteo: cargar vendedores y condición de banca =====
+async function cargarTabla() {
+    const sorteoId = sorteoSelect.value;
+    const saveBar = document.getElementById('saveBar');
+    const tableArea = document.getElementById('tableArea');
+
+    if (!sorteoId) {
+        tableArea.innerHTML = '<div class="placeholder">👆 Elige un sorteo y una fecha para cargar la lista de vendedores</div>';
+        saveBar.style.display = 'none';
+        return;
+    }
+
+    statusEl.innerHTML = '<div class="status loading">⏳ Cargando vendedores...</div>';
+    tableArea.innerHTML = '';
+
+    try {
+        const [respVendedores, respBanca] = await Promise.all([
+            fetch(`${WORKER_URL}/api/vendedor-sorteo?sorteo_id=${sorteoId}&pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' }),
+            fetch(`${WORKER_URL}/api/banca-sorteo?sorteo_id=${sorteoId}&pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' })
+        ]);
+
+        if (!respVendedores.ok) throw new Error('No se pudo cargar la lista de vendedores');
+        vendedoresDeEsteSorteo = await respVendedores.json();
+
+        const bancaResults = respBanca.ok ? await respBanca.json() : [];
+        bancaConfig = bancaResults.length > 0 ? bancaResults[0] : null;
+
+        if (vendedoresDeEsteSorteo.length === 0) {
+            tableArea.innerHTML = '<div class="placeholder">⚠️ Ningún vendedor tiene configurado este sorteo</div>';
+            saveBar.style.display = 'none';
+            statusEl.innerHTML = '';
+            return;
+        }
+
+        tableArea.innerHTML = '<div id="grid"></div>';
+
+        const rows = vendedoresDeEsteSorteo.map(v => ({
+            vendedor_id: v.vendedor_id,
+            vendedor: v.nombre,
+            comision_pct: v.comision_pct,
+            multiplicador: v.multiplicador_premio,
+            venta: 0,
+            venta_premio: 0
+        }));
+
+        table = new Tabulator("#grid", {
+            data: rows,
+            layout: "fitColumns",
+            columns: [
+                { title: "Vendedor", field: "vendedor", headerSort: false, widthGrow: 2 },
+                { title: "Venta ($)", field: "venta", editor: "number", editorParams: { min: 0 }, hozAlign: "right", widthGrow: 1,
+                  cellEdited: recalcularTotales },
+                { title: "Venta al ganador ($)", field: "venta_premio", editor: "number", editorParams: { min: 0 }, hozAlign: "right", widthGrow: 1,
+                  cellEdited: recalcularTotales },
+                { title: "Comisión %", field: "comision_pct", hozAlign: "right", widthGrow: 1, headerSort: false },
+                { title: "Multiplicador", field: "multiplicador", hozAlign: "right", widthGrow: 1, headerSort: false }
+            ]
+        });
+
+        saveBar.style.display = 'flex';
+        statusEl.innerHTML = '';
+        recalcularTotales();
+
+    } catch (error) {
+        statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
+        saveBar.style.display = 'none';
+    }
+}
+
+function recalcularTotales() {
+    if (!table) return;
+    const data = table.getData();
+
+    let totalVenta = 0;
+    let gananciaTotal = 0;
+
+    data.forEach(row => {
+        const venta = parseFloat(row.venta) || 0;
+        const ventaPremio = parseFloat(row.venta_premio) || 0;
+
+        totalVenta += venta;
+
+        const comisionVendedor = venta * (row.comision_pct / 100);
+        const premioVendedor = ventaPremio * row.multiplicador;
+
+        const comisionBanca = bancaConfig ? venta * (bancaConfig.comision_pct / 100) : 0;
+        const premioBanca = bancaConfig ? ventaPremio * bancaConfig.multiplicador_premio : 0;
+
+        gananciaTotal += (comisionBanca - comisionVendedor) + (premioBanca - premioVendedor);
+    });
+
+    document.getElementById('totalVenta').textContent = 'C$' + totalVenta.toLocaleString('es-NI', {minimumFractionDigits:2});
+    const gananciaEl = document.getElementById('totalGanancia');
+    gananciaEl.textContent = 'C$' + gananciaTotal.toLocaleString('es-NI', {minimumFractionDigits:2});
+    gananciaEl.className = gananciaTotal < 0 ? 'negativo' : '';
+}
+
+sorteoSelect.addEventListener('change', cargarTabla);
+fechaInput.addEventListener('change', cargarTabla);
+
+document.getElementById('saveBtn').addEventListener('click', async function() {
+    const sorteoId = sorteoSelect.value;
+    const fecha = fechaInput.value;
+    const numeroGanador = document.getElementById('numeroGanador').value;
+    const data = table.getData();
+    const btn = this;
+
+    const registros = data.map(row => ({
+        vendedor_id: row.vendedor_id,
+        monto_venta_total: row.venta,
+        monto_venta_numero_ganador: row.venta_premio,
+        comision_vendedor_pct: row.comision_pct,
+        multiplicador_vendedor_premio: row.multiplicador
+    }));
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Guardando...';
+
+    try {
+        const response = await fetch(`${WORKER_URL}/api/ventas?pw=${encodeURIComponent(APP_PASSWORD)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sorteo_id: sorteoId,
+                fecha: fecha,
+                numero_ganador: numeroGanador,
+                registros: registros
+            })
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.ok) {
+            statusEl.innerHTML = `<div class="status success">✅ Se guardaron ${result.insertados} registros correctamente</div>`;
+        } else {
+            throw new Error(result.error || 'Error desconocido al guardar');
+        }
+    } catch (error) {
+        statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 Guardar ventas del día';
+    }
+});
+
+// Inicializar
+cargarSorteos();
+</script>
+</body>
+</html>
