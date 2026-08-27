@@ -122,6 +122,11 @@
             <label>Número ganador</label>
             <input type="text" id="numeroGanador" placeholder="ej. 35">
         </div>
+        <div class="field" id="bolitaField" style="display:none;">
+            <label>Bolita (Reventado)</label>
+            <select id="bolitaSelect">
+            </select>
+        </div>
     </div>
 
     <div id="statusMsg"></div>
@@ -155,13 +160,18 @@ const WORKER_URL = 'https://frosty-base-53ff.watsonmraul.workers.dev';
 const APP_PASSWORD = new URLSearchParams(window.location.search).get('pw') || '';
 
 let SORTEOS = [];
+let BOLITAS = [];
 let vendedoresDeEsteSorteo = [];
 let bancaConfig = null;
 let table = null;
+let esReventadoActual = false;
+let bolitaSeleccionadaId = null;
 
 const sorteoSelect = document.getElementById('sorteoSelect');
 const fechaInput = document.getElementById('fechaInput');
 const statusEl = document.getElementById('statusMsg');
+const bolitaField = document.getElementById('bolitaField');
+const bolitaSelect = document.getElementById('bolitaSelect');
 fechaInput.value = new Date().toISOString().split('T')[0];
 
 // ===== Editor personalizado: permite moverse entre celdas con las flechas del teclado =====
@@ -225,13 +235,25 @@ function editorConFlechas(cell, onRendered, success, cancel) {
     return input;
 }
 
-// ===== Cargar catálogo de sorteos desde D1 =====
+// ===== Cargar catálogo de sorteos y bolitas desde D1 =====
 async function cargarSorteos() {
     statusEl.innerHTML = '<div class="status loading">⏳ Cargando sorteos...</div>';
     try {
-        const response = await fetch(`${WORKER_URL}/api/sorteos?pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' });
-        if (!response.ok) throw new Error('No se pudo cargar la lista de sorteos (¿contraseña correcta?)');
-        SORTEOS = await response.json();
+        const [respSorteos, respBolitas] = await Promise.all([
+            fetch(`${WORKER_URL}/api/sorteos?pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' }),
+            fetch(`${WORKER_URL}/api/bolitas?pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' })
+        ]);
+        if (!respSorteos.ok) throw new Error('No se pudo cargar la lista de sorteos (¿contraseña correcta?)');
+        SORTEOS = await respSorteos.json();
+        BOLITAS = respBolitas.ok ? await respBolitas.json() : [];
+
+        bolitaSelect.innerHTML = '';
+        BOLITAS.forEach(b => {
+            const opt = document.createElement('option');
+            opt.value = b.id;
+            opt.textContent = `${b.nombre} (vendedor x${b.multiplicador_vendedor} / banca x${b.multiplicador_banca})`;
+            bolitaSelect.appendChild(opt);
+        });
 
         sorteoSelect.innerHTML = '<option value="">-- Elige un sorteo --</option>';
         SORTEOS.forEach(s => {
@@ -277,6 +299,24 @@ async function cargarTabla() {
 
         const ventasExistentes = respExistentes.ok ? await respExistentes.json() : [];
 
+        // ¿Es un sorteo de Reventado? Si sí, el premio depende de si sale bolita roja o blanca
+        const sorteoInfo = SORTEOS.find(s => s.id == sorteoId);
+        esReventadoActual = sorteoInfo && sorteoInfo.grupo_banca === 'Reventado';
+        bolitaField.style.display = esReventadoActual ? 'flex' : 'none';
+
+        if (esReventadoActual) {
+            let bolitaInferida = BOLITAS.find(b => b.multiplicador_vendedor === 0); // "Blanca" por defecto
+            if (ventasExistentes.length > 0) {
+                const primeraConValor = ventasExistentes.find(e => e.multiplicador_vendedor_premio !== null);
+                if (primeraConValor) {
+                    const match = BOLITAS.find(b => b.multiplicador_vendedor === primeraConValor.multiplicador_vendedor_premio);
+                    if (match) bolitaInferida = match;
+                }
+            }
+            bolitaSeleccionadaId = bolitaInferida ? bolitaInferida.id : (BOLITAS[0] ? BOLITAS[0].id : null);
+            bolitaSelect.value = bolitaSeleccionadaId;
+        }
+
         if (vendedoresDeEsteSorteo.length === 0) {
             tableArea.innerHTML = '<div class="placeholder">⚠️ Ningún vendedor tiene configurado este sorteo</div>';
             saveBar.style.display = 'none';
@@ -297,18 +337,21 @@ async function cargarTabla() {
                         vendedor_id: v.vendedor_id,
                         vendedor: v.nombre,
                         comision_pct: e.comision_vendedor_pct,
+                        multiplicador_base: v.multiplicador_premio,
                         multiplicador: e.multiplicador_vendedor_premio,
                         venta: e.monto_venta_total,
                         venta_premio: e.monto_venta_numero_ganador
                     });
                 });
             } else {
+                const bolitaActual = BOLITAS.find(b => b.id == bolitaSeleccionadaId);
                 rows.push({
                     id: null,
                     vendedor_id: v.vendedor_id,
                     vendedor: v.nombre,
                     comision_pct: v.comision_pct,
-                    multiplicador: v.multiplicador_premio,
+                    multiplicador_base: v.multiplicador_premio,
+                    multiplicador: esReventadoActual && bolitaActual ? bolitaActual.multiplicador_vendedor : v.multiplicador_premio,
                     venta: 0,
                     venta_premio: 0
                 });
@@ -376,6 +419,21 @@ function recalcularTotales(datosOverride) {
 sorteoSelect.addEventListener('change', cargarTabla);
 fechaInput.addEventListener('change', cargarTabla);
 
+// ===== Al cambiar la bolita: ajustar el multiplicador de todas las filas =====
+bolitaSelect.addEventListener('change', function() {
+    bolitaSeleccionadaId = this.value;
+    if (!table) return;
+
+    const bolitaActual = BOLITAS.find(b => b.id == bolitaSeleccionadaId);
+    if (!bolitaActual) return;
+
+    table.getRows().forEach(row => {
+        row.update({ multiplicador: bolitaActual.multiplicador_vendedor });
+    });
+
+    recalcularTotales();
+});
+
 // ===== Ventana de confirmación antes de sustituir datos ya guardados =====
 function confirmarSobrescritura() {
     return new Promise((resolve) => {
@@ -413,13 +471,16 @@ document.getElementById('saveBtn').addEventListener('click', async function() {
     const numeroGanador = document.getElementById('numeroGanador').value;
     const btn = this;
 
+    const bolitaActual = BOLITAS.find(b => b.id == bolitaSeleccionadaId);
+
     const registros = data.map(row => ({
         id: row.id || null,
         vendedor_id: row.vendedor_id,
         monto_venta_total: row.venta,
         monto_venta_numero_ganador: row.venta_premio,
         comision_vendedor_pct: row.comision_pct,
-        multiplicador_vendedor_premio: row.multiplicador
+        multiplicador_vendedor_premio: row.multiplicador,
+        multiplicador_banca_premio: esReventadoActual && bolitaActual ? bolitaActual.multiplicador_banca : null
     }));
 
     btn.disabled = true;
