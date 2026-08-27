@@ -189,27 +189,27 @@ function editorConFlechas(cell, onRendered, success, cancel) {
             case "ArrowUp":
                 e.preventDefault();
                 confirmar();
-                cell.navigateUp();
+                setTimeout(() => cell.navigateUp(), 0);
                 break;
             case "ArrowDown":
                 e.preventDefault();
                 confirmar();
-                cell.navigateDown();
+                setTimeout(() => cell.navigateDown(), 0);
                 break;
             case "ArrowLeft":
                 e.preventDefault();
                 confirmar();
-                cell.navigateLeft();
+                setTimeout(() => cell.navigateLeft(), 0);
                 break;
             case "ArrowRight":
                 e.preventDefault();
                 confirmar();
-                cell.navigateRight();
+                setTimeout(() => cell.navigateRight(), 0);
                 break;
             case "Enter":
                 e.preventDefault();
                 confirmar();
-                cell.navigateDown();
+                setTimeout(() => cell.navigateDown(), 0);
                 break;
             case "Escape":
                 cancel();
