@@ -170,18 +170,47 @@ async function cargarReporte() {
 }
 
 function formatoMoneda(n) {
-    return 'C$' + (n || 0).toLocaleString('es-NI', { minimumFractionDigits: 2 });
+    return (n || 0).toLocaleString('es-NI', { minimumFractionDigits: 2 });
 }
 
-function mostrarReporteDiario(rows) {
-    ultimoReporteData = { columnas: ['Sorteo', 'Número ganador', 'Venta', 'Comisión', 'Venta al ganador', 'Premio', 'Total'], rows: rows.map(r => [
-        r.sorteo_nombre, r.numero_ganador || '-', formatoMoneda(r.venta), formatoMoneda(r.comision), formatoMoneda(r.venta_premio), formatoMoneda(r.premio), formatoMoneda(r.total)
-    ]) };
+// Si un vendedor tiene más de una "lista" para el mismo sorteo ese día,
+// se suman en una sola fila en vez de mostrarse por separado.
+function agruparPorSorteo(rows) {
+    const orden = [];
+    const mapa = {};
 
-    if (rows.length === 0) {
+    rows.forEach(r => {
+        if (!mapa[r.sorteo_nombre]) {
+            mapa[r.sorteo_nombre] = {
+                sorteo_nombre: r.sorteo_nombre,
+                numero_ganador: r.numero_ganador,
+                venta: 0, comision: 0, venta_premio: 0, premio: 0, total: 0
+            };
+            orden.push(r.sorteo_nombre);
+        }
+        const acc = mapa[r.sorteo_nombre];
+        acc.venta += r.venta;
+        acc.comision += r.comision;
+        acc.venta_premio += r.venta_premio;
+        acc.premio += r.premio;
+        acc.total += r.total;
+        if (!acc.numero_ganador && r.numero_ganador) acc.numero_ganador = r.numero_ganador;
+    });
+
+    return orden.map(nombre => mapa[nombre]);
+}
+
+function mostrarReporteDiario(rowsOriginal) {
+    if (rowsOriginal.length === 0) {
         viewerEl.innerHTML = '<div class="placeholder">Este vendedor no tiene ventas registradas ese día.</div>';
         return;
     }
+
+    const rows = agruparPorSorteo(rowsOriginal);
+
+    ultimoReporteData = { columnas: ['Sorteo', 'Número ganador', 'Venta', 'Comisión', 'Venta al ganador', 'Premio', 'Total'], rows: rows.map(r => [
+        r.sorteo_nombre, r.numero_ganador || '-', formatoMoneda(r.venta), formatoMoneda(r.comision), formatoMoneda(r.venta_premio), formatoMoneda(r.premio), formatoMoneda(r.total)
+    ]) };
 
     const totales = rows.reduce((acc, r) => {
         acc.venta += r.venta; acc.comision += r.comision; acc.venta_premio += r.venta_premio; acc.premio += r.premio; acc.total += r.total;
