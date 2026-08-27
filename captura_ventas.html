@@ -21,7 +21,6 @@
     .save-bar { padding:15px 20px; background:#ecf0f1; display:flex; justify-content:space-between; align-items:center; border-top:2px solid #bdc3c7; flex-wrap:wrap; gap:10px; }
     .totales { font-size:14px; color:#2c3e50; }
     .totales b { color:#27ae60; }
-    .totales b.negativo { color:#c0392b; }
     #saveBtn { padding:12px 25px; background:#27ae60; color:white; border:none; border-radius:5px; font-size:15px; font-weight:bold; cursor:pointer; }
     #saveBtn:hover { background:#219150; }
     #saveBtn:disabled { background:#95a5a6; cursor:not-allowed; }
@@ -29,7 +28,6 @@
     .status.success { background:#eafaf1; color:#27ae60; }
     .status.error { background:#fdecea; color:#c0392b; }
     .status.loading { background:#eaf2fa; color:#2980b9; }
-    .status.warning { background:#fff8e1; color:#8a6d00; }
 
     input[type=number]::-webkit-inner-spin-button,
     input[type=number]::-webkit-outer-spin-button {
@@ -53,6 +51,55 @@
     }
     .btn-duplicar:hover {
         background: #2980b9;
+    }
+
+    #confirmModal {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.5);
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        padding: 20px;
+    }
+    #confirmModal .box {
+        background: white;
+        border-radius: 8px;
+        padding: 25px;
+        max-width: 400px;
+        text-align: center;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    #confirmModal p {
+        margin-bottom: 20px;
+        color: #2c3e50;
+        font-size: 15px;
+        line-height: 1.4;
+    }
+    #confirmModal .botones {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+    }
+    #confirmCancelBtn {
+        padding: 10px 20px;
+        background: #95a5a6;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    #confirmOkBtn {
+        padding: 10px 20px;
+        background: #e74c3c;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: bold;
     }
 </style>
 </head>
@@ -92,15 +139,12 @@
     </div>
 </div>
 
-<div id="confirmModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; z-index:1000; padding:20px;">
-    <div style="background:white; border-radius:8px; padding:25px; max-width:400px; text-align:center; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
-        <p style="margin-bottom:20px; color:#2c3e50; font-size:15px; line-height:1.4;">
-            ⚠️ Vas a modificar datos que <b>ya estaban guardados</b>. Esto reemplazará los valores anteriores por los nuevos.<br><br>
-            ¿Confirmas que quieres continuar?
-        </p>
-        <div style="display:flex; gap:10px; justify-content:center;">
-            <button id="confirmCancelBtn" style="padding:10px 20px; background:#95a5a6; color:white; border:none; border-radius:5px; cursor:pointer; font-size:14px;">Cancelar</button>
-            <button id="confirmOkBtn" style="padding:10px 20px; background:#e74c3c; color:white; border:none; border-radius:5px; cursor:pointer; font-size:14px; font-weight:bold;">Sí, sustituir datos</button>
+<div id="confirmModal">
+    <div class="box">
+        <p>⚠️ Vas a modificar datos que <b>ya estaban guardados</b>. Esto reemplazará los valores anteriores por los nuevos.<br><br>¿Confirmas que quieres continuar?</p>
+        <div class="botones">
+            <button id="confirmCancelBtn">Cancelar</button>
+            <button id="confirmOkBtn">Sí, sustituir datos</button>
         </div>
     </div>
 </div>
@@ -242,9 +286,6 @@ async function cargarTabla() {
 
         tableArea.innerHTML = '<div id="grid"></div>';
 
-        // Armar las filas: si un vendedor ya tiene una o más ventas guardadas ese día,
-        // se muestran esas filas reales (editables). Si no tiene ninguna, se agrega
-        // una fila vacía para que pueda digitar por primera vez.
         let rows = [];
         vendedoresDeEsteSorteo.forEach(v => {
             const existentesDeEsteVendedor = ventasExistentes.filter(e => e.vendedor_id === v.vendedor_id);
@@ -328,180 +369,8 @@ function recalcularTotales(datosOverride) {
         totalPremio += ventaPremio * row.multiplicador;
     });
 
-    document.getElementById('totalVenta').textContent = 'C
-
-sorteoSelect.addEventListener('change', cargarTabla);
-fechaInput.addEventListener('change', cargarTabla);
-
-// ===== Ventana de confirmación antes de sustituir datos ya guardados =====
-function confirmarSobrescritura() {
-    return new Promise((resolve) => {
-        const modal = document.getElementById('confirmModal');
-        const okBtn = document.getElementById('confirmOkBtn');
-        const cancelBtn = document.getElementById('confirmCancelBtn');
-
-        modal.style.display = 'flex';
-
-        function limpiar(resultado) {
-            modal.style.display = 'none';
-            okBtn.removeEventListener('click', onOk);
-            cancelBtn.removeEventListener('click', onCancel);
-            resolve(resultado);
-        }
-        function onOk() { limpiar(true); }
-        function onCancel() { limpiar(false); }
-
-        okBtn.addEventListener('click', onOk);
-        cancelBtn.addEventListener('click', onCancel);
-    });
-}
-
-document.getElementById('saveBtn').addEventListener('click', async function() {
-    const data = table.getData();
-    const hayDatosExistentes = data.some(row => row.id);
-
-    if (hayDatosExistentes) {
-        const confirmado = await confirmarSobrescritura();
-        if (!confirmado) return;
-    }
-
-    const sorteoId = sorteoSelect.value;
-    const fecha = fechaInput.value;
-    const numeroGanador = document.getElementById('numeroGanador').value;
-    const btn = this;
-
-    const registros = data.map(row => ({
-        id: row.id || null,
-        vendedor_id: row.vendedor_id,
-        monto_venta_total: row.venta,
-        monto_venta_numero_ganador: row.venta_premio,
-        comision_vendedor_pct: row.comision_pct,
-        multiplicador_vendedor_premio: row.multiplicador
-    }));
-
-    btn.disabled = true;
-    btn.textContent = '⏳ Guardando...';
-
-    try {
-        const response = await fetch(`${WORKER_URL}/api/ventas?pw=${encodeURIComponent(APP_PASSWORD)}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                sorteo_id: sorteoId,
-                fecha: fecha,
-                numero_ganador: numeroGanador,
-                registros: registros
-            })
-        });
-
-        const result = await response.json();
-
-        if (response.ok && result.ok) {
-            statusEl.innerHTML = `<div class="status success">✅ Se guardaron ${result.procesados} registros correctamente</div>`;
-            await cargarTabla();
-        } else {
-            throw new Error(result.error || 'Error desconocido al guardar');
-        }
-    } catch (error) {
-        statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
-    } finally {
-        btn.disabled = false;
-        btn.textContent = '💾 Guardar ventas del día';
-    }
-});
-
-// Inicializar
-cargarSorteos();
-</script>
-</body>
-</html> + totalVenta.toLocaleString('es-NI', {minimumFractionDigits:2});
-    document.getElementById('totalPremio').textContent = 'C
-
-sorteoSelect.addEventListener('change', cargarTabla);
-fechaInput.addEventListener('change', cargarTabla);
-
-// ===== Ventana de confirmación antes de sustituir datos ya guardados =====
-function confirmarSobrescritura() {
-    return new Promise((resolve) => {
-        const modal = document.getElementById('confirmModal');
-        const okBtn = document.getElementById('confirmOkBtn');
-        const cancelBtn = document.getElementById('confirmCancelBtn');
-
-        modal.style.display = 'flex';
-
-        function limpiar(resultado) {
-            modal.style.display = 'none';
-            okBtn.removeEventListener('click', onOk);
-            cancelBtn.removeEventListener('click', onCancel);
-            resolve(resultado);
-        }
-        function onOk() { limpiar(true); }
-        function onCancel() { limpiar(false); }
-
-        okBtn.addEventListener('click', onOk);
-        cancelBtn.addEventListener('click', onCancel);
-    });
-}
-
-document.getElementById('saveBtn').addEventListener('click', async function() {
-    const data = table.getData();
-    const hayDatosExistentes = data.some(row => row.id);
-
-    if (hayDatosExistentes) {
-        const confirmado = await confirmarSobrescritura();
-        if (!confirmado) return;
-    }
-
-    const sorteoId = sorteoSelect.value;
-    const fecha = fechaInput.value;
-    const numeroGanador = document.getElementById('numeroGanador').value;
-    const btn = this;
-
-    const registros = data.map(row => ({
-        id: row.id || null,
-        vendedor_id: row.vendedor_id,
-        monto_venta_total: row.venta,
-        monto_venta_numero_ganador: row.venta_premio,
-        comision_vendedor_pct: row.comision_pct,
-        multiplicador_vendedor_premio: row.multiplicador
-    }));
-
-    btn.disabled = true;
-    btn.textContent = '⏳ Guardando...';
-
-    try {
-        const response = await fetch(`${WORKER_URL}/api/ventas?pw=${encodeURIComponent(APP_PASSWORD)}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                sorteo_id: sorteoId,
-                fecha: fecha,
-                numero_ganador: numeroGanador,
-                registros: registros
-            })
-        });
-
-        const result = await response.json();
-
-        if (response.ok && result.ok) {
-            statusEl.innerHTML = `<div class="status success">✅ Se guardaron ${result.procesados} registros correctamente</div>`;
-            await cargarTabla();
-        } else {
-            throw new Error(result.error || 'Error desconocido al guardar');
-        }
-    } catch (error) {
-        statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
-    } finally {
-        btn.disabled = false;
-        btn.textContent = '💾 Guardar ventas del día';
-    }
-});
-
-// Inicializar
-cargarSorteos();
-</script>
-</body>
-</html> + totalPremio.toLocaleString('es-NI', {minimumFractionDigits:2});
+    document.getElementById('totalVenta').textContent = 'C$' + totalVenta.toLocaleString('es-NI', {minimumFractionDigits:2});
+    document.getElementById('totalPremio').textContent = 'C$' + totalPremio.toLocaleString('es-NI', {minimumFractionDigits:2});
 }
 
 sorteoSelect.addEventListener('change', cargarTabla);
