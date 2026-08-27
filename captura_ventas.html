@@ -140,18 +140,14 @@ function editorConFlechas(cell, onRendered, success, cancel) {
                 cell.navigateDown();
                 break;
             case "ArrowLeft":
-                if (input.selectionStart === 0) {
-                    e.preventDefault();
-                    confirmar();
-                    cell.navigateLeft();
-                }
+                e.preventDefault();
+                confirmar();
+                cell.navigateLeft();
                 break;
             case "ArrowRight":
-                if (input.selectionStart === input.value.length) {
-                    e.preventDefault();
-                    confirmar();
-                    cell.navigateRight();
-                }
+                e.preventDefault();
+                confirmar();
+                cell.navigateRight();
                 break;
             case "Enter":
                 e.preventDefault();
