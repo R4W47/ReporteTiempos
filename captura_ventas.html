@@ -92,6 +92,19 @@
     </div>
 </div>
 
+<div id="confirmModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; z-index:1000; padding:20px;">
+    <div style="background:white; border-radius:8px; padding:25px; max-width:400px; text-align:center; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+        <p style="margin-bottom:20px; color:#2c3e50; font-size:15px; line-height:1.4;">
+            ⚠️ Vas a modificar datos que <b>ya estaban guardados</b>. Esto reemplazará los valores anteriores por los nuevos.<br><br>
+            ¿Confirmas que quieres continuar?
+        </p>
+        <div style="display:flex; gap:10px; justify-content:center;">
+            <button id="confirmCancelBtn" style="padding:10px 20px; background:#95a5a6; color:white; border:none; border-radius:5px; cursor:pointer; font-size:14px;">Cancelar</button>
+            <button id="confirmOkBtn" style="padding:10px 20px; background:#e74c3c; color:white; border:none; border-radius:5px; cursor:pointer; font-size:14px; font-weight:bold;">Sí, sustituir datos</button>
+        </div>
+    </div>
+</div>
+
 <script>
 // ===== CONFIGURACIÓN =====
 const WORKER_URL = 'https://frosty-base-53ff.watsonmraul.workers.dev';
@@ -283,13 +296,11 @@ async function cargarTabla() {
                       recalcularTotales();
                   }
                 }
-            ],
-            tableBuilt: function() {
-                recalcularTotales();
-            }
+            ]
         });
 
         saveBar.style.display = 'flex';
+        recalcularTotales(rows);
 
         const hayDatosExistentes = ventasExistentes.length > 0;
         statusEl.innerHTML = hayDatosExistentes
@@ -302,9 +313,9 @@ async function cargarTabla() {
     }
 }
 
-function recalcularTotales() {
-    if (!table) return;
-    const data = table.getData();
+function recalcularTotales(datosOverride) {
+    const data = datosOverride || (table ? table.getData() : []);
+    if (!data || data.length === 0) return;
 
     let totalVenta = 0;
     let gananciaTotal = 0;
@@ -333,11 +344,41 @@ function recalcularTotales() {
 sorteoSelect.addEventListener('change', cargarTabla);
 fechaInput.addEventListener('change', cargarTabla);
 
+// ===== Ventana de confirmación antes de sustituir datos ya guardados =====
+function confirmarSobrescritura() {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('confirmModal');
+        const okBtn = document.getElementById('confirmOkBtn');
+        const cancelBtn = document.getElementById('confirmCancelBtn');
+
+        modal.style.display = 'flex';
+
+        function limpiar(resultado) {
+            modal.style.display = 'none';
+            okBtn.removeEventListener('click', onOk);
+            cancelBtn.removeEventListener('click', onCancel);
+            resolve(resultado);
+        }
+        function onOk() { limpiar(true); }
+        function onCancel() { limpiar(false); }
+
+        okBtn.addEventListener('click', onOk);
+        cancelBtn.addEventListener('click', onCancel);
+    });
+}
+
 document.getElementById('saveBtn').addEventListener('click', async function() {
+    const data = table.getData();
+    const hayDatosExistentes = data.some(row => row.id);
+
+    if (hayDatosExistentes) {
+        const confirmado = await confirmarSobrescritura();
+        if (!confirmado) return;
+    }
+
     const sorteoId = sorteoSelect.value;
     const fecha = fechaInput.value;
     const numeroGanador = document.getElementById('numeroGanador').value;
-    const data = table.getData();
     const btn = this;
 
     const registros = data.map(row => ({
