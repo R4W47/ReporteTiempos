@@ -28,10 +28,9 @@
     .status { padding:10px 20px; font-size:14px; }
     .status.success { background:#eafaf1; color:#27ae60; }
     .status.error { background:#fdecea; color:#c0392b; }
-    .status.warning { background:#fff8e1; color:#8a6d00; }
     .status.loading { background:#eaf2fa; color:#2980b9; }
+    .status.warning { background:#fff8e1; color:#8a6d00; }
 
-    /* Quitar las flechitas de los campos numéricos */
     input[type=number]::-webkit-inner-spin-button,
     input[type=number]::-webkit-outer-spin-button {
         -webkit-appearance: none;
@@ -40,7 +39,7 @@
     input[type=number] {
         -moz-appearance: textfield;
     }
-    
+
     .btn-duplicar {
         background: #3498db;
         color: white;
@@ -102,6 +101,11 @@ let SORTEOS = [];
 let vendedoresDeEsteSorteo = [];
 let bancaConfig = null;
 let table = null;
+
+const sorteoSelect = document.getElementById('sorteoSelect');
+const fechaInput = document.getElementById('fechaInput');
+const statusEl = document.getElementById('statusMsg');
+fechaInput.value = new Date().toISOString().split('T')[0];
 
 // ===== Editor personalizado: permite moverse entre celdas con las flechas del teclado =====
 function editorConFlechas(cell, onRendered, success, cancel) {
@@ -168,11 +172,6 @@ function editorConFlechas(cell, onRendered, success, cancel) {
     return input;
 }
 
-const sorteoSelect = document.getElementById('sorteoSelect');
-const fechaInput = document.getElementById('fechaInput');
-const statusEl = document.getElementById('statusMsg');
-fechaInput.value = new Date().toISOString().split('T')[0];
-
 // ===== Cargar catálogo de sorteos desde D1 =====
 async function cargarSorteos() {
     statusEl.innerHTML = '<div class="status loading">⏳ Cargando sorteos...</div>';
@@ -195,7 +194,7 @@ async function cargarSorteos() {
     }
 }
 
-// ===== Al elegir sorteo: cargar vendedores y condición de banca =====
+// ===== Al elegir sorteo/fecha: cargar vendedores, banca, y ventas ya guardadas =====
 async function cargarTabla() {
     const sorteoId = sorteoSelect.value;
     const saveBar = document.getElementById('saveBar');
@@ -266,7 +265,6 @@ async function cargarTabla() {
             }
         });
 
-        // Si ya había un número ganador guardado, lo recuperamos también
         const numeroGanadorExistente = ventasExistentes.find(e => e.numero_ganador)?.numero_ganador;
         document.getElementById('numeroGanador').value = numeroGanadorExistente || '';
 
@@ -295,16 +293,10 @@ async function cargarTabla() {
         saveBar.style.display = 'flex';
         recalcularTotales();
 
-        // Avisar si ya hay ventas guardadas para este sorteo y esta fecha
-        const respExistentes = await fetch(`${WORKER_URL}/api/ventas-existentes?sorteo_id=${sorteoId}&fecha=${fechaInput.value}&pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' });
-        if (respExistentes.ok) {
-            const existentes = await respExistentes.json();
-            if (existentes.cantidad > 0) {
-                statusEl.innerHTML = `<div class="status warning">⚠️ Ya hay ${existentes.cantidad} registro(s) guardados para este sorteo y esta fecha (venta total ya guardada: C${(existentes.venta_total || 0).toLocaleString('es-NI')}). Si guardas de nuevo, se SUMA aparte, no se reemplaza.</div>`;
-                return;
-            }
-        }
-        statusEl.innerHTML = '';
+        const hayDatosExistentes = ventasExistentes.length > 0;
+        statusEl.innerHTML = hayDatosExistentes
+            ? '<div class="status success">✏️ Se cargaron los datos ya guardados de este día. Puedes corregirlos y guardar de nuevo.</div>'
+            : '';
 
     } catch (error) {
         statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
@@ -378,8 +370,6 @@ document.getElementById('saveBtn').addEventListener('click', async function() {
 
         if (response.ok && result.ok) {
             statusEl.innerHTML = `<div class="status success">✅ Se guardaron ${result.procesados} registros correctamente</div>`;
-            // Recargar la tabla fresca (así las filas nuevas ya quedan con su id real,
-            // y un segundo clic accidental en "Guardar" sería una corrección, no un duplicado)
             await cargarTabla();
         } else {
             throw new Error(result.error || 'Error desconocido al guardar');
