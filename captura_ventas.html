@@ -283,11 +283,13 @@ async function cargarTabla() {
                       recalcularTotales();
                   }
                 }
-            ]
+            ],
+            tableBuilt: function() {
+                recalcularTotales();
+            }
         });
 
         saveBar.style.display = 'flex';
-        recalcularTotales();
 
         const hayDatosExistentes = ventasExistentes.length > 0;
         statusEl.innerHTML = hayDatosExistentes
