@@ -29,6 +29,31 @@
     .status.success { background:#eafaf1; color:#27ae60; }
     .status.error { background:#fdecea; color:#c0392b; }
     .status.loading { background:#eaf2fa; color:#2980b9; }
+
+    /* Quitar las flechitas de los campos numéricos */
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+    input[type=number] {
+        -moz-appearance: textfield;
+    }
+    
+    .btn-duplicar {
+        background: #3498db;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        width: 26px;
+        height: 26px;
+        font-size: 16px;
+        cursor: pointer;
+        line-height: 1;
+    }
+    .btn-duplicar:hover {
+        background: #2980b9;
+    }
 </style>
 </head>
 <body>
@@ -158,8 +183,16 @@ async function cargarTabla() {
                   cellEdited: recalcularTotales },
                 { title: "Venta al ganador ($)", field: "venta_premio", editor: "number", editorParams: { min: 0 }, hozAlign: "right", widthGrow: 1,
                   cellEdited: recalcularTotales },
-                { title: "Comisión %", field: "comision_pct", hozAlign: "right", widthGrow: 1, headerSort: false },
-                { title: "Multiplicador", field: "multiplicador", hozAlign: "right", widthGrow: 1, headerSort: false }
+                { title: "Comisión %", field: "comision_pct", hozAlign: "right", widthGrow: 1, headerSort: false, visible: false },
+                { title: "Multiplicador", field: "multiplicador", hozAlign: "right", widthGrow: 1, headerSort: false, visible: false },
+                { title: "", field: "acciones", width: 50, hozAlign: "center", headerSort: false,
+                  formatter: function() { return '<button class="btn-duplicar" title="Agregar otra lista de este vendedor">+</button>'; },
+                  cellClick: function(e, cell) {
+                      const rowData = cell.getRow().getData();
+                      table.addRow({ ...rowData, venta: 0, venta_premio: 0 }, false, cell.getRow());
+                      recalcularTotales();
+                  }
+                }
             ]
         });
 
