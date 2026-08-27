@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reporte</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: Arial, sans-serif; background:#f5f5f5; padding:15px; }
+    .container { max-width:900px; margin:0 auto; background:white; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.1); overflow:hidden; }
+    .header { background:#2c3e50; color:white; padding:15px 20px; text-align:center; }
+    .header h1 { font-size:1.4em; }
+    .controls { padding:20px; background:#ecf0f1; display:flex; gap:15px; flex-wrap:wrap; align-items:flex-end; border-bottom:2px solid #bdc3c7; }
+    .field { display:flex; flex-direction:column; gap:5px; }
+    .field label { font-weight:bold; font-size:13px; color:#2c3e50; }
+    .field select, .field input { padding:10px; border:2px solid #3498db; border-radius:5px; font-size:15px; min-width:160px; }
+    #exportBtn { padding:10px 20px; background:#27ae60; color:white; border:none; border-radius:5px; font-size:14px; cursor:pointer; white-space:nowrap; }
+    #exportBtn:hover { background:#219150; }
+    #exportBtn:disabled { background:#95a5a6; cursor:not-allowed; }
+    .status { padding:10px 20px; font-size:14px; }
+    .status.success { background:#eafaf1; color:#27ae60; }
+    .status.error { background:#fdecea; color:#c0392b; }
+    .status.loading { background:#eaf2fa; color:#2980b9; }
+    .viewer { padding:15px; overflow-x:auto; overflow-y:auto; max-height:65vh; }
+    .placeholder { text-align:center; color:#7f8c8d; padding:40px; }
+    table { border-collapse: collapse; width:100%; font-size:13px; }
+    th, td { border:1px solid #ddd; padding:8px; text-align:left; white-space:nowrap; }
+    thead { position: sticky; top:0; z-index:10; }
+    th { background-color:#3498db; color:white; font-weight:bold; }
+    tr:nth-child(even) { background-color:#f9f9f9; }
+    tr.fila-totales { background-color:#fdf6e3; font-weight:bold; }
+    td.negativo { color:#c0392b; }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header"><h1 id="pageTitle">📊 Reporte</h1></div>
+
+    <div class="controls">
+        <div class="field" id="vendedorField">
+            <label>Vendedor</label>
+            <select id="vendedorSelect">
+                <option value="">-- Elige un vendedor --</option>
+            </select>
+        </div>
+        <div class="field" id="fechaField">
+            <!-- Se llena dinámicamente: input date o month según el tipo -->
+        </div>
+        <button id="exportBtn" disabled>📷 Exportar imagen</button>
+    </div>
+
+    <div id="statusMsg"></div>
+
+    <div id="viewer" class="viewer">
+        <div class="placeholder">👆 Elige un vendedor y una fecha</div>
+    </div>
+</div>
+
+<script>
+// ===== CONFIGURACIÓN =====
+const WORKER_URL = 'https://frosty-base-53ff.watsonmraul.workers.dev';
+const params = new URLSearchParams(window.location.search);
+const APP_PASSWORD = params.get('pw') || '';
+const TIPO = params.get('tipo') === 'mensual' ? 'mensual' : 'diario'; // por defecto diario
+const VENDEDOR_FORZADO = params.get('vendedor') || ''; // si viene, se oculta el selector
+
+let vendedores = [];
+let vendedorSeleccionadoId = null;
+let ultimoReporteData = null;
+
+const statusEl = document.getElementById('statusMsg');
+const viewerEl = document.getElementById('viewer');
+const vendedorField = document.getElementById('vendedorField');
+const vendedorSelect = document.getElementById('vendedorSelect');
+const fechaField = document.getElementById('fechaField');
+const exportBtn = document.getElementById('exportBtn');
+
+document.getElementById('pageTitle').textContent = TIPO === 'mensual' ? '📊 Reporte Mensual' : '📅 Reporte Diario';
+document.title = TIPO === 'mensual' ? 'Reporte Mensual' : 'Reporte Diario';
+
+// ===== Armar el campo de fecha según el tipo =====
+if (TIPO === 'mensual') {
+    const hoy = new Date();
+    const valorDefault = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
+    fechaField.innerHTML = `
+        <label>Mes</label>
+        <input type="month" id="fechaInput" value="${valorDefault}">
+    `;
+} else {
+    const valorDefault = new Date().toISOString().split('T')[0];
+    fechaField.innerHTML = `
+        <label>Fecha</label>
+        <input type="date" id="fechaInput" value="${valorDefault}">
+    `;
+}
+const fechaInput = document.getElementById('fechaInput');
+
+// ===== Cargar lista de vendedores activos (o forzar uno solo) =====
+async function cargarVendedores() {
+    try {
+        const response = await fetch(`${WORKER_URL}/api/vendedores-activos?pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' });
+        if (!response.ok) throw new Error('No se pudo cargar la lista de vendedores');
+        vendedores = await response.json();
+
+        if (VENDEDOR_FORZADO) {
+            const match = vendedores.find(v => v.nombre.toLowerCase() === VENDEDOR_FORZADO.toLowerCase());
+            if (!match) {
+                statusEl.innerHTML = `<div class="status error">⚠️ No se encontró al vendedor "${VENDEDOR_FORZADO}"</div>`;
+                return;
+            }
+            vendedorField.style.display = 'none';
+            vendedorSeleccionadoId = match.id;
+            document.getElementById('pageTitle').textContent += ` — ${match.nombre}`;
+            document.title += ` - ${match.nombre}`;
+            cargarReporte();
+            return;
+        }
+
+        vendedorSelect.innerHTML = '<option value="">-- Elige un vendedor --</option>';
+        vendedores.forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v.id;
+            opt.textContent = v.nombre;
+            vendedorSelect.appendChild(opt);
+        });
+    } catch (error) {
+        statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
+    }
+}
+
+vendedorSelect.addEventListener('change', function() {
+    vendedorSeleccionadoId = this.value || null;
+    cargarReporte();
+});
+fechaInput.addEventListener('change', cargarReporte);
+
+// ===== Cargar y mostrar el reporte =====
+async function cargarReporte() {
+    if (!vendedorSeleccionadoId) {
+        viewerEl.innerHTML = '<div class="placeholder">👆 Elige un vendedor y una fecha</div>';
+        exportBtn.disabled = true;
+        return;
+    }
+
+    statusEl.innerHTML = '<div class="status loading">⏳ Cargando reporte...</div>';
+    exportBtn.disabled = true;
+
+    try {
+        let data;
+        if (TIPO === 'mensual') {
+            const [anio, mes] = fechaInput.value.split('-');
+            const response = await fetch(`${WORKER_URL}/api/reporte-mensual?vendedor_id=${vendedorSeleccionadoId}&anio=${anio}&mes=${mes}&pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' });
+            if (!response.ok) throw new Error('No se pudo cargar el reporte mensual');
+            data = await response.json();
+            mostrarReporteMensual(data);
+        } else {
+            const response = await fetch(`${WORKER_URL}/api/reporte-diario?vendedor_id=${vendedorSeleccionadoId}&fecha=${fechaInput.value}&pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' });
+            if (!response.ok) throw new Error('No se pudo cargar el reporte diario');
+            data = await response.json();
+            mostrarReporteDiario(data);
+        }
+
+        statusEl.innerHTML = '';
+        exportBtn.disabled = data.length === 0;
+    } catch (error) {
+        statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
+        viewerEl.innerHTML = '';
+    }
+}
+
+function formatoMoneda(n) {
+    return 'C$' + (n || 0).toLocaleString('es-NI', { minimumFractionDigits: 2 });
+}
+
+function mostrarReporteDiario(rows) {
+    ultimoReporteData = { columnas: ['Sorteo', 'Número ganador', 'Venta', 'Comisión', 'Venta al ganador', 'Premio', 'Total'], rows: rows.map(r => [
+        r.sorteo_nombre, r.numero_ganador || '-', formatoMoneda(r.venta), formatoMoneda(r.comision), formatoMoneda(r.venta_premio), formatoMoneda(r.premio), formatoMoneda(r.total)
+    ]) };
+
+    if (rows.length === 0) {
+        viewerEl.innerHTML = '<div class="placeholder">Este vendedor no tiene ventas registradas ese día.</div>';
+        return;
+    }
+
+    const totales = rows.reduce((acc, r) => {
+        acc.venta += r.venta; acc.comision += r.comision; acc.venta_premio += r.venta_premio; acc.premio += r.premio; acc.total += r.total;
+        return acc;
+    }, { venta: 0, comision: 0, venta_premio: 0, premio: 0, total: 0 });
+
+    let html = '<table><thead><tr><th>Sorteo</th><th>Número ganador</th><th>Venta</th><th>Comisión</th><th>Venta al ganador</th><th>Premio</th><th>Total</th></tr></thead><tbody>';
+    rows.forEach(r => {
+        html += `<tr>
+            <td>${r.sorteo_nombre}</td>
+            <td>${r.numero_ganador || '-'}</td>
+            <td>${formatoMoneda(r.venta)}</td>
+            <td>${formatoMoneda(r.comision)}</td>
+            <td>${formatoMoneda(r.venta_premio)}</td>
+            <td>${formatoMoneda(r.premio)}</td>
+            <td class="${r.total < 0 ? 'negativo' : ''}">${formatoMoneda(r.total)}</td>
+        </tr>`;
+    });
+    html += `<tr class="fila-totales">
+        <td>Totales</td><td></td>
+        <td>${formatoMoneda(totales.venta)}</td>
+        <td>${formatoMoneda(totales.comision)}</td>
+        <td>${formatoMoneda(totales.venta_premio)}</td>
+        <td>${formatoMoneda(totales.premio)}</td>
+        <td class="${totales.total < 0 ? 'negativo' : ''}">${formatoMoneda(totales.total)}</td>
+    </tr>`;
+    html += '</tbody></table>';
+
+    viewerEl.innerHTML = html;
+}
+
+function mostrarReporteMensual(rows) {
+    if (rows.length === 0) {
+        viewerEl.innerHTML = '<div class="placeholder">Este vendedor no tiene ventas registradas ese mes.</div>';
+        return;
+    }
+
+    const totales = rows.reduce((acc, r) => {
+        const total = r.venta - r.comision - r.premio;
+        acc.venta += r.venta; acc.comision += r.comision; acc.premio += r.premio; acc.total += total;
+        return acc;
+    }, { venta: 0, comision: 0, premio: 0, total: 0 });
+
+    let html = '<table><thead><tr><th>Fecha</th><th>Venta</th><th>Comisión</th><th>Premio</th><th>Total</th></tr></thead><tbody>';
+    rows.forEach(r => {
+        const total = r.venta - r.comision - r.premio;
+        html += `<tr>
+            <td>${r.fecha}</td>
+            <td>${formatoMoneda(r.venta)}</td>
+            <td>${formatoMoneda(r.comision)}</td>
+            <td>${formatoMoneda(r.premio)}</td>
+            <td class="${total < 0 ? 'negativo' : ''}">${formatoMoneda(total)}</td>
+        </tr>`;
+    });
+    html += `<tr class="fila-totales">
+        <td>Totales</td>
+        <td>${formatoMoneda(totales.venta)}</td>
+        <td>${formatoMoneda(totales.comision)}</td>
+        <td>${formatoMoneda(totales.premio)}</td>
+        <td class="${totales.total < 0 ? 'negativo' : ''}">${formatoMoneda(totales.total)}</td>
+    </tr>`;
+    html += '</tbody></table>';
+
+    viewerEl.innerHTML = html;
+}
+
+// ===== Exportar tabla como imagen =====
+exportBtn.addEventListener('click', async function() {
+    const table = viewerEl.querySelector('table');
+    if (!table) {
+        statusEl.innerHTML = '<div class="status error">⚠️ No hay ninguna tabla para exportar</div>';
+        return;
+    }
+
+    this.disabled = true;
+    this.textContent = '⏳ Generando imagen...';
+
+    try {
+        const nombreVendedor = VENDEDOR_FORZADO || (vendedores.find(v => v.id == vendedorSeleccionadoId)?.nombre) || 'Vendedor';
+        const etiquetaFecha = TIPO === 'mensual' ? fechaInput.value : fechaInput.value;
+
+        const clone = table.cloneNode(true);
+        clone.querySelectorAll('th').forEach(th => th.style.position = 'static');
+
+        const wrapper = document.createElement('div');
+        wrapper.style.position = 'fixed';
+        wrapper.style.top = '0';
+        wrapper.style.left = '-100000px';
+        wrapper.style.background = '#ffffff';
+        wrapper.style.padding = '10px';
+        wrapper.style.display = 'inline-block';
+
+        const titleEl = document.createElement('div');
+        titleEl.style.fontFamily = 'Arial, sans-serif';
+        titleEl.style.fontWeight = 'bold';
+        titleEl.style.fontSize = '18px';
+        titleEl.style.color = '#2c3e50';
+        titleEl.style.marginBottom = '10px';
+        titleEl.style.whiteSpace = 'nowrap';
+        titleEl.textContent = `${nombreVendedor} — ${etiquetaFecha} (${TIPO === 'mensual' ? 'Mensual' : 'Diario'})`;
+        wrapper.appendChild(titleEl);
+        wrapper.appendChild(clone);
+        document.body.appendChild(wrapper);
+
+        await new Promise(resolve => requestAnimationFrame(resolve));
+
+        const MAX_DIMENSION = 4000;
+        const naturalWidth = wrapper.scrollWidth;
+        const naturalHeight = wrapper.scrollHeight;
+        const maxNaturalDim = Math.max(naturalWidth, naturalHeight);
+        let scale = 2;
+        if (maxNaturalDim * scale > MAX_DIMENSION) scale = MAX_DIMENSION / maxNaturalDim;
+
+        const canvas = await html2canvas(wrapper, { backgroundColor: '#ffffff', scale: scale });
+        document.body.removeChild(wrapper);
+
+        canvas.toBlob(async (blob) => {
+            const fileName = `Reporte ${nombreVendedor} ${etiquetaFecha}.png`;
+            const filesArray = [new File([blob], fileName, { type: 'image/png' })];
+
+            if (navigator.canShare && navigator.canShare({ files: filesArray })) {
+                try { await navigator.share({ files: filesArray, title: fileName }); } catch (e) {}
+            } else {
+                const link = document.createElement('a');
+                link.download = fileName;
+                link.href = URL.createObjectURL(blob);
+                link.click();
+            }
+
+            this.disabled = false;
+            this.textContent = '📷 Exportar imagen';
+        }, 'image/png');
+
+    } catch (error) {
+        statusEl.innerHTML = `<div class="status error">⚠️ Error al generar la imagen: ${error.message}</div>`;
+        this.disabled = false;
+        this.textContent = '📷 Exportar imagen';
+    }
+});
+
+// Inicializar
+cargarVendedores();
+</script>
+</body>
+</html>
