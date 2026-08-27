@@ -86,7 +86,7 @@
     <div class="save-bar" id="saveBar" style="display:none;">
         <div class="totales">
             Venta total: <b id="totalVenta">C$0</b> &nbsp;|&nbsp;
-            Ganancia/Pérdida estimada: <b id="totalGanancia">C$0</b>
+            Total premio a pagar: <b id="totalPremio">C$0</b>
         </div>
         <button id="saveBtn">💾 Guardar ventas del día</button>
     </div>
@@ -318,27 +318,190 @@ function recalcularTotales(datosOverride) {
     if (!data || data.length === 0) return;
 
     let totalVenta = 0;
-    let gananciaTotal = 0;
+    let totalPremio = 0;
 
     data.forEach(row => {
         const venta = parseFloat(row.venta) || 0;
         const ventaPremio = parseFloat(row.venta_premio) || 0;
 
         totalVenta += venta;
-
-        const comisionVendedor = venta * (row.comision_pct / 100);
-        const premioVendedor = ventaPremio * row.multiplicador;
-
-        const comisionBanca = bancaConfig ? venta * (bancaConfig.comision_pct / 100) : 0;
-        const premioBanca = bancaConfig ? ventaPremio * bancaConfig.multiplicador_premio : 0;
-
-        gananciaTotal += (comisionBanca - comisionVendedor) + (premioBanca - premioVendedor);
+        totalPremio += ventaPremio * row.multiplicador;
     });
 
-    document.getElementById('totalVenta').textContent = 'C$' + totalVenta.toLocaleString('es-NI', {minimumFractionDigits:2});
-    const gananciaEl = document.getElementById('totalGanancia');
-    gananciaEl.textContent = 'C$' + gananciaTotal.toLocaleString('es-NI', {minimumFractionDigits:2});
-    gananciaEl.className = gananciaTotal < 0 ? 'negativo' : '';
+    document.getElementById('totalVenta').textContent = 'C
+
+sorteoSelect.addEventListener('change', cargarTabla);
+fechaInput.addEventListener('change', cargarTabla);
+
+// ===== Ventana de confirmación antes de sustituir datos ya guardados =====
+function confirmarSobrescritura() {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('confirmModal');
+        const okBtn = document.getElementById('confirmOkBtn');
+        const cancelBtn = document.getElementById('confirmCancelBtn');
+
+        modal.style.display = 'flex';
+
+        function limpiar(resultado) {
+            modal.style.display = 'none';
+            okBtn.removeEventListener('click', onOk);
+            cancelBtn.removeEventListener('click', onCancel);
+            resolve(resultado);
+        }
+        function onOk() { limpiar(true); }
+        function onCancel() { limpiar(false); }
+
+        okBtn.addEventListener('click', onOk);
+        cancelBtn.addEventListener('click', onCancel);
+    });
+}
+
+document.getElementById('saveBtn').addEventListener('click', async function() {
+    const data = table.getData();
+    const hayDatosExistentes = data.some(row => row.id);
+
+    if (hayDatosExistentes) {
+        const confirmado = await confirmarSobrescritura();
+        if (!confirmado) return;
+    }
+
+    const sorteoId = sorteoSelect.value;
+    const fecha = fechaInput.value;
+    const numeroGanador = document.getElementById('numeroGanador').value;
+    const btn = this;
+
+    const registros = data.map(row => ({
+        id: row.id || null,
+        vendedor_id: row.vendedor_id,
+        monto_venta_total: row.venta,
+        monto_venta_numero_ganador: row.venta_premio,
+        comision_vendedor_pct: row.comision_pct,
+        multiplicador_vendedor_premio: row.multiplicador
+    }));
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Guardando...';
+
+    try {
+        const response = await fetch(`${WORKER_URL}/api/ventas?pw=${encodeURIComponent(APP_PASSWORD)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sorteo_id: sorteoId,
+                fecha: fecha,
+                numero_ganador: numeroGanador,
+                registros: registros
+            })
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.ok) {
+            statusEl.innerHTML = `<div class="status success">✅ Se guardaron ${result.procesados} registros correctamente</div>`;
+            await cargarTabla();
+        } else {
+            throw new Error(result.error || 'Error desconocido al guardar');
+        }
+    } catch (error) {
+        statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 Guardar ventas del día';
+    }
+});
+
+// Inicializar
+cargarSorteos();
+</script>
+</body>
+</html> + totalVenta.toLocaleString('es-NI', {minimumFractionDigits:2});
+    document.getElementById('totalPremio').textContent = 'C
+
+sorteoSelect.addEventListener('change', cargarTabla);
+fechaInput.addEventListener('change', cargarTabla);
+
+// ===== Ventana de confirmación antes de sustituir datos ya guardados =====
+function confirmarSobrescritura() {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('confirmModal');
+        const okBtn = document.getElementById('confirmOkBtn');
+        const cancelBtn = document.getElementById('confirmCancelBtn');
+
+        modal.style.display = 'flex';
+
+        function limpiar(resultado) {
+            modal.style.display = 'none';
+            okBtn.removeEventListener('click', onOk);
+            cancelBtn.removeEventListener('click', onCancel);
+            resolve(resultado);
+        }
+        function onOk() { limpiar(true); }
+        function onCancel() { limpiar(false); }
+
+        okBtn.addEventListener('click', onOk);
+        cancelBtn.addEventListener('click', onCancel);
+    });
+}
+
+document.getElementById('saveBtn').addEventListener('click', async function() {
+    const data = table.getData();
+    const hayDatosExistentes = data.some(row => row.id);
+
+    if (hayDatosExistentes) {
+        const confirmado = await confirmarSobrescritura();
+        if (!confirmado) return;
+    }
+
+    const sorteoId = sorteoSelect.value;
+    const fecha = fechaInput.value;
+    const numeroGanador = document.getElementById('numeroGanador').value;
+    const btn = this;
+
+    const registros = data.map(row => ({
+        id: row.id || null,
+        vendedor_id: row.vendedor_id,
+        monto_venta_total: row.venta,
+        monto_venta_numero_ganador: row.venta_premio,
+        comision_vendedor_pct: row.comision_pct,
+        multiplicador_vendedor_premio: row.multiplicador
+    }));
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Guardando...';
+
+    try {
+        const response = await fetch(`${WORKER_URL}/api/ventas?pw=${encodeURIComponent(APP_PASSWORD)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sorteo_id: sorteoId,
+                fecha: fecha,
+                numero_ganador: numeroGanador,
+                registros: registros
+            })
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.ok) {
+            statusEl.innerHTML = `<div class="status success">✅ Se guardaron ${result.procesados} registros correctamente</div>`;
+            await cargarTabla();
+        } else {
+            throw new Error(result.error || 'Error desconocido al guardar');
+        }
+    } catch (error) {
+        statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 Guardar ventas del día';
+    }
+});
+
+// Inicializar
+cargarSorteos();
+</script>
+</body>
+</html> + totalPremio.toLocaleString('es-NI', {minimumFractionDigits:2});
 }
 
 sorteoSelect.addEventListener('change', cargarTabla);
