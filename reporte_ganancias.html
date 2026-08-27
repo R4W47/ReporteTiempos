@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reporte de Ganancias</title>
+<style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: Arial, sans-serif; background:#f5f5f5; padding:15px; }
+    .container { max-width:950px; margin:0 auto; background:white; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.1); overflow:hidden; }
+    .header { background:#2c3e50; color:white; padding:15px 20px; text-align:center; }
+    .header h1 { font-size:1.4em; }
+    .controls { padding:20px; background:#ecf0f1; display:flex; gap:15px; flex-wrap:wrap; align-items:flex-end; border-bottom:2px solid #bdc3c7; }
+    .field { display:flex; flex-direction:column; gap:5px; }
+    .field label { font-weight:bold; font-size:13px; color:#2c3e50; }
+    .field input { padding:10px; border:2px solid #3498db; border-radius:5px; font-size:15px; }
+    #saveBtn { padding:10px 20px; background:#27ae60; color:white; border:none; border-radius:5px; font-size:14px; cursor:pointer; font-weight:bold; }
+    #saveBtn:hover { background:#219150; }
+    #saveBtn:disabled { background:#95a5a6; cursor:not-allowed; }
+    .status { padding:10px 20px; font-size:14px; }
+    .status.success { background:#eafaf1; color:#27ae60; }
+    .status.error { background:#fdecea; color:#c0392b; }
+    .status.loading { background:#eaf2fa; color:#2980b9; }
+    .contenido { padding:20px; }
+    .placeholder { text-align:center; color:#7f8c8d; padding:40px; }
+    .seccion-titulo { background:#2c3e50; color:white; padding:8px 12px; font-weight:bold; font-size:14px; margin-bottom:0; border-radius:6px 6px 0 0; }
+    table { border-collapse: collapse; width:100%; font-size:13px; margin-bottom:20px; }
+    th, td { border:1px solid #ddd; padding:8px; text-align:right; white-space:nowrap; }
+    th:first-child, td:first-child { text-align:left; }
+    th { background-color:#3498db; color:white; font-weight:bold; }
+    tr.fila-totales { background-color:#fdf6e3; font-weight:bold; }
+    td.negativo { color:#c0392b; }
+    td input[type=number] {
+        width: 100px;
+        padding: 4px 6px;
+        border: 1px solid #bdc3c7;
+        border-radius: 4px;
+        text-align: right;
+        font-size: 13px;
+    }
+    .gastos-linea {
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        padding:10px 12px;
+        background:#fdf6e3;
+        border:1px solid #ddd;
+        margin-bottom:8px;
+        border-radius:4px;
+    }
+    .gastos-linea label { font-weight:bold; color:#2c3e50; font-size:14px; }
+    .ganancia-final {
+        margin-top:20px;
+        padding:18px;
+        background:#2c3e50;
+        color:white;
+        border-radius:8px;
+        text-align:center;
+        font-size:1.3em;
+        font-weight:bold;
+    }
+    .ganancia-final.negativo { background:#c0392b; }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header"><h1>💰 Reporte de Ganancias del Día</h1></div>
+
+    <div class="controls">
+        <div class="field">
+            <label>Fecha</label>
+            <input type="date" id="fechaInput">
+        </div>
+        <button id="saveBtn">💾 Guardar gastos</button>
+    </div>
+
+    <div id="statusMsg"></div>
+
+    <div id="contenido" class="contenido">
+        <div class="placeholder">👆 Elige una fecha para cargar el reporte</div>
+    </div>
+</div>
+
+<script>
+const WORKER_URL = 'https://frosty-base-53ff.watsonmraul.workers.dev';
+const APP_PASSWORD = new URLSearchParams(window.location.search).get('pw') || '';
+
+const fechaInput = document.getElementById('fechaInput');
+const statusEl = document.getElementById('statusMsg');
+const contenidoEl = document.getElementById('contenido');
+const saveBtn = document.getElementById('saveBtn');
+
+fechaInput.value = new Date().toISOString().split('T')[0];
+
+let listasData = [];
+let puestosData = [];
+let gastosExistentes = [];
+
+function num(n) {
+    return (n || 0).toLocaleString('es-NI', { minimumFractionDigits: 2 });
+}
+
+async function cargarReporte() {
+    const fecha = fechaInput.value;
+    if (!fecha) return;
+
+    statusEl.innerHTML = '<div class="status loading">⏳ Cargando reporte...</div>';
+    saveBtn.disabled = true;
+
+    try {
+        const [respGanancias, respGastos] = await Promise.all([
+            fetch(`${WORKER_URL}/api/reporte-ganancias?fecha=${fecha}&pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' }),
+            fetch(`${WORKER_URL}/api/gastos?fecha=${fecha}&pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' })
+        ]);
+
+        if (!respGanancias.ok) throw new Error('No se pudo cargar el reporte de ganancias');
+
+        const ganancias = await respGanancias.json();
+        listasData = ganancias.listas || [];
+        puestosData = ganancias.puestos || [];
+        gastosExistentes = respGastos.ok ? await respGastos.json() : [];
+
+        renderizarReporte();
+        statusEl.innerHTML = '';
+        saveBtn.disabled = false;
+
+    } catch (error) {
+        statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
+        contenidoEl.innerHTML = '';
+    }
+}
+
+function buscarGastoExistente(categoria, vendedorId) {
+    return gastosExistentes.find(g => g.categoria === categoria && (g.vendedor_id || null) === (vendedorId || null));
+}
+
+function renderizarReporte() {
+    if (listasData.length === 0 && puestosData.length === 0) {
+        contenidoEl.innerHTML = '<div class="placeholder">No hay ventas registradas ese día.</div>';
+        return;
+    }
+
+    // ===== Tabla de LISTAS =====
+    let totalesListas = { venta: 0, comision_pagar: 0, comision_recibir: 0, premio_pagar: 0, premio_recibir: 0, ganancia: 0 };
+
+    let htmlListas = '<div class="seccion-titulo">LISTAS</div><table><thead><tr>' +
+        '<th>Sorteo</th><th>Venta</th><th>Comisión Pagar</th><th>Comisión Recibir</th><th>Premio Pagar</th><th>Premio Recibir</th><th>Ganancia</th>' +
+        '</tr></thead><tbody>';
+
+    listasData.forEach(r => {
+        const ganancia = (r.comision_recibir - r.comision_pagar) + (r.premio_recibir - r.premio_pagar);
+        totalesListas.venta += r.venta;
+        totalesListas.comision_pagar += r.comision_pagar;
+        totalesListas.comision_recibir += r.comision_recibir;
+        totalesListas.premio_pagar += r.premio_pagar;
+        totalesListas.premio_recibir += r.premio_recibir;
+        totalesListas.ganancia += ganancia;
+
+        htmlListas += `<tr>
+            <td>${r.grupo_banca}</td>
+            <td>${num(r.venta)}</td>
+            <td>${num(r.comision_pagar)}</td>
+            <td>${num(r.comision_recibir)}</td>
+            <td>${num(r.premio_pagar)}</td>
+            <td>${num(r.premio_recibir)}</td>
+            <td class="${ganancia < 0 ? 'negativo' : ''}">${num(ganancia)}</td>
+        </tr>`;
+    });
+
+    htmlListas += `<tr class="fila-totales">
+        <td>Totales</td>
+        <td>${num(totalesListas.venta)}</td>
+        <td>${num(totalesListas.comision_pagar)}</td>
+        <td>${num(totalesListas.comision_recibir)}</td>
+        <td>${num(totalesListas.premio_pagar)}</td>
+        <td>${num(totalesListas.premio_recibir)}</td>
+        <td class="${totalesListas.ganancia < 0 ? 'negativo' : ''}">${num(totalesListas.ganancia)}</td>
+    </tr></tbody></table>`;
+
+    // ===== Línea de Oficina (editable) =====
+    const gastoOficina = buscarGastoExistente('oficina', null);
+    const oficinaDefault = gastoOficina ? gastoOficina.monto : (totalesListas.venta > 0 ? 35000 : 0);
+    const oficinaId = gastoOficina ? gastoOficina.id : '';
+
+    let htmlOficina = `<div class="gastos-linea">
+        <label>Salarios de Oficina:</label>
+        <input type="number" id="oficinaInput" data-id="${oficinaId}" value="${oficinaDefault}" min="0" style="width:120px; padding:6px; border-radius:4px; border:1px solid #bdc3c7;">
+    </div>`;
+
+    // ===== Tabla de PUESTOS =====
+    let totalesPuestos = { venta: 0, comision_recibir: 0, salario: 0, ganancia: 0 };
+
+    let htmlPuestos = '<div class="seccion-titulo">PUESTOS</div><table><thead><tr>' +
+        '<th>Puesto</th><th>Venta</th><th>Comisión Recibir</th><th>Salario</th><th>Ganancia</th>' +
+        '</tr></thead><tbody>';
+
+    puestosData.forEach(r => {
+        const gastoSalario = buscarGastoExistente('salario_puesto', r.vendedor_id);
+        const salarioDefault = gastoSalario ? gastoSalario.monto : (r.venta > 0 ? 15000 : 0);
+        const salarioId = gastoSalario ? gastoSalario.id : '';
+
+        totalesPuestos.venta += r.venta;
+        totalesPuestos.comision_recibir += r.comision_recibir;
+        totalesPuestos.salario += salarioDefault;
+
+        htmlPuestos += `<tr>
+            <td>${r.nombre}</td>
+            <td>${num(r.venta)}</td>
+            <td>${num(r.comision_recibir)}</td>
+            <td><input type="number" class="salario-puesto" data-vendedor-id="${r.vendedor_id}" data-id="${salarioId}" data-nombre="${r.nombre}" data-comision="${r.comision_recibir}" value="${salarioDefault}" min="0"></td>
+            <td class="ganancia-puesto"></td>
+        </tr>`;
+    });
+
+    htmlPuestos += `<tr class="fila-totales">
+        <td>Totales</td>
+        <td>${num(totalesPuestos.venta)}</td>
+        <td>${num(totalesPuestos.comision_recibir)}</td>
+        <td class="totales-salario"></td>
+        <td class="totales-ganancia-puestos"></td>
+    </tr></tbody></table>`;
+
+    contenidoEl.innerHTML = htmlListas + htmlOficina + htmlPuestos + '<div class="ganancia-final" id="gananciaFinal"></div>';
+
+    // Guardar totales de listas para el cálculo final
+    contenidoEl.dataset.gananciaListas = totalesListas.ganancia;
+
+    // Listeners para recalcular en vivo
+    document.getElementById('oficinaInput').addEventListener('input', recalcularGananciaFinal);
+    document.querySelectorAll('.salario-puesto').forEach(input => {
+        input.addEventListener('input', recalcularGananciaFinal);
+    });
+
+    recalcularGananciaFinal();
+}
+
+function recalcularGananciaFinal() {
+    const gananciaListas = parseFloat(contenidoEl.dataset.gananciaListas) || 0;
+    const oficina = parseFloat(document.getElementById('oficinaInput').value) || 0;
+
+    let totalSalarios = 0;
+    let gananciaPuestos = 0;
+
+    document.querySelectorAll('.salario-puesto').forEach(input => {
+        const salario = parseFloat(input.value) || 0;
+        const comision = parseFloat(input.dataset.comision) || 0;
+        const ganancia = comision - salario;
+        totalSalarios += salario;
+        gananciaPuestos += ganancia;
+        input.closest('tr').querySelector('.ganancia-puesto').textContent = num(ganancia);
+        input.closest('tr').querySelector('.ganancia-puesto').className = 'ganancia-puesto' + (ganancia < 0 ? ' negativo' : '');
+    });
+
+    document.querySelector('.totales-salario').textContent = num(totalSalarios);
+    document.querySelector('.totales-ganancia-puestos').textContent = num(gananciaPuestos);
+    document.querySelector('.totales-ganancia-puestos').className = 'totales-ganancia-puestos' + (gananciaPuestos < 0 ? ' negativo' : '');
+
+    const gananciaFinal = gananciaListas - oficina + gananciaPuestos;
+    const el = document.getElementById('gananciaFinal');
+    el.textContent = (gananciaFinal < 0 ? '⚠️ Pérdida del día: ' : '✅ Ganancia del día: ') + num(gananciaFinal);
+    el.className = 'ganancia-final' + (gananciaFinal < 0 ? ' negativo' : '');
+}
+
+saveBtn.addEventListener('click', async function() {
+    const fecha = fechaInput.value;
+    const registros = [];
+
+    const oficinaInput = document.getElementById('oficinaInput');
+    registros.push({
+        id: oficinaInput.dataset.id ? parseInt(oficinaInput.dataset.id) : null,
+        concepto: 'Oficina',
+        categoria: 'oficina',
+        vendedor_id: null,
+        monto: parseFloat(oficinaInput.value) || 0
+    });
+
+    document.querySelectorAll('.salario-puesto').forEach(input => {
+        registros.push({
+            id: input.dataset.id ? parseInt(input.dataset.id) : null,
+            concepto: `Salario ${input.dataset.nombre}`,
+            categoria: 'salario_puesto',
+            vendedor_id: parseInt(input.dataset.vendedorId),
+            monto: parseFloat(input.value) || 0
+        });
+    });
+
+    this.disabled = true;
+    this.textContent = '⏳ Guardando...';
+
+    try {
+        const response = await fetch(`${WORKER_URL}/api/gastos?pw=${encodeURIComponent(APP_PASSWORD)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fecha, registros })
+        });
+        const result = await response.json();
+
+        if (response.ok && result.ok) {
+            statusEl.innerHTML = `<div class="status success">✅ Gastos guardados correctamente</div>`;
+            await cargarReporte();
+        } else {
+            throw new Error(result.error || 'Error al guardar');
+        }
+    } catch (error) {
+        statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
+    } finally {
+        this.disabled = false;
+        this.textContent = '💾 Guardar gastos';
+    }
+});
+
+fechaInput.addEventListener('change', cargarReporte);
+cargarReporte();
+</script>
+</body>
+</html>
