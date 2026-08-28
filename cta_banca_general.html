@@ -4,10 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cuentas con la Banca</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     body { font-family: Arial, sans-serif; background:#f5f5f5; padding:15px; }
-    .container { max-width:1000px; margin:0 auto; background:white; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.1); overflow:hidden; }
+    .container { max-width:700px; margin:0 auto; background:white; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.1); overflow:hidden; }
     .header { background:#2c3e50; color:white; padding:15px 20px; text-align:center; position:relative; }
     .header h1 { font-size:1.4em; }
     .btn-menu {
@@ -20,57 +21,37 @@
     .field { display:flex; flex-direction:column; gap:5px; }
     .field label { font-weight:bold; font-size:13px; color:#2c3e50; }
     .field input { padding:10px; border:2px solid #3498db; border-radius:5px; font-size:15px; }
+    .botones-accion { display:flex; gap:10px; }
     #saveBtn { padding:10px 20px; background:#27ae60; color:white; border:none; border-radius:5px; font-size:14px; cursor:pointer; font-weight:bold; }
     #saveBtn:hover { background:#219150; }
-    #saveBtn:disabled { background:#95a5a6; cursor:not-allowed; }
+    #exportBtn { padding:10px 20px; background:#3498db; color:white; border:none; border-radius:5px; font-size:14px; cursor:pointer; font-weight:bold; }
+    #exportBtn:hover { background:#2980b9; }
+    #saveBtn:disabled, #exportBtn:disabled { background:#95a5a6; cursor:not-allowed; }
     .status { padding:10px 20px; font-size:14px; }
     .status.success { background:#eafaf1; color:#27ae60; }
     .status.error { background:#fdecea; color:#c0392b; }
     .status.loading { background:#eaf2fa; color:#2980b9; }
-    .contenido { padding:20px; display:flex; gap:20px; flex-wrap:wrap; }
-    .col-izquierda { flex: 2; min-width:320px; }
-    .col-derecha { flex: 1; min-width:260px; }
+    .contenido { padding:20px; }
     .placeholder { text-align:center; color:#7f8c8d; padding:40px; }
-    table { border-collapse: collapse; width:100%; font-size:13px; }
+    .seccion-titulo { background:#2c3e50; color:white; padding:8px 12px; font-weight:bold; font-size:14px; margin-bottom:0; border-radius:6px 6px 0 0; }
+    table { border-collapse: collapse; width:100%; font-size:13px; margin-bottom:20px; }
     th, td { border:1px solid #ddd; padding:8px; text-align:right; white-space:nowrap; }
     th:first-child, td:first-child { text-align:left; }
     th { background-color:#3498db; color:white; font-weight:bold; }
     tr.fila-totales { background-color:#fdf6e3; font-weight:bold; }
     td.negativo { color:#c0392b; }
 
-    .caja {
-        border: 2px solid #bdc3c7;
-        border-radius: 6px;
-        padding: 12px;
-        margin-bottom: 12px;
-        text-align: center;
-    }
-    .caja label {
-        display: block;
-        font-weight: bold;
-        color: #2c3e50;
-        font-size: 13px;
-        margin-bottom: 6px;
-    }
-    .caja input {
+    .tabla-resumen td:first-child { font-weight:bold; color:#2c3e50; width:60%; }
+    .tabla-resumen td input {
         width: 100%;
-        padding: 8px;
-        text-align: center;
-        font-size: 15px;
+        padding: 6px 8px;
         border: 1px solid #bdc3c7;
         border-radius: 4px;
+        text-align: right;
+        font-size: 13px;
     }
-    .caja.calculada {
-        background: #fdf6e3;
-        border-color: #e0c060;
-    }
-    .caja.calculada .valor {
-        font-size: 1.2em;
-        font-weight: bold;
-        color: #2c3e50;
-    }
-    .caja.calculada .valor.negativo { color: #c0392b; }
-    .caja.calculada .valor.ok { color: #27ae60; }
+    .tabla-resumen tr.calculada { background:#fdf6e3; }
+    .tabla-resumen tr.calculada td:last-child { font-weight:bold; }
 
     .comparacion {
         margin-top: 15px;
@@ -96,7 +77,10 @@
             <label>Fecha</label>
             <input type="date" id="fechaInput">
         </div>
-        <button id="saveBtn">💾 Guardar</button>
+        <div class="botones-accion">
+            <button id="saveBtn">💾 Guardar</button>
+            <button id="exportBtn" disabled>📷 Exportar imagen</button>
+        </div>
     </div>
 
     <div id="statusMsg"></div>
@@ -116,6 +100,7 @@ const fechaInput = document.getElementById('fechaInput');
 const statusEl = document.getElementById('statusMsg');
 const contenidoEl = document.getElementById('contenido');
 const saveBtn = document.getElementById('saveBtn');
+const exportBtn = document.getElementById('exportBtn');
 
 fechaInput.value = new Date().toISOString().split('T')[0];
 
@@ -129,6 +114,7 @@ async function cargarReporte() {
 
     statusEl.innerHTML = '<div class="status loading">⏳ Cargando...</div>';
     saveBtn.disabled = true;
+    exportBtn.disabled = true;
 
     try {
         const response = await fetch(`${WORKER_URL}/api/cta-banca?fecha=${fecha}&pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' });
@@ -138,6 +124,7 @@ async function cargarReporte() {
         renderizar(data);
         statusEl.innerHTML = '';
         saveBtn.disabled = false;
+        exportBtn.disabled = false;
     } catch (error) {
         statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
         contenidoEl.innerHTML = '';
@@ -149,9 +136,9 @@ function renderizar(data) {
     const registro = data.registroHoy || { banca_tica: 0, banca_nica: 0, banca_reventado: 0, banca_extranjeras: 0, abonos: 0 };
     const saldoAntes = data.saldoAntes || 0;
 
-    // ===== Tabla izquierda: nuestro cálculo por grupo =====
+    // ===== Tabla: nuestro cálculo por grupo =====
     let totalNuestro = 0;
-    let htmlTabla = '<table><thead><tr><th>Sorteo</th><th>Venta</th><th>Comisión</th><th>Premio</th><th>Total</th></tr></thead><tbody>';
+    let htmlTabla = '<div class="seccion-titulo">NUESTRO CÁLCULO</div><table><thead><tr><th>Sorteo</th><th>Venta</th><th>Comisión</th><th>Premio</th><th>Total</th></tr></thead><tbody>';
 
     nuestro.forEach(r => {
         const total = r.venta - r.comision - r.premio;
@@ -170,44 +157,20 @@ function renderizar(data) {
         <td class="${totalNuestro < 0 ? 'negativo' : ''}">${num(totalNuestro)}</td>
     </tr></tbody></table>`;
 
-    // ===== Columna derecha: reconciliación =====
-    let htmlDerecha = `
-        <div class="caja">
-            <label>Tica (reportado por banca)</label>
-            <input type="number" id="bancaTica" value="${registro.banca_tica}">
-        </div>
-        <div class="caja">
-            <label>Nica (reportado por banca)</label>
-            <input type="number" id="bancaNica" value="${registro.banca_nica}">
-        </div>
-        <div class="caja">
-            <label>Reventado (reportado por banca)</label>
-            <input type="number" id="bancaReventado" value="${registro.banca_reventado}">
-        </div>
-        <div class="caja">
-            <label>Extranjeras (Primera+Honduras+Dominicana+Panameña)</label>
-            <input type="number" id="bancaExtranjeras" value="${registro.banca_extranjeras}">
-        </div>
-        <div class="caja">
-            <label>Abonos (negativo si pagamos, positivo si la banca nos da)</label>
-            <input type="number" id="abonosInput" value="${registro.abonos}">
-        </div>
-        <div class="caja">
-            <label>Saldo antes (día anterior — corrígelo si hace falta)</label>
-            <input type="number" id="saldoAntesInput" value="${saldoAntes}">
-        </div>
-        <div class="caja calculada">
-            <label>Cta Banca (delta de hoy)</label>
-            <div class="valor" id="ctaBancaValor"></div>
-        </div>
-        <div class="caja calculada">
-            <label>Saldo (Acá)</label>
-            <div class="valor" id="saldoValor"></div>
-        </div>
-        <div class="comparacion" id="comparacionBox"></div>
-    `;
+    // ===== Tabla resumen con la banca (editable) =====
+    let htmlResumen = '<div class="seccion-titulo">RECONCILIACIÓN CON LA BANCA</div><table class="tabla-resumen"><tbody>' +
+        `<tr><td>Tica (reportado por banca)</td><td><input type="number" id="bancaTica" value="${registro.banca_tica}"></td></tr>` +
+        `<tr><td>Nica (reportado por banca)</td><td><input type="number" id="bancaNica" value="${registro.banca_nica}"></td></tr>` +
+        `<tr><td>Reventado (reportado por banca)</td><td><input type="number" id="bancaReventado" value="${registro.banca_reventado}"></td></tr>` +
+        `<tr><td>Extranjeras (Primera+Honduras+Dominicana+Panameña)</td><td><input type="number" id="bancaExtranjeras" value="${registro.banca_extranjeras}"></td></tr>` +
+        `<tr><td>Abonos (− si pagamos, + si la banca nos da)</td><td><input type="number" id="abonosInput" value="${registro.abonos}"></td></tr>` +
+        `<tr><td>Saldo antes (día anterior)</td><td><input type="number" id="saldoAntesInput" value="${saldoAntes}"></td></tr>` +
+        `<tr class="calculada"><td>Cta Banca (delta de hoy)</td><td id="ctaBancaValor"></td></tr>` +
+        `<tr class="calculada"><td>Saldo (Acá)</td><td id="saldoValor"></td></tr>` +
+        '</tbody></table>' +
+        '<div class="comparacion" id="comparacionBox"></div>';
 
-    contenidoEl.innerHTML = `<div class="col-izquierda">${htmlTabla}</div><div class="col-derecha">${htmlDerecha}</div>`;
+    contenidoEl.innerHTML = htmlTabla + htmlResumen;
     contenidoEl.dataset.totalNuestro = totalNuestro;
 
     ['bancaTica', 'bancaNica', 'bancaReventado', 'bancaExtranjeras', 'abonosInput', 'saldoAntesInput'].forEach(id => {
@@ -233,10 +196,9 @@ function recalcular() {
 
     const ctaBancaEl = document.getElementById('ctaBancaValor');
     ctaBancaEl.textContent = num(ctaBanca);
-    ctaBancaEl.className = 'valor' + (ctaBanca < 0 ? ' negativo' : '');
+    ctaBancaEl.className = ctaBanca < 0 ? 'negativo' : '';
 
-    const saldoEl = document.getElementById('saldoValor');
-    saldoEl.textContent = num(saldo);
+    document.getElementById('saldoValor').textContent = num(saldo);
 
     const comparacionBox = document.getElementById('comparacionBox');
     const diferencia = Math.round((totalNuestro - ctaBanca) * 100) / 100;
@@ -283,6 +245,76 @@ saveBtn.addEventListener('click', async function() {
     } finally {
         this.disabled = false;
         this.textContent = '💾 Guardar';
+    }
+});
+
+// ===== Exportar como imagen =====
+exportBtn.addEventListener('click', async function() {
+    if (!contenidoEl.querySelector('table')) {
+        statusEl.innerHTML = '<div class="status error">⚠️ No hay nada para exportar</div>';
+        return;
+    }
+
+    this.disabled = true;
+    this.textContent = '⏳ Generando imagen...';
+
+    try {
+        const clone = contenidoEl.cloneNode(true);
+
+        // Convertir los inputs en texto plano para que se vea limpio en la imagen
+        clone.querySelectorAll('input').forEach(input => {
+            const span = document.createElement('div');
+            span.textContent = num(parseFloat(input.value) || 0);
+            span.style.padding = '4px 0';
+            span.style.fontWeight = 'bold';
+            input.replaceWith(span);
+        });
+
+        const wrapper = document.createElement('div');
+        wrapper.style.position = 'fixed';
+        wrapper.style.top = '0';
+        wrapper.style.left = '-100000px';
+        wrapper.style.background = '#ffffff';
+        wrapper.style.padding = '15px';
+        wrapper.style.width = '650px';
+        wrapper.style.fontFamily = 'Arial, sans-serif';
+
+        const titleEl = document.createElement('div');
+        titleEl.style.fontWeight = 'bold';
+        titleEl.style.fontSize = '18px';
+        titleEl.style.color = '#2c3e50';
+        titleEl.style.marginBottom = '12px';
+        titleEl.textContent = `Cuentas con la Banca — ${fechaInput.value}`;
+        wrapper.appendChild(titleEl);
+        wrapper.appendChild(clone);
+        document.body.appendChild(wrapper);
+
+        await new Promise(resolve => requestAnimationFrame(resolve));
+
+        const canvas = await html2canvas(wrapper, { backgroundColor: '#ffffff', scale: 2 });
+        document.body.removeChild(wrapper);
+
+        canvas.toBlob(async (blob) => {
+            const fileName = `Cuentas Banca ${fechaInput.value}.png`;
+            const filesArray = [new File([blob], fileName, { type: 'image/png' })];
+
+            if (navigator.canShare && navigator.canShare({ files: filesArray })) {
+                try { await navigator.share({ files: filesArray, title: fileName }); } catch (e) {}
+            } else {
+                const link = document.createElement('a');
+                link.download = fileName;
+                link.href = URL.createObjectURL(blob);
+                link.click();
+            }
+
+            this.disabled = false;
+            this.textContent = '📷 Exportar imagen';
+        }, 'image/png');
+
+    } catch (error) {
+        statusEl.innerHTML = `<div class="status error">⚠️ Error al generar la imagen: ${error.message}</div>`;
+        this.disabled = false;
+        this.textContent = '📷 Exportar imagen';
     }
 });
 

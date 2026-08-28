@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Reporte de Ganancias</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     body { font-family: Arial, sans-serif; background:#f5f5f5; padding:15px; }
@@ -23,6 +24,9 @@
     #saveBtn { padding:10px 20px; background:#27ae60; color:white; border:none; border-radius:5px; font-size:14px; cursor:pointer; font-weight:bold; }
     #saveBtn:hover { background:#219150; }
     #saveBtn:disabled { background:#95a5a6; cursor:not-allowed; }
+    #exportBtn { padding:10px 20px; background:#3498db; color:white; border:none; border-radius:5px; font-size:14px; cursor:pointer; font-weight:bold; }
+    #exportBtn:hover { background:#2980b9; }
+    #exportBtn:disabled { background:#95a5a6; cursor:not-allowed; }
     .status { padding:10px 20px; font-size:14px; }
     .status.success { background:#eafaf1; color:#27ae60; }
     .status.error { background:#fdecea; color:#c0392b; }
@@ -81,6 +85,7 @@
             <input type="date" id="fechaInput">
         </div>
         <button id="saveBtn">💾 Guardar gastos</button>
+        <button id="exportBtn" disabled>📷 Exportar imagen</button>
     </div>
 
     <div id="statusMsg"></div>
@@ -100,6 +105,7 @@ const fechaInput = document.getElementById('fechaInput');
 const statusEl = document.getElementById('statusMsg');
 const contenidoEl = document.getElementById('contenido');
 const saveBtn = document.getElementById('saveBtn');
+const exportBtn = document.getElementById('exportBtn');
 
 fechaInput.value = new Date().toISOString().split('T')[0];
 
@@ -134,6 +140,7 @@ async function cargarReporte() {
         renderizarReporte();
         statusEl.innerHTML = '';
         saveBtn.disabled = false;
+        exportBtn.disabled = false;
 
     } catch (error) {
         statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
@@ -330,6 +337,76 @@ saveBtn.addEventListener('click', async function() {
 
 fechaInput.addEventListener('change', cargarReporte);
 cargarReporte();
+
+// ===== Exportar como imagen =====
+exportBtn.addEventListener('click', async function() {
+    if (!contenidoEl.querySelector('table')) {
+        statusEl.innerHTML = '<div class="status error">⚠️ No hay nada para exportar</div>';
+        return;
+    }
+
+    this.disabled = true;
+    this.textContent = '⏳ Generando imagen...';
+
+    try {
+        const clone = contenidoEl.cloneNode(true);
+
+        // Convertir los inputs editables (oficina, salarios) en texto plano para la imagen
+        clone.querySelectorAll('input').forEach(input => {
+            const div = document.createElement('div');
+            div.textContent = num(parseFloat(input.value) || 0);
+            div.style.fontWeight = 'bold';
+            div.style.textAlign = 'right';
+            input.replaceWith(div);
+        });
+
+        const wrapper = document.createElement('div');
+        wrapper.style.position = 'fixed';
+        wrapper.style.top = '0';
+        wrapper.style.left = '-100000px';
+        wrapper.style.background = '#ffffff';
+        wrapper.style.padding = '15px';
+        wrapper.style.width = '700px';
+        wrapper.style.fontFamily = 'Arial, sans-serif';
+
+        const titleEl = document.createElement('div');
+        titleEl.style.fontWeight = 'bold';
+        titleEl.style.fontSize = '18px';
+        titleEl.style.color = '#2c3e50';
+        titleEl.style.marginBottom = '12px';
+        titleEl.textContent = `Reporte de Ganancias — ${fechaInput.value}`;
+        wrapper.appendChild(titleEl);
+        wrapper.appendChild(clone);
+        document.body.appendChild(wrapper);
+
+        await new Promise(resolve => requestAnimationFrame(resolve));
+
+        const canvas = await html2canvas(wrapper, { backgroundColor: '#ffffff', scale: 2 });
+        document.body.removeChild(wrapper);
+
+        canvas.toBlob(async (blob) => {
+            const fileName = `Ganancias ${fechaInput.value}.png`;
+            const filesArray = [new File([blob], fileName, { type: 'image/png' })];
+
+            if (navigator.canShare && navigator.canShare({ files: filesArray })) {
+                try { await navigator.share({ files: filesArray, title: fileName }); } catch (e) {}
+            } else {
+                const link = document.createElement('a');
+                link.download = fileName;
+                link.href = URL.createObjectURL(blob);
+                link.click();
+            }
+
+            this.disabled = false;
+            this.textContent = '📷 Exportar imagen';
+        }, 'image/png');
+
+    } catch (error) {
+        statusEl.innerHTML = `<div class="status error">⚠️ Error al generar la imagen: ${error.message}</div>`;
+        this.disabled = false;
+        this.textContent = '📷 Exportar imagen';
+    }
+});
 </script>
 </body>
 </html>
