@@ -183,7 +183,7 @@ const fechaInput = document.getElementById('fechaInput');
 const statusEl = document.getElementById('statusMsg');
 const bolitaField = document.getElementById('bolitaField');
 const bolitaSelect = document.getElementById('bolitaSelect');
-fechaInput.value = new Date().toISOString().split('T')[0];
+fechaInput.value = new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0');
 
 // ===== Editor personalizado: permite moverse entre celdas con las flechas del teclado =====
 function editorConFlechas(cell, onRendered, success, cancel) {
@@ -423,8 +423,218 @@ function recalcularTotales(datosOverride) {
         totalPremio += ventaPremio * row.multiplicador;
     });
 
-    document.getElementById('totalVenta').textContent = 'C$' + totalVenta.toLocaleString('es-NI', {minimumFractionDigits:2});
-    document.getElementById('totalPremio').textContent = 'C$' + totalPremio.toLocaleString('es-NI', {minimumFractionDigits:2});
+    document.getElementById('totalVenta').textContent = 'C
+}
+
+sorteoSelect.addEventListener('change', cargarTabla);
+fechaInput.addEventListener('change', cargarTabla);
+
+// ===== Al cambiar la bolita: ajustar el multiplicador de todas las filas =====
+bolitaSelect.addEventListener('change', function() {
+    bolitaSeleccionadaId = this.value;
+    if (!table) return;
+
+    const bolitaActual = BOLITAS.find(b => b.id == bolitaSeleccionadaId);
+    if (!bolitaActual) return;
+
+    table.getRows().forEach(row => {
+        row.update({ multiplicador: bolitaActual.multiplicador_vendedor });
+    });
+
+    recalcularTotales();
+});
+
+// ===== Ventana de confirmación antes de sustituir datos ya guardados =====
+function confirmarSobrescritura() {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('confirmModal');
+        const okBtn = document.getElementById('confirmOkBtn');
+        const cancelBtn = document.getElementById('confirmCancelBtn');
+
+        modal.style.display = 'flex';
+
+        function limpiar(resultado) {
+            modal.style.display = 'none';
+            okBtn.removeEventListener('click', onOk);
+            cancelBtn.removeEventListener('click', onCancel);
+            resolve(resultado);
+        }
+        function onOk() { limpiar(true); }
+        function onCancel() { limpiar(false); }
+
+        okBtn.addEventListener('click', onOk);
+        cancelBtn.addEventListener('click', onCancel);
+    });
+}
+
+document.getElementById('saveBtn').addEventListener('click', async function() {
+    const data = table.getData();
+    const hayDatosExistentes = data.some(row => row.id);
+
+    if (hayDatosExistentes) {
+        const confirmado = await confirmarSobrescritura();
+        if (!confirmado) return;
+    }
+
+    const sorteoId = sorteoSelect.value;
+    const fecha = fechaInput.value;
+    const numeroGanador = document.getElementById('numeroGanador').value;
+    const btn = this;
+
+    const bolitaActual = BOLITAS.find(b => b.id == bolitaSeleccionadaId);
+
+    const registros = data.map(row => ({
+        id: row.id || null,
+        vendedor_id: row.vendedor_id,
+        monto_venta_total: row.venta,
+        monto_venta_numero_ganador: row.venta_premio,
+        comision_vendedor_pct: row.comision_pct,
+        multiplicador_vendedor_premio: row.multiplicador,
+        multiplicador_banca_premio: esReventadoActual && bolitaActual ? bolitaActual.multiplicador_banca : null
+    }));
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Guardando...';
+
+    try {
+        const response = await fetch(`${WORKER_URL}/api/ventas?pw=${encodeURIComponent(APP_PASSWORD)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sorteo_id: sorteoId,
+                fecha: fecha,
+                numero_ganador: numeroGanador,
+                registros: registros
+            })
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.ok) {
+            statusEl.innerHTML = `<div class="status success">✅ Se guardaron ${result.procesados} registros correctamente</div>`;
+            await cargarTabla();
+        } else {
+            throw new Error(result.error || 'Error desconocido al guardar');
+        }
+    } catch (error) {
+        statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 Guardar ventas del día';
+    }
+});
+
+// Inicializar
+cargarSorteos();
+</script>
+</body>
+</html> + totalVenta.toLocaleString('es-CR', {minimumFractionDigits:2});
+    document.getElementById('totalPremio').textContent = 'C
+}
+
+sorteoSelect.addEventListener('change', cargarTabla);
+fechaInput.addEventListener('change', cargarTabla);
+
+// ===== Al cambiar la bolita: ajustar el multiplicador de todas las filas =====
+bolitaSelect.addEventListener('change', function() {
+    bolitaSeleccionadaId = this.value;
+    if (!table) return;
+
+    const bolitaActual = BOLITAS.find(b => b.id == bolitaSeleccionadaId);
+    if (!bolitaActual) return;
+
+    table.getRows().forEach(row => {
+        row.update({ multiplicador: bolitaActual.multiplicador_vendedor });
+    });
+
+    recalcularTotales();
+});
+
+// ===== Ventana de confirmación antes de sustituir datos ya guardados =====
+function confirmarSobrescritura() {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('confirmModal');
+        const okBtn = document.getElementById('confirmOkBtn');
+        const cancelBtn = document.getElementById('confirmCancelBtn');
+
+        modal.style.display = 'flex';
+
+        function limpiar(resultado) {
+            modal.style.display = 'none';
+            okBtn.removeEventListener('click', onOk);
+            cancelBtn.removeEventListener('click', onCancel);
+            resolve(resultado);
+        }
+        function onOk() { limpiar(true); }
+        function onCancel() { limpiar(false); }
+
+        okBtn.addEventListener('click', onOk);
+        cancelBtn.addEventListener('click', onCancel);
+    });
+}
+
+document.getElementById('saveBtn').addEventListener('click', async function() {
+    const data = table.getData();
+    const hayDatosExistentes = data.some(row => row.id);
+
+    if (hayDatosExistentes) {
+        const confirmado = await confirmarSobrescritura();
+        if (!confirmado) return;
+    }
+
+    const sorteoId = sorteoSelect.value;
+    const fecha = fechaInput.value;
+    const numeroGanador = document.getElementById('numeroGanador').value;
+    const btn = this;
+
+    const bolitaActual = BOLITAS.find(b => b.id == bolitaSeleccionadaId);
+
+    const registros = data.map(row => ({
+        id: row.id || null,
+        vendedor_id: row.vendedor_id,
+        monto_venta_total: row.venta,
+        monto_venta_numero_ganador: row.venta_premio,
+        comision_vendedor_pct: row.comision_pct,
+        multiplicador_vendedor_premio: row.multiplicador,
+        multiplicador_banca_premio: esReventadoActual && bolitaActual ? bolitaActual.multiplicador_banca : null
+    }));
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Guardando...';
+
+    try {
+        const response = await fetch(`${WORKER_URL}/api/ventas?pw=${encodeURIComponent(APP_PASSWORD)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sorteo_id: sorteoId,
+                fecha: fecha,
+                numero_ganador: numeroGanador,
+                registros: registros
+            })
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.ok) {
+            statusEl.innerHTML = `<div class="status success">✅ Se guardaron ${result.procesados} registros correctamente</div>`;
+            await cargarTabla();
+        } else {
+            throw new Error(result.error || 'Error desconocido al guardar');
+        }
+    } catch (error) {
+        statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 Guardar ventas del día';
+    }
+});
+
+// Inicializar
+cargarSorteos();
+</script>
+</body>
+</html> + totalPremio.toLocaleString('es-CR', {minimumFractionDigits:2});
 }
 
 sorteoSelect.addEventListener('change', cargarTabla);

@@ -102,10 +102,10 @@ const contenidoEl = document.getElementById('contenido');
 const saveBtn = document.getElementById('saveBtn');
 const exportBtn = document.getElementById('exportBtn');
 
-fechaInput.value = new Date().toISOString().split('T')[0];
+fechaInput.value = new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0');
 
 function num(n) {
-    return (n || 0).toLocaleString('es-NI', { minimumFractionDigits: 2 });
+    return (n || 0).toLocaleString('es-CR', { minimumFractionDigits: 2 });
 }
 
 async function cargarReporte() {

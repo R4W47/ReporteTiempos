@@ -99,7 +99,7 @@ if (TIPO === 'mensual') {
         <input type="month" id="fechaInput" value="${valorDefault}">
     `;
 } else {
-    const valorDefault = new Date().toISOString().split('T')[0];
+    const valorDefault = new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0');
     fechaField.innerHTML = `
         <label>Fecha</label>
         <input type="date" id="fechaInput" value="${valorDefault}">
@@ -181,7 +181,7 @@ async function cargarReporte() {
 }
 
 function formatoMoneda(n) {
-    return (n || 0).toLocaleString('es-NI', { minimumFractionDigits: 2 });
+    return (n || 0).toLocaleString('es-CR', { minimumFractionDigits: 2 });
 }
 
 // Si un vendedor tiene más de una "lista" para el mismo sorteo ese día,
