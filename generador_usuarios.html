@@ -6,53 +6,35 @@
 <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     body { font-family: Arial, sans-serif; background:#f5f5f5; padding:20px; }
-    .container { max-width:600px; margin:0 auto; background:white; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.1); padding:25px; }
-    h1 { color:#2c3e50; font-size:1.3em; margin-bottom:20px; }
-    .field { margin-bottom:15px; }
-    label { display:block; font-weight:bold; color:#2c3e50; margin-bottom:5px; font-size:14px; }
-    input, select { width:100%; padding:10px; border:2px solid #3498db; border-radius:5px; font-size:15px; }
-    button { padding:12px 25px; background:#27ae60; color:white; border:none; border-radius:5px; font-size:15px; font-weight:bold; cursor:pointer; margin-top:10px; }
+    .container { max-width:700px; margin:0 auto; background:white; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.1); padding:25px; }
+    h1 { color:#2c3e50; font-size:1.3em; margin-bottom:15px; }
+    .aviso { background:#fff8e1; color:#8a6d00; padding:12px; border-radius:5px; font-size:13px; margin-bottom:20px; }
+    label { display:block; font-weight:bold; color:#2c3e50; margin-bottom:8px; font-size:14px; }
+    textarea { width:100%; min-height:180px; padding:10px; font-family:monospace; font-size:14px; border:2px solid #3498db; border-radius:5px; }
+    button { padding:12px 25px; background:#27ae60; color:white; border:none; border-radius:5px; font-size:15px; font-weight:bold; cursor:pointer; margin-top:12px; }
     button:hover { background:#219150; }
     #resultado { margin-top:20px; }
-    textarea { width:100%; min-height:80px; padding:10px; font-family:monospace; font-size:13px; border:2px solid #bdc3c7; border-radius:5px; }
-    .aviso { background:#fff8e1; color:#8a6d00; padding:12px; border-radius:5px; font-size:13px; margin-bottom:20px; }
+    #resultado textarea { min-height:250px; border-color:#bdc3c7; }
+    .error { color:#c0392b; font-size:13px; margin-top:8px; }
 </style>
 </head>
 <body>
 <div class="container">
-    <h1>🔑 Generador de usuarios (uso interno, no subir al sitio público)</h1>
-    <div class="aviso">Esta página solo sirve para generar el SQL de un usuario nuevo. Úsala en tu computadora, cópiale el resultado, y no hace falta subirla a ningún repositorio.</div>
+    <h1>🔑 Generador masivo de usuarios (uso interno)</h1>
+    <div class="aviso">Pega abajo el mismo formato de tu usuarios.txt (una línea por usuario: usuario,contraseña,rol,nombreVendedor — deja el 4to campo vacío si el rol es "general" o "captura"). Roles válidos: general, vendedor, captura. Esta página no se sube a ningún repositorio, solo la usas en tu computadora.</div>
 
-    <div class="field">
-        <label>Usuario</label>
-        <input type="text" id="username" placeholder="ej. admin">
-    </div>
-    <div class="field">
-        <label>Contraseña</label>
-        <input type="text" id="password" placeholder="ej. clave123">
-    </div>
-    <div class="field">
-        <label>Rol</label>
-        <select id="rol">
-            <option value="general">general</option>
-            <option value="vendedor">vendedor</option>
-        </select>
-    </div>
-    <div class="field" id="vendedorField" style="display:none;">
-        <label>Nombre del vendedor (tal como está en la tabla vendedores)</label>
-        <input type="text" id="vendedorNombre" placeholder="ej. Yoyo">
-    </div>
+    <label>Pega tus líneas aquí:</label>
+    <textarea id="entrada" placeholder="admin,4179,general,
+yoyo,Prueba,vendedor,Yoyo
+Puesto2,Roycito,vendedor,Puesto 2"></textarea>
 
-    <button id="generarBtn">Generar SQL</button>
+    <button id="generarBtn">Generar todos los INSERT</button>
+    <div id="errores"></div>
 
     <div id="resultado"></div>
 </div>
 
 <script>
-document.getElementById('rol').addEventListener('change', function() {
-    document.getElementById('vendedorField').style.display = this.value === 'vendedor' ? 'block' : 'none';
-});
-
 function bytesToHex(bytes) {
     return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
 }
@@ -84,27 +66,56 @@ async function hashPassword(password, saltHex) {
     return bytesToHex(new Uint8Array(derivedBits));
 }
 
-document.getElementById('generarBtn').addEventListener('click', async function() {
-    const username = document.getElementById('username').value.trim();
-    const password = document.getElementById('password').value;
-    const rol = document.getElementById('rol').value;
-    const vendedorNombre = document.getElementById('vendedorNombre').value.trim();
+function escaparSql(texto) {
+    return (texto || '').replace(/'/g, "''");
+}
 
-    if (!username || !password) {
-        alert('Escribe usuario y contraseña');
+document.getElementById('generarBtn').addEventListener('click', async function() {
+    const texto = document.getElementById('entrada').value.trim();
+    const erroresEl = document.getElementById('errores');
+    const resultadoEl = document.getElementById('resultado');
+    erroresEl.innerHTML = '';
+    resultadoEl.innerHTML = '';
+
+    if (!texto) {
+        erroresEl.innerHTML = '<div class="error">Pega al menos una línea</div>';
         return;
     }
 
-    const salt = generarSaltHex();
-    const hash = await hashPassword(password, salt);
-    const vendedorSql = rol === 'vendedor' ? `'${vendedorNombre.replace(/'/g, "''")}'` : 'NULL';
+    const lineas = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    const inserts = [];
+    const errores = [];
 
-    const sql = `INSERT INTO usuarios (username, password_hash, password_salt, rol, vendedor_nombre, activo) VALUES ('${username.replace(/'/g, "''")}', '${hash}', '${salt}', '${rol}', ${vendedorSql}, 1);`;
+    for (const linea of lineas) {
+        const partes = linea.split(',').map(p => p.trim());
+        const [username, password, rol, vendedorNombre] = partes;
 
-    document.getElementById('resultado').innerHTML = `
-        <label style="display:block; font-weight:bold; margin-bottom:5px;">SQL generado (cópialo y ejecútalo con wrangler):</label>
-        <textarea readonly onclick="this.select()">${sql}</textarea>
-    `;
+        if (!username || !password || !rol) {
+            errores.push(`Línea inválida (falta usuario, contraseña o rol): "${linea}"`);
+            continue;
+        }
+        if (rol !== 'general' && rol !== 'vendedor' && rol !== 'captura') {
+            errores.push(`Rol no reconocido en: "${linea}" (debe ser "general", "vendedor" o "captura")`);
+            continue;
+        }
+
+        const salt = generarSaltHex();
+        const hash = await hashPassword(password, salt);
+        const vendedorSql = rol === 'vendedor' ? `'${escaparSql(vendedorNombre)}'` : 'NULL';
+
+        inserts.push(`INSERT INTO usuarios (username, password_hash, password_salt, rol, vendedor_nombre, activo) VALUES ('${escaparSql(username)}', '${hash}', '${salt}', '${rol}', ${vendedorSql}, 1);`);
+    }
+
+    if (errores.length > 0) {
+        erroresEl.innerHTML = errores.map(e => `<div class="error">⚠️ ${e}</div>`).join('');
+    }
+
+    if (inserts.length > 0) {
+        resultadoEl.innerHTML = `
+            <label>SQL generado (${inserts.length} usuario${inserts.length > 1 ? 's' : ''}) — cópialo y ejecútalo con wrangler:</label>
+            <textarea readonly onclick="this.select()">${inserts.join('\n')}</textarea>
+        `;
+    }
 });
 </script>
 </body>
