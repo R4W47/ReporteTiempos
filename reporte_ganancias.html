@@ -199,10 +199,10 @@ function renderizarReporte() {
     </div>`;
 
     // ===== Tabla de PUESTOS =====
-    let totalesPuestos = { venta: 0, comision_recibir: 0, salario: 0, ganancia: 0 };
+    let totalesPuestos = { venta: 0, comision_recibir: 0, premio_pagar: 0, premio_recibir: 0, salario: 0, ganancia: 0 };
 
     let htmlPuestos = '<div class="seccion-titulo">PUESTOS</div><table><thead><tr>' +
-        '<th>Puesto</th><th>Venta</th><th>Comisión Recibir</th><th>Salario</th><th>Ganancia</th>' +
+        '<th>Puesto</th><th>Venta</th><th>Comisión Recibir</th><th>Premio Pagar</th><th>Premio Recibir</th><th>Salario</th><th>Ganancia</th>' +
         '</tr></thead><tbody>';
 
     puestosData.forEach(r => {
@@ -212,13 +212,17 @@ function renderizarReporte() {
 
         totalesPuestos.venta += r.venta;
         totalesPuestos.comision_recibir += r.comision_recibir;
+        totalesPuestos.premio_pagar += r.premio_pagar;
+        totalesPuestos.premio_recibir += r.premio_recibir;
         totalesPuestos.salario += salarioDefault;
 
         htmlPuestos += `<tr>
             <td>${r.nombre}</td>
             <td>${num(r.venta)}</td>
             <td>${num(r.comision_recibir)}</td>
-            <td><input type="number" class="salario-puesto" data-vendedor-id="${r.vendedor_id}" data-id="${salarioId}" data-nombre="${r.nombre}" data-comision="${r.comision_recibir}" value="${salarioDefault}" min="0"></td>
+            <td>${num(r.premio_pagar)}</td>
+            <td>${num(r.premio_recibir)}</td>
+            <td><input type="number" class="salario-puesto" data-vendedor-id="${r.vendedor_id}" data-id="${salarioId}" data-nombre="${r.nombre}" data-comision="${r.comision_recibir}" data-premio-pagar="${r.premio_pagar}" data-premio-recibir="${r.premio_recibir}" value="${salarioDefault}" min="0"></td>
             <td class="ganancia-puesto"></td>
         </tr>`;
     });
@@ -227,6 +231,8 @@ function renderizarReporte() {
         <td>Totales</td>
         <td>${num(totalesPuestos.venta)}</td>
         <td>${num(totalesPuestos.comision_recibir)}</td>
+        <td>${num(totalesPuestos.premio_pagar)}</td>
+        <td>${num(totalesPuestos.premio_recibir)}</td>
         <td class="totales-salario"></td>
         <td class="totales-ganancia-puestos"></td>
     </tr></tbody></table>`;
@@ -255,7 +261,9 @@ function recalcularGananciaFinal() {
     document.querySelectorAll('.salario-puesto').forEach(input => {
         const salario = parseFloat(input.value) || 0;
         const comision = parseFloat(input.dataset.comision) || 0;
-        const ganancia = comision - salario;
+        const premioPagar = parseFloat(input.dataset.premioPagar) || 0;
+        const premioRecibir = parseFloat(input.dataset.premioRecibir) || 0;
+        const ganancia = (comision - salario) + (premioRecibir - premioPagar);
         totalSalarios += salario;
         gananciaPuestos += ganancia;
         input.closest('tr').querySelector('.ganancia-puesto').textContent = num(ganancia);
