@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Configuraciones</title>
+<style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: Arial, sans-serif; background: linear-gradient(135deg, #2c3e50, #34495e); min-height:100vh; display:flex; align-items:center; justify-content:center; padding:15px; }
+    .card { background:white; border-radius:10px; box-shadow:0 4px 20px rgba(0,0,0,0.3); padding:30px 25px; width:100%; max-width:380px; position:relative; }
+    .card h1 { text-align:center; color:#2c3e50; font-size:1.4em; margin-bottom:25px; }
+    .btn-menu {
+        position: absolute; left: 15px; top: 15px;
+        background: #ecf0f1; color: #2c3e50; border: none; border-radius: 5px;
+        padding: 6px 10px; font-size: 12px; cursor: pointer; text-decoration: none;
+    }
+    .btn-menu:hover { background: #dfe6e9; }
+    .menu-item {
+        display: block; width: 100%; padding: 16px; margin-bottom: 12px;
+        background: #ecf0f1; border: 2px solid #bdc3c7; border-radius: 8px;
+        text-decoration: none; color: #2c3e50; font-weight: bold; font-size: 15px;
+        text-align: center; transition: background 0.2s;
+    }
+    .menu-item:hover { background: #3498db; color: white; border-color: #3498db; }
+    .menu-item .icon { font-size: 1.3em; display: block; margin-bottom: 5px; }
+</style>
+</head>
+<body>
+    <div class="card">
+        <a href="#" class="btn-menu" id="btnMenu">← Menú</a>
+        <h1>⚙️ Configuraciones</h1>
+
+        <a href="generador_usuarios.html" class="menu-item">
+            <span class="icon">🔑</span>
+            Generador de Usuarios
+        </a>
+    </div>
+
+    <script>
+        const APP_PASSWORD = new URLSearchParams(window.location.search).get('pw') || '';
+        const APP_USER = new URLSearchParams(window.location.search).get('user') || '';
+        document.getElementById('btnMenu').href = `index.html?pw=${encodeURIComponent(APP_PASSWORD)}&user=${encodeURIComponent(APP_USER)}`;
+    </script>
+</body>
+</html>
