@@ -192,9 +192,9 @@ function renderizar(data) {
             <label>Abonos (negativo si pagamos, positivo si la banca nos da)</label>
             <input type="number" id="abonosInput" value="${registro.abonos}">
         </div>
-        <div class="caja calculada">
-            <label>Saldo antes (día anterior)</label>
-            <div class="valor">${num(saldoAntes)}</div>
+        <div class="caja">
+            <label>Saldo antes (día anterior — corrígelo si hace falta)</label>
+            <input type="number" id="saldoAntesInput" value="${saldoAntes}">
         </div>
         <div class="caja calculada">
             <label>Cta Banca (delta de hoy)</label>
@@ -209,9 +209,8 @@ function renderizar(data) {
 
     contenidoEl.innerHTML = `<div class="col-izquierda">${htmlTabla}</div><div class="col-derecha">${htmlDerecha}</div>`;
     contenidoEl.dataset.totalNuestro = totalNuestro;
-    contenidoEl.dataset.saldoAntes = saldoAntes;
 
-    ['bancaTica', 'bancaNica', 'bancaReventado', 'bancaExtranjeras', 'abonosInput'].forEach(id => {
+    ['bancaTica', 'bancaNica', 'bancaReventado', 'bancaExtranjeras', 'abonosInput', 'saldoAntesInput'].forEach(id => {
         document.getElementById(id).addEventListener('input', recalcular);
     });
 
@@ -224,9 +223,9 @@ function recalcular() {
     const reventado = parseFloat(document.getElementById('bancaReventado').value) || 0;
     const extranjeras = parseFloat(document.getElementById('bancaExtranjeras').value) || 0;
     const abonos = parseFloat(document.getElementById('abonosInput').value) || 0;
+    const saldoAntes = parseFloat(document.getElementById('saldoAntesInput').value) || 0;
 
     const totalBanca = tica + nica + reventado + extranjeras;
-    const saldoAntes = parseFloat(contenidoEl.dataset.saldoAntes) || 0;
     const totalNuestro = parseFloat(contenidoEl.dataset.totalNuestro) || 0;
 
     const ctaBanca = totalBanca - saldoAntes;
@@ -259,7 +258,8 @@ saveBtn.addEventListener('click', async function() {
         banca_nica: parseFloat(document.getElementById('bancaNica').value) || 0,
         banca_reventado: parseFloat(document.getElementById('bancaReventado').value) || 0,
         banca_extranjeras: parseFloat(document.getElementById('bancaExtranjeras').value) || 0,
-        abonos: parseFloat(document.getElementById('abonosInput').value) || 0
+        abonos: parseFloat(document.getElementById('abonosInput').value) || 0,
+        saldo_antes_manual: parseFloat(document.getElementById('saldoAntesInput').value) || 0
     };
 
     this.disabled = true;
