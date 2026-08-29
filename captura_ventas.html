@@ -133,8 +133,7 @@
         </div>
         <div class="field" id="bolitaField" style="display:none;">
             <label>Bolita (Reventado)</label>
-            <select id="bolitaSelect">
-            </select>
+            <select id="bolitaSelect"></select>
         </div>
     </div>
 
@@ -164,77 +163,70 @@
 </div>
 
 <script>
-// ===== CONFIGURACIÓN =====
-const WORKER_URL = 'https://frosty-base-53ff.watsonmraul.workers.dev';
-const APP_PASSWORD = new URLSearchParams(window.location.search).get('pw') || '';
-const APP_USER = new URLSearchParams(window.location.search).get('user') || '';
-document.getElementById('btnMenu').href = `index.html?pw=${encodeURIComponent(APP_PASSWORD)}&user=${encodeURIComponent(APP_USER)}`;
+var WORKER_URL = 'https://frosty-base-53ff.watsonmraul.workers.dev';
+var APP_PASSWORD = new URLSearchParams(window.location.search).get('pw') || '';
+var APP_USER = new URLSearchParams(window.location.search).get('user') || '';
+document.getElementById('btnMenu').href = 'index.html?pw=' + encodeURIComponent(APP_PASSWORD) + '&user=' + encodeURIComponent(APP_USER);
 
-let SORTEOS = [];
-let BOLITAS = [];
-let vendedoresDeEsteSorteo = [];
-let bancaConfig = null;
-let table = null;
-let esReventadoActual = false;
-let bolitaSeleccionadaId = null;
+var SORTEOS = [];
+var BOLITAS = [];
+var vendedoresDeEsteSorteo = [];
+var bancaConfig = null;
+var table = null;
+var esReventadoActual = false;
+var bolitaSeleccionadaId = null;
 
-const sorteoSelect = document.getElementById('sorteoSelect');
-const fechaInput = document.getElementById('fechaInput');
-const statusEl = document.getElementById('statusMsg');
-const bolitaField = document.getElementById('bolitaField');
-const bolitaSelect = document.getElementById('bolitaSelect');
-fechaInput.value = new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0');
+var sorteoSelect = document.getElementById('sorteoSelect');
+var fechaInput = document.getElementById('fechaInput');
+var statusEl = document.getElementById('statusMsg');
+var bolitaField = document.getElementById('bolitaField');
+var bolitaSelect = document.getElementById('bolitaSelect');
 
-// ===== Editor personalizado: permite moverse entre celdas con las flechas del teclado =====
+var hoyLocal = new Date();
+fechaInput.value = hoyLocal.getFullYear() + '-' + String(hoyLocal.getMonth() + 1).padStart(2, '0') + '-' + String(hoyLocal.getDate()).padStart(2, '0');
+
 function editorConFlechas(cell, onRendered, success, cancel) {
-    const input = document.createElement("input");
-    input.type = "number";
-    input.min = "0";
-    input.style.width = "100%";
-    input.style.height = "100%";
-    input.style.boxSizing = "border-box";
-    input.style.border = "none";
-    input.style.padding = "4px 8px";
-    input.style.fontSize = "inherit";
+    var input = document.createElement('input');
+    input.type = 'number';
+    input.min = '0';
+    input.style.width = '100%';
+    input.style.height = '100%';
+    input.style.boxSizing = 'border-box';
+    input.style.border = 'none';
+    input.style.padding = '4px 8px';
+    input.style.fontSize = 'inherit';
     input.value = cell.getValue() || 0;
 
     function confirmar() {
-        const val = parseFloat(input.value) || 0;
+        var val = parseFloat(input.value) || 0;
         success(val);
     }
 
-    input.addEventListener("blur", confirmar);
+    input.addEventListener('blur', confirmar);
 
-    input.addEventListener("keydown", function(e) {
-        switch (e.key) {
-            case "ArrowUp":
-                e.preventDefault();
-                confirmar();
-                setTimeout(() => cell.navigateUp(), 0);
-                break;
-            case "ArrowDown":
-                e.preventDefault();
-                confirmar();
-                setTimeout(() => cell.navigateDown(), 0);
-                break;
-            case "ArrowLeft":
-                e.preventDefault();
-                confirmar();
-                setTimeout(() => cell.navigateLeft(), 0);
-                break;
-            case "ArrowRight":
-                e.preventDefault();
-                confirmar();
-                setTimeout(() => cell.navigateRight(), 0);
-                break;
-            case "Enter":
-                e.preventDefault();
-                confirmar();
-                setTimeout(() => cell.navigateDown(), 0);
-                break;
-            case "Escape":
-                cancel();
-                break;
+    input.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            confirmar();
+            setTimeout(function() { cell.navigateUp(); }, 0);
+        } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            confirmar();
+            setTimeout(function() { cell.navigateDown(); }, 0);
+        } else if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            confirmar();
+            setTimeout(function() { cell.navigateLeft(); }, 0);
+        } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            confirmar();
+            setTimeout(function() { cell.navigateRight(); }, 0);
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            confirmar();
+            setTimeout(function() { cell.navigateDown(); }, 0);
+        } else if (e.key === 'Escape') {
+            cancel();
         }
     });
 
@@ -246,45 +238,54 @@ function editorConFlechas(cell, onRendered, success, cancel) {
     return input;
 }
 
-// ===== Cargar catálogo de sorteos y bolitas desde D1 =====
-async function cargarSorteos() {
+function cargarSorteos() {
     statusEl.innerHTML = '<div class="status loading">⏳ Cargando sorteos...</div>';
-    try {
-        const [respSorteos, respBolitas] = await Promise.all([
-            fetch(`${WORKER_URL}/api/sorteos?pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' }),
-            fetch(`${WORKER_URL}/api/bolitas?pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' })
+
+    var urlSorteos = WORKER_URL + '/api/sorteos?pw=' + encodeURIComponent(APP_PASSWORD);
+    var urlBolitas = WORKER_URL + '/api/bolitas?pw=' + encodeURIComponent(APP_PASSWORD);
+
+    Promise.all([
+        fetch(urlSorteos, { cache: 'no-store' }),
+        fetch(urlBolitas, { cache: 'no-store' })
+    ]).then(function(responses) {
+        var respSorteos = responses[0];
+        var respBolitas = responses[1];
+        if (!respSorteos.ok) throw new Error('No se pudo cargar la lista de sorteos (revisa la contraseña)');
+
+        return Promise.all([
+            respSorteos.json(),
+            respBolitas.ok ? respBolitas.json() : Promise.resolve([])
         ]);
-        if (!respSorteos.ok) throw new Error('No se pudo cargar la lista de sorteos (¿contraseña correcta?)');
-        SORTEOS = await respSorteos.json();
-        BOLITAS = respBolitas.ok ? await respBolitas.json() : [];
+    }).then(function(datos) {
+        SORTEOS = datos[0];
+        BOLITAS = datos[1];
 
         bolitaSelect.innerHTML = '';
-        BOLITAS.forEach(b => {
-            const opt = document.createElement('option');
+        BOLITAS.forEach(function(b) {
+            var opt = document.createElement('option');
             opt.value = b.id;
             opt.textContent = b.nombre;
             bolitaSelect.appendChild(opt);
         });
 
         sorteoSelect.innerHTML = '<option value="">-- Elige un sorteo --</option>';
-        SORTEOS.forEach(s => {
-            const opt = document.createElement('option');
+        SORTEOS.forEach(function(s) {
+            var opt = document.createElement('option');
             opt.value = s.id;
             opt.textContent = s.nombre;
             sorteoSelect.appendChild(opt);
         });
 
         statusEl.innerHTML = '';
-    } catch (error) {
-        statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
-    }
+    }).catch(function(error) {
+        statusEl.innerHTML = '<div class="status error">⚠️ ' + error.message + '</div>';
+    });
 }
 
-// ===== Al elegir sorteo/fecha: cargar vendedores, banca, y ventas ya guardadas =====
-async function cargarTabla() {
-    const sorteoId = sorteoSelect.value;
-    const saveBar = document.getElementById('saveBar');
-    const tableArea = document.getElementById('tableArea');
+function cargarTabla() {
+    var sorteoId = sorteoSelect.value;
+    var saveBar = document.getElementById('saveBar');
+    var tableArea = document.getElementById('tableArea');
 
     if (!sorteoId) {
         tableArea.innerHTML = '<div class="placeholder">👆 Elige un sorteo y una fecha para cargar la lista de vendedores</div>';
@@ -295,32 +296,41 @@ async function cargarTabla() {
     statusEl.innerHTML = '<div class="status loading">⏳ Cargando vendedores...</div>';
     tableArea.innerHTML = '';
 
-    try {
-        const [respVendedores, respBanca, respExistentes] = await Promise.all([
-            fetch(`${WORKER_URL}/api/vendedor-sorteo?sorteo_id=${sorteoId}&pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' }),
-            fetch(`${WORKER_URL}/api/banca-sorteo?sorteo_id=${sorteoId}&pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' }),
-            fetch(`${WORKER_URL}/api/ventas?sorteo_id=${sorteoId}&fecha=${fechaInput.value}&pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' })
-        ]);
+    var urlVendedores = WORKER_URL + '/api/vendedor-sorteo?sorteo_id=' + sorteoId + '&pw=' + encodeURIComponent(APP_PASSWORD);
+    var urlBanca = WORKER_URL + '/api/banca-sorteo?sorteo_id=' + sorteoId + '&pw=' + encodeURIComponent(APP_PASSWORD);
+    var urlExistentes = WORKER_URL + '/api/ventas?sorteo_id=' + sorteoId + '&fecha=' + fechaInput.value + '&pw=' + encodeURIComponent(APP_PASSWORD);
 
+    Promise.all([
+        fetch(urlVendedores, { cache: 'no-store' }),
+        fetch(urlBanca, { cache: 'no-store' }),
+        fetch(urlExistentes, { cache: 'no-store' })
+    ]).then(function(responses) {
+        var respVendedores = responses[0];
+        var respBanca = responses[1];
+        var respExistentes = responses[2];
         if (!respVendedores.ok) throw new Error('No se pudo cargar la lista de vendedores');
-        vendedoresDeEsteSorteo = await respVendedores.json();
 
-        const bancaResults = respBanca.ok ? await respBanca.json() : [];
+        return Promise.all([
+            respVendedores.json(),
+            respBanca.ok ? respBanca.json() : Promise.resolve([]),
+            respExistentes.ok ? respExistentes.json() : Promise.resolve([])
+        ]);
+    }).then(function(datos) {
+        vendedoresDeEsteSorteo = datos[0];
+        var bancaResults = datos[1];
         bancaConfig = bancaResults.length > 0 ? bancaResults[0] : null;
+        var ventasExistentes = datos[2];
 
-        const ventasExistentes = respExistentes.ok ? await respExistentes.json() : [];
-
-        // ¿Es un sorteo de Reventado? Si sí, el premio depende de si sale bolita roja o blanca
-        const sorteoInfo = SORTEOS.find(s => s.id == sorteoId);
-        esReventadoActual = sorteoInfo && sorteoInfo.grupo_banca === 'Reventado';
+        var sorteoInfo = SORTEOS.find(function(s) { return s.id == sorteoId; });
+        esReventadoActual = !!(sorteoInfo && sorteoInfo.grupo_banca === 'Reventado');
         bolitaField.style.display = esReventadoActual ? 'flex' : 'none';
 
         if (esReventadoActual) {
-            let bolitaInferida = BOLITAS.find(b => b.multiplicador_vendedor === 0); // "Blanca" por defecto
+            var bolitaInferida = BOLITAS.find(function(b) { return b.multiplicador_vendedor === 0; });
             if (ventasExistentes.length > 0) {
-                const primeraConValor = ventasExistentes.find(e => e.multiplicador_vendedor_premio !== null);
+                var primeraConValor = ventasExistentes.find(function(e) { return e.multiplicador_vendedor_premio !== null; });
                 if (primeraConValor) {
-                    const match = BOLITAS.find(b => b.multiplicador_vendedor === primeraConValor.multiplicador_vendedor_premio);
+                    var match = BOLITAS.find(function(b) { return b.multiplicador_vendedor === primeraConValor.multiplicador_vendedor_premio; });
                     if (match) bolitaInferida = match;
                 }
             }
@@ -337,12 +347,12 @@ async function cargarTabla() {
 
         tableArea.innerHTML = '<div id="grid"></div>';
 
-        let rows = [];
-        vendedoresDeEsteSorteo.forEach(v => {
-            const existentesDeEsteVendedor = ventasExistentes.filter(e => e.vendedor_id === v.vendedor_id);
+        var rows = [];
+        vendedoresDeEsteSorteo.forEach(function(v) {
+            var existentesDeEsteVendedor = ventasExistentes.filter(function(e) { return e.vendedor_id === v.vendedor_id; });
 
             if (existentesDeEsteVendedor.length > 0) {
-                existentesDeEsteVendedor.forEach(e => {
+                existentesDeEsteVendedor.forEach(function(e) {
                     rows.push({
                         id: e.id,
                         vendedor_id: v.vendedor_id,
@@ -355,39 +365,41 @@ async function cargarTabla() {
                     });
                 });
             } else {
-                const bolitaActual = BOLITAS.find(b => b.id == bolitaSeleccionadaId);
+                var bolitaActual = BOLITAS.find(function(b) { return b.id == bolitaSeleccionadaId; });
                 rows.push({
                     id: null,
                     vendedor_id: v.vendedor_id,
                     vendedor: v.nombre,
                     comision_pct: v.comision_pct,
                     multiplicador_base: v.multiplicador_premio,
-                    multiplicador: esReventadoActual && bolitaActual ? bolitaActual.multiplicador_vendedor : v.multiplicador_premio,
+                    multiplicador: (esReventadoActual && bolitaActual) ? bolitaActual.multiplicador_vendedor : v.multiplicador_premio,
                     venta: 0,
                     venta_premio: 0
                 });
             }
         });
 
-        const numeroGanadorExistente = ventasExistentes.find(e => e.numero_ganador)?.numero_ganador;
-        document.getElementById('numeroGanador').value = numeroGanadorExistente || '';
+        var numeroGanadorEncontrado = null;
+        for (var i = 0; i < ventasExistentes.length; i++) {
+            if (ventasExistentes[i].numero_ganador) { numeroGanadorEncontrado = ventasExistentes[i].numero_ganador; break; }
+        }
+        document.getElementById('numeroGanador').value = numeroGanadorEncontrado || '';
 
-        table = new Tabulator("#grid", {
+        table = new Tabulator('#grid', {
             data: rows,
-            layout: "fitColumns",
+            layout: 'fitColumns',
             columns: [
-                { title: "Vendedor", field: "vendedor", headerSort: false, widthGrow: 2 },
-                { title: "Venta ($)", field: "venta", editor: editorConFlechas, hozAlign: "right", widthGrow: 1,
-                  cellEdited: recalcularTotales },
-                { title: "Venta al ganador ($)", field: "venta_premio", editor: editorConFlechas, hozAlign: "right", widthGrow: 1,
-                  cellEdited: recalcularTotales },
-                { title: "Comisión %", field: "comision_pct", hozAlign: "right", widthGrow: 1, headerSort: false, visible: false },
-                { title: "Multiplicador", field: "multiplicador", hozAlign: "right", widthGrow: 1, headerSort: false, visible: false },
-                { title: "", field: "acciones", width: 50, hozAlign: "center", headerSort: false,
+                { title: 'Vendedor', field: 'vendedor', headerSort: false, widthGrow: 2 },
+                { title: 'Venta ($)', field: 'venta', editor: editorConFlechas, hozAlign: 'right', widthGrow: 1, cellEdited: recalcularTotales },
+                { title: 'Venta al ganador ($)', field: 'venta_premio', editor: editorConFlechas, hozAlign: 'right', widthGrow: 1, cellEdited: recalcularTotales },
+                { title: 'Comisión %', field: 'comision_pct', hozAlign: 'right', widthGrow: 1, headerSort: false, visible: false },
+                { title: 'Multiplicador', field: 'multiplicador', hozAlign: 'right', widthGrow: 1, headerSort: false, visible: false },
+                { title: '', field: 'acciones', width: 50, hozAlign: 'center', headerSort: false,
                   formatter: function() { return '<button class="btn-duplicar" title="Agregar otra lista de este vendedor">+</button>'; },
                   cellClick: function(e, cell) {
-                      const rowData = cell.getRow().getData();
-                      table.addRow({ ...rowData, id: null, venta: 0, venta_premio: 0 }, false, cell.getRow());
+                      var rowData = cell.getRow().getData();
+                      var nuevaFila = Object.assign({}, rowData, { id: null, venta: 0, venta_premio: 0 });
+                      table.addRow(nuevaFila, false, cell.getRow());
                       recalcularTotales();
                   }
                 }
@@ -397,59 +409,56 @@ async function cargarTabla() {
         saveBar.style.display = 'flex';
         recalcularTotales(rows);
 
-        const hayDatosExistentes = ventasExistentes.length > 0;
-        statusEl.innerHTML = hayDatosExistentes
+        statusEl.innerHTML = ventasExistentes.length > 0
             ? '<div class="status success">✏️ Se cargaron los datos ya guardados de este día. Puedes corregirlos y guardar de nuevo.</div>'
             : '';
 
-    } catch (error) {
-        statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
+    }).catch(function(error) {
+        statusEl.innerHTML = '<div class="status error">⚠️ ' + error.message + '</div>';
         saveBar.style.display = 'none';
-    }
+    });
 }
 
 function recalcularTotales(datosOverride) {
-    const data = datosOverride || (table ? table.getData() : []);
+    var data = datosOverride || (table ? table.getData() : []);
     if (!data || data.length === 0) return;
 
-    let totalVenta = 0;
-    let totalPremio = 0;
+    var totalVenta = 0;
+    var totalPremio = 0;
 
-    data.forEach(row => {
-        const venta = parseFloat(row.venta) || 0;
-        const ventaPremio = parseFloat(row.venta_premio) || 0;
-
+    data.forEach(function(row) {
+        var venta = parseFloat(row.venta) || 0;
+        var ventaPremio = parseFloat(row.venta_premio) || 0;
         totalVenta += venta;
         totalPremio += ventaPremio * row.multiplicador;
     });
 
-    document.getElementById('totalVenta').textContent = 'C
+    document.getElementById('totalVenta').textContent = 'C$' + totalVenta.toLocaleString('es-CR', { minimumFractionDigits: 2 });
+    document.getElementById('totalPremio').textContent = 'C$' + totalPremio.toLocaleString('es-CR', { minimumFractionDigits: 2 });
 }
 
 sorteoSelect.addEventListener('change', cargarTabla);
 fechaInput.addEventListener('change', cargarTabla);
 
-// ===== Al cambiar la bolita: ajustar el multiplicador de todas las filas =====
 bolitaSelect.addEventListener('change', function() {
     bolitaSeleccionadaId = this.value;
     if (!table) return;
 
-    const bolitaActual = BOLITAS.find(b => b.id == bolitaSeleccionadaId);
+    var bolitaActual = BOLITAS.find(function(b) { return b.id == bolitaSeleccionadaId; });
     if (!bolitaActual) return;
 
-    table.getRows().forEach(row => {
+    table.getRows().forEach(function(row) {
         row.update({ multiplicador: bolitaActual.multiplicador_vendedor });
     });
 
     recalcularTotales();
 });
 
-// ===== Ventana de confirmación antes de sustituir datos ya guardados =====
 function confirmarSobrescritura() {
-    return new Promise((resolve) => {
-        const modal = document.getElementById('confirmModal');
-        const okBtn = document.getElementById('confirmOkBtn');
-        const cancelBtn = document.getElementById('confirmCancelBtn');
+    return new Promise(function(resolve) {
+        var modal = document.getElementById('confirmModal');
+        var okBtn = document.getElementById('confirmOkBtn');
+        var cancelBtn = document.getElementById('confirmCancelBtn');
 
         modal.style.display = 'flex';
 
@@ -467,37 +476,33 @@ function confirmarSobrescritura() {
     });
 }
 
-document.getElementById('saveBtn').addEventListener('click', async function() {
-    const data = table.getData();
-    const hayDatosExistentes = data.some(row => row.id);
+document.getElementById('saveBtn').addEventListener('click', function() {
+    var data = table.getData();
+    var hayDatosExistentes = data.some(function(row) { return row.id; });
+    var btn = this;
 
-    if (hayDatosExistentes) {
-        const confirmado = await confirmarSobrescritura();
-        if (!confirmado) return;
-    }
+    function procederGuardado() {
+        var sorteoId = sorteoSelect.value;
+        var fecha = fechaInput.value;
+        var numeroGanador = document.getElementById('numeroGanador').value;
+        var bolitaActual = BOLITAS.find(function(b) { return b.id == bolitaSeleccionadaId; });
 
-    const sorteoId = sorteoSelect.value;
-    const fecha = fechaInput.value;
-    const numeroGanador = document.getElementById('numeroGanador').value;
-    const btn = this;
+        var registros = data.map(function(row) {
+            return {
+                id: row.id || null,
+                vendedor_id: row.vendedor_id,
+                monto_venta_total: row.venta,
+                monto_venta_numero_ganador: row.venta_premio,
+                comision_vendedor_pct: row.comision_pct,
+                multiplicador_vendedor_premio: row.multiplicador,
+                multiplicador_banca_premio: (esReventadoActual && bolitaActual) ? bolitaActual.multiplicador_banca : null
+            };
+        });
 
-    const bolitaActual = BOLITAS.find(b => b.id == bolitaSeleccionadaId);
+        btn.disabled = true;
+        btn.textContent = '⏳ Guardando...';
 
-    const registros = data.map(row => ({
-        id: row.id || null,
-        vendedor_id: row.vendedor_id,
-        monto_venta_total: row.venta,
-        monto_venta_numero_ganador: row.venta_premio,
-        comision_vendedor_pct: row.comision_pct,
-        multiplicador_vendedor_premio: row.multiplicador,
-        multiplicador_banca_premio: esReventadoActual && bolitaActual ? bolitaActual.multiplicador_banca : null
-    }));
-
-    btn.disabled = true;
-    btn.textContent = '⏳ Guardando...';
-
-    try {
-        const response = await fetch(`${WORKER_URL}/api/ventas?pw=${encodeURIComponent(APP_PASSWORD)}`, {
+        fetch(WORKER_URL + '/api/ventas?pw=' + encodeURIComponent(APP_PASSWORD), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -506,236 +511,32 @@ document.getElementById('saveBtn').addEventListener('click', async function() {
                 numero_ganador: numeroGanador,
                 registros: registros
             })
+        }).then(function(response) {
+            return response.json().then(function(result) {
+                if (response.ok && result.ok) {
+                    statusEl.innerHTML = '<div class="status success">✅ Se guardaron ' + result.procesados + ' registros correctamente</div>';
+                    cargarTabla();
+                } else {
+                    throw new Error(result.error || 'Error desconocido al guardar');
+                }
+            });
+        }).catch(function(error) {
+            statusEl.innerHTML = '<div class="status error">⚠️ ' + error.message + '</div>';
+        }).finally(function() {
+            btn.disabled = false;
+            btn.textContent = '💾 Guardar ventas del día';
         });
-
-        const result = await response.json();
-
-        if (response.ok && result.ok) {
-            statusEl.innerHTML = `<div class="status success">✅ Se guardaron ${result.procesados} registros correctamente</div>`;
-            await cargarTabla();
-        } else {
-            throw new Error(result.error || 'Error desconocido al guardar');
-        }
-    } catch (error) {
-        statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
-    } finally {
-        btn.disabled = false;
-        btn.textContent = '💾 Guardar ventas del día';
     }
-});
-
-// Inicializar
-cargarSorteos();
-</script>
-</body>
-</html> + totalVenta.toLocaleString('es-CR', {minimumFractionDigits:2});
-    document.getElementById('totalPremio').textContent = 'C
-}
-
-sorteoSelect.addEventListener('change', cargarTabla);
-fechaInput.addEventListener('change', cargarTabla);
-
-// ===== Al cambiar la bolita: ajustar el multiplicador de todas las filas =====
-bolitaSelect.addEventListener('change', function() {
-    bolitaSeleccionadaId = this.value;
-    if (!table) return;
-
-    const bolitaActual = BOLITAS.find(b => b.id == bolitaSeleccionadaId);
-    if (!bolitaActual) return;
-
-    table.getRows().forEach(row => {
-        row.update({ multiplicador: bolitaActual.multiplicador_vendedor });
-    });
-
-    recalcularTotales();
-});
-
-// ===== Ventana de confirmación antes de sustituir datos ya guardados =====
-function confirmarSobrescritura() {
-    return new Promise((resolve) => {
-        const modal = document.getElementById('confirmModal');
-        const okBtn = document.getElementById('confirmOkBtn');
-        const cancelBtn = document.getElementById('confirmCancelBtn');
-
-        modal.style.display = 'flex';
-
-        function limpiar(resultado) {
-            modal.style.display = 'none';
-            okBtn.removeEventListener('click', onOk);
-            cancelBtn.removeEventListener('click', onCancel);
-            resolve(resultado);
-        }
-        function onOk() { limpiar(true); }
-        function onCancel() { limpiar(false); }
-
-        okBtn.addEventListener('click', onOk);
-        cancelBtn.addEventListener('click', onCancel);
-    });
-}
-
-document.getElementById('saveBtn').addEventListener('click', async function() {
-    const data = table.getData();
-    const hayDatosExistentes = data.some(row => row.id);
 
     if (hayDatosExistentes) {
-        const confirmado = await confirmarSobrescritura();
-        if (!confirmado) return;
-    }
-
-    const sorteoId = sorteoSelect.value;
-    const fecha = fechaInput.value;
-    const numeroGanador = document.getElementById('numeroGanador').value;
-    const btn = this;
-
-    const bolitaActual = BOLITAS.find(b => b.id == bolitaSeleccionadaId);
-
-    const registros = data.map(row => ({
-        id: row.id || null,
-        vendedor_id: row.vendedor_id,
-        monto_venta_total: row.venta,
-        monto_venta_numero_ganador: row.venta_premio,
-        comision_vendedor_pct: row.comision_pct,
-        multiplicador_vendedor_premio: row.multiplicador,
-        multiplicador_banca_premio: esReventadoActual && bolitaActual ? bolitaActual.multiplicador_banca : null
-    }));
-
-    btn.disabled = true;
-    btn.textContent = '⏳ Guardando...';
-
-    try {
-        const response = await fetch(`${WORKER_URL}/api/ventas?pw=${encodeURIComponent(APP_PASSWORD)}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                sorteo_id: sorteoId,
-                fecha: fecha,
-                numero_ganador: numeroGanador,
-                registros: registros
-            })
+        confirmarSobrescritura().then(function(confirmado) {
+            if (confirmado) procederGuardado();
         });
-
-        const result = await response.json();
-
-        if (response.ok && result.ok) {
-            statusEl.innerHTML = `<div class="status success">✅ Se guardaron ${result.procesados} registros correctamente</div>`;
-            await cargarTabla();
-        } else {
-            throw new Error(result.error || 'Error desconocido al guardar');
-        }
-    } catch (error) {
-        statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
-    } finally {
-        btn.disabled = false;
-        btn.textContent = '💾 Guardar ventas del día';
+    } else {
+        procederGuardado();
     }
 });
 
-// Inicializar
-cargarSorteos();
-</script>
-</body>
-</html> + totalPremio.toLocaleString('es-CR', {minimumFractionDigits:2});
-}
-
-sorteoSelect.addEventListener('change', cargarTabla);
-fechaInput.addEventListener('change', cargarTabla);
-
-// ===== Al cambiar la bolita: ajustar el multiplicador de todas las filas =====
-bolitaSelect.addEventListener('change', function() {
-    bolitaSeleccionadaId = this.value;
-    if (!table) return;
-
-    const bolitaActual = BOLITAS.find(b => b.id == bolitaSeleccionadaId);
-    if (!bolitaActual) return;
-
-    table.getRows().forEach(row => {
-        row.update({ multiplicador: bolitaActual.multiplicador_vendedor });
-    });
-
-    recalcularTotales();
-});
-
-// ===== Ventana de confirmación antes de sustituir datos ya guardados =====
-function confirmarSobrescritura() {
-    return new Promise((resolve) => {
-        const modal = document.getElementById('confirmModal');
-        const okBtn = document.getElementById('confirmOkBtn');
-        const cancelBtn = document.getElementById('confirmCancelBtn');
-
-        modal.style.display = 'flex';
-
-        function limpiar(resultado) {
-            modal.style.display = 'none';
-            okBtn.removeEventListener('click', onOk);
-            cancelBtn.removeEventListener('click', onCancel);
-            resolve(resultado);
-        }
-        function onOk() { limpiar(true); }
-        function onCancel() { limpiar(false); }
-
-        okBtn.addEventListener('click', onOk);
-        cancelBtn.addEventListener('click', onCancel);
-    });
-}
-
-document.getElementById('saveBtn').addEventListener('click', async function() {
-    const data = table.getData();
-    const hayDatosExistentes = data.some(row => row.id);
-
-    if (hayDatosExistentes) {
-        const confirmado = await confirmarSobrescritura();
-        if (!confirmado) return;
-    }
-
-    const sorteoId = sorteoSelect.value;
-    const fecha = fechaInput.value;
-    const numeroGanador = document.getElementById('numeroGanador').value;
-    const btn = this;
-
-    const bolitaActual = BOLITAS.find(b => b.id == bolitaSeleccionadaId);
-
-    const registros = data.map(row => ({
-        id: row.id || null,
-        vendedor_id: row.vendedor_id,
-        monto_venta_total: row.venta,
-        monto_venta_numero_ganador: row.venta_premio,
-        comision_vendedor_pct: row.comision_pct,
-        multiplicador_vendedor_premio: row.multiplicador,
-        multiplicador_banca_premio: esReventadoActual && bolitaActual ? bolitaActual.multiplicador_banca : null
-    }));
-
-    btn.disabled = true;
-    btn.textContent = '⏳ Guardando...';
-
-    try {
-        const response = await fetch(`${WORKER_URL}/api/ventas?pw=${encodeURIComponent(APP_PASSWORD)}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                sorteo_id: sorteoId,
-                fecha: fecha,
-                numero_ganador: numeroGanador,
-                registros: registros
-            })
-        });
-
-        const result = await response.json();
-
-        if (response.ok && result.ok) {
-            statusEl.innerHTML = `<div class="status success">✅ Se guardaron ${result.procesados} registros correctamente</div>`;
-            await cargarTabla();
-        } else {
-            throw new Error(result.error || 'Error desconocido al guardar');
-        }
-    } catch (error) {
-        statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
-    } finally {
-        btn.disabled = false;
-        btn.textContent = '💾 Guardar ventas del día';
-    }
-});
-
-// Inicializar
 cargarSorteos();
 </script>
 </body>
