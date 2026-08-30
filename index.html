@@ -314,6 +314,13 @@
             if (e.key === 'Enter') attemptLogin();
         });
         
+        // ===== Registrar el Service Worker (para que la app sea instalable) =====
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(function(err) {
+                console.log('No se pudo registrar el service worker:', err);
+            });
+        }
+        
         // ===== Si venimos de un "Volver al menú" con usuario+contraseña en el link, entrar directo =====
         const urlParams = new URLSearchParams(window.location.search);
         const urlUser = urlParams.get('user');
