@@ -102,6 +102,11 @@ const APP_USER = new URLSearchParams(window.location.search).get('user') || '';
 const APP_ROLE = new URLSearchParams(window.location.search).get('role') || '';
 document.getElementById('btnMenu').href = `index.html?pw=${encodeURIComponent(APP_PASSWORD)}&user=${encodeURIComponent(APP_USER)}`;
 
+function urlConAuth(base) {
+    const sep = base.indexOf('?') === -1 ? '?' : '&';
+    return base + sep + 'pw=' + encodeURIComponent(APP_PASSWORD) + '&user=' + encodeURIComponent(APP_USER);
+}
+
 const fechaInput = document.getElementById('fechaInput');
 const statusEl = document.getElementById('statusMsg');
 const contenidoEl = document.getElementById('contenido');
@@ -126,11 +131,12 @@ async function cargarReporte() {
 
     statusEl.innerHTML = '<div class="status loading">⏳ Cargando reporte...</div>';
     saveBtn.disabled = true;
+    exportBtn.disabled = true;
 
     try {
         const [respGanancias, respGastos] = await Promise.all([
-            fetch(`${WORKER_URL}/api/reporte-ganancias?fecha=${fecha}&pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' }),
-            fetch(`${WORKER_URL}/api/gastos?fecha=${fecha}&pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' })
+            fetch(urlConAuth(`${WORKER_URL}/api/reporte-ganancias?fecha=${fecha}`), { cache: 'no-store' }),
+            fetch(urlConAuth(`${WORKER_URL}/api/gastos?fecha=${fecha}`), { cache: 'no-store' })
         ]);
 
         if (!respGanancias.ok) throw new Error('No se pudo cargar el reporte de ganancias');
@@ -138,7 +144,7 @@ async function cargarReporte() {
         const ganancias = await respGanancias.json();
         listasData = ganancias.listas || [];
         puestosData = ganancias.puestos || [];
-        noPasadasData = ganancias.noPasadas; // null si está oculto para este usuario
+        noPasadasData = ganancias.noPasadas;
         ocultarNoPasadasGuardado = !!ganancias.ocultarNoPasadas;
         gastosExistentes = respGastos.ok ? await respGastos.json() : [];
 
@@ -204,7 +210,7 @@ function renderizarReporte() {
     let htmlNoPasadas = '';
     let gananciaNoPasadas = 0;
 
-    if (noPasadasData !== null) {
+    if (noPasadasData !== null && noPasadasData !== undefined) {
         gananciaNoPasadas = noPasadasData.venta - noPasadasData.comision_pagar - noPasadasData.premio_pagar;
         const hayNoPasadas = (noPasadasData.venta || 0) !== 0;
 
@@ -279,22 +285,21 @@ function renderizarReporte() {
 
     contenidoEl.innerHTML = htmlListas + htmlNoPasadas + htmlOficina + htmlPuestos + '<div class="ganancia-final" id="gananciaFinal"></div>';
 
-    // Guardar totales de listas para el cálculo final
     contenidoEl.dataset.gananciaListas = totalesListas.ganancia;
     contenidoEl.dataset.gananciaNoPasadas = gananciaNoPasadas;
 
-    // Listeners para recalcular en vivo
     document.getElementById('oficinaInput').addEventListener('input', recalcularGananciaFinal);
     document.querySelectorAll('.salario-puesto').forEach(input => {
         input.addEventListener('input', recalcularGananciaFinal);
     });
+
     const checkOcultar = document.getElementById('ocultarNoPasadasCheck');
     if (checkOcultar) {
         checkOcultar.addEventListener('change', async function() {
             const nuevoValor = this.checked;
             this.disabled = true;
             try {
-                const resp = await fetch(`${WORKER_URL}/api/ganancias-config?pw=${encodeURIComponent(APP_PASSWORD)}`, {
+                const resp = await fetch(urlConAuth(`${WORKER_URL}/api/ganancias-config`), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ pw: APP_PASSWORD, fecha: fechaInput.value, ocultar_no_pasadas: nuevoValor })
@@ -407,13 +412,15 @@ exportBtn.addEventListener('click', async function() {
     try {
         const clone = contenidoEl.cloneNode(true);
 
-        // Convertir los inputs editables (oficina, salarios) en texto plano para la imagen
-        clone.querySelectorAll('input').forEach(input => {
+        clone.querySelectorAll('input[type=number]').forEach(input => {
             const div = document.createElement('div');
             div.textContent = num(parseFloat(input.value) || 0);
             div.style.fontWeight = 'bold';
             div.style.textAlign = 'right';
             input.replaceWith(div);
+        });
+        clone.querySelectorAll('input[type=checkbox]').forEach(input => {
+            input.remove();
         });
 
         const wrapper = document.createElement('div');
