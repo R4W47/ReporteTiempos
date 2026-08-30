@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crear Usuario</title>
+<style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: Arial, sans-serif; background:#f5f5f5; padding:15px; }
+    .container { max-width:500px; margin:0 auto; background:white; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.1); overflow:hidden; }
+    .header { background:#2c3e50; color:white; padding:15px 20px; text-align:center; position:relative; }
+    .header h1 { font-size:1.4em; }
+    .btn-menu {
+        position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+        background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 5px;
+        padding: 8px 12px; font-size: 13px; cursor: pointer; text-decoration: none;
+    }
+    .btn-menu:hover { background: rgba(255,255,255,0.25); }
+    .form-body { padding:25px; }
+    .field { margin-bottom:18px; }
+    .field label { display:block; font-weight:bold; color:#2c3e50; margin-bottom:6px; font-size:14px; }
+    .field input, .field select { width:100%; padding:11px; border:2px solid #3498db; border-radius:5px; font-size:15px; }
+    #crearBtn { width:100%; padding:13px; background:#27ae60; color:white; border:none; border-radius:5px; font-size:15px; font-weight:bold; cursor:pointer; }
+    #crearBtn:hover { background:#219150; }
+    #crearBtn:disabled { background:#95a5a6; cursor:not-allowed; }
+    .status { padding:12px; border-radius:5px; font-size:14px; margin-bottom:18px; }
+    .status.success { background:#eafaf1; color:#27ae60; }
+    .status.error { background:#fdecea; color:#c0392b; }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <a href="#" class="btn-menu" id="btnMenu">← Menú</a>
+        <h1>👤 Crear Usuario Nuevo</h1>
+    </div>
+
+    <div class="form-body">
+        <div id="statusMsg"></div>
+
+        <div class="field">
+            <label>Usuario</label>
+            <input type="text" id="username" placeholder="ej. digitador1" autocomplete="off">
+        </div>
+        <div class="field">
+            <label>Contraseña</label>
+            <input type="text" id="password" placeholder="Escribe una contraseña" autocomplete="off">
+        </div>
+        <div class="field">
+            <label>Rol</label>
+            <select id="rol">
+                <option value="general">general (ve todo)</option>
+                <option value="vendedor">vendedor (ve solo lo suyo)</option>
+                <option value="captura">captura (solo digita ventas)</option>
+            </select>
+        </div>
+        <div class="field" id="vendedorField" style="display:none;">
+            <label>Nombre del vendedor (tal como está en la tabla vendedores)</label>
+            <input type="text" id="vendedorNombre" placeholder="ej. Yoyo" autocomplete="off">
+        </div>
+
+        <button id="crearBtn">Crear usuario</button>
+    </div>
+</div>
+
+<script>
+const WORKER_URL = 'https://frosty-base-53ff.watsonmraul.workers.dev';
+const APP_PASSWORD = new URLSearchParams(window.location.search).get('pw') || '';
+const APP_USER = new URLSearchParams(window.location.search).get('user') || '';
+document.getElementById('btnMenu').href = `index.html?pw=${encodeURIComponent(APP_PASSWORD)}&user=${encodeURIComponent(APP_USER)}`;
+
+const statusEl = document.getElementById('statusMsg');
+const rolSelect = document.getElementById('rol');
+const vendedorField = document.getElementById('vendedorField');
+const crearBtn = document.getElementById('crearBtn');
+
+rolSelect.addEventListener('change', function() {
+    vendedorField.style.display = this.value === 'vendedor' ? 'block' : 'none';
+});
+
+crearBtn.addEventListener('click', async function() {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const rol = rolSelect.value;
+    const vendedorNombre = document.getElementById('vendedorNombre').value.trim();
+
+    statusEl.innerHTML = '';
+
+    if (!username || !password) {
+        statusEl.innerHTML = '<div class="status error">⚠️ Escribe usuario y contraseña</div>';
+        return;
+    }
+    if (rol === 'vendedor' && !vendedorNombre) {
+        statusEl.innerHTML = '<div class="status error">⚠️ Escribe el nombre del vendedor</div>';
+        return;
+    }
+
+    crearBtn.disabled = true;
+    crearBtn.textContent = 'Creando...';
+
+    try {
+        const response = await fetch(`${WORKER_URL}/api/usuarios`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                pw: APP_PASSWORD,
+                username: username,
+                password: password,
+                rol: rol,
+                vendedor_nombre: rol === 'vendedor' ? vendedorNombre : null
+            })
+        });
+        const result = await response.json();
+
+        if (response.ok && result.ok) {
+            statusEl.innerHTML = `<div class="status success">✅ Usuario "${username}" creado correctamente</div>`;
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            document.getElementById('vendedorNombre').value = '';
+        } else {
+            throw new Error(result.error || 'No se pudo crear el usuario');
+        }
+    } catch (error) {
+        statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
+    } finally {
+        crearBtn.disabled = false;
+        crearBtn.textContent = 'Crear usuario';
+    }
+});
+</script>
+</body>
+</html>
