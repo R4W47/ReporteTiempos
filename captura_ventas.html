@@ -397,7 +397,7 @@ function cargarTabla() {
                 { title: 'Comisión %', field: 'comision_pct', hozAlign: 'right', widthGrow: 1, headerSort: false, visible: false },
                 { title: 'Multiplicador', field: 'multiplicador', hozAlign: 'right', widthGrow: 1, headerSort: false, visible: false },
                 { title: '⚠️ No pasa a banca', field: 'no_pasa_banca', hozAlign: 'center', width: 110, headerSort: false,
-                  formatter: 'tickCross', editor: true },
+                  formatter: 'tickCross', editor: 'tickCross' },
                 { title: '', field: 'acciones', width: 50, hozAlign: 'center', headerSort: false,
                   formatter: function() { return '<button class="btn-duplicar" title="Agregar otra lista de este vendedor">+</button>'; },
                   cellClick: function(e, cell) {
