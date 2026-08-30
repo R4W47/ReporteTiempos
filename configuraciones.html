@@ -30,9 +30,14 @@
         <a href="#" class="btn-menu" id="btnMenu">← Menú</a>
         <h1>⚙️ Configuraciones</h1>
 
+        <a href="crear_usuario.html" class="menu-item" id="linkCrearUsuario">
+            <span class="icon">👤</span>
+            Crear Usuario Nuevo
+        </a>
+
         <a href="generador_usuarios.html" class="menu-item">
             <span class="icon">🔑</span>
-            Generador de Usuarios
+            Generador de Usuarios (offline, para migraciones)
         </a>
     </div>
 
@@ -40,6 +45,7 @@
         const APP_PASSWORD = new URLSearchParams(window.location.search).get('pw') || '';
         const APP_USER = new URLSearchParams(window.location.search).get('user') || '';
         document.getElementById('btnMenu').href = `index.html?pw=${encodeURIComponent(APP_PASSWORD)}&user=${encodeURIComponent(APP_USER)}`;
+        document.getElementById('linkCrearUsuario').href = `crear_usuario.html?pw=${encodeURIComponent(APP_PASSWORD)}&user=${encodeURIComponent(APP_USER)}`;
     </script>
 </body>
 </html>
