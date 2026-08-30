@@ -1,8 +1,9 @@
 // Service Worker mínimo, SOLO para que el sitio sea "instalable" como PWA.
-// No guarda nada en caché — siempre va a la red por la versión más reciente,
-// para evitar mostrar contenido viejo (este sistema depende de datos en vivo).
+// No intercepta ni cachea absolutamente nada — cada petición (páginas y
+// llamadas a la API) va siempre directo a la red, sin pasar por aquí.
+// Esto evita cualquier interferencia con las peticiones en vivo del sistema.
 
-self.addEventListener('install', (event) => {
+self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
@@ -13,7 +14,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-self.addEventListener('fetch', (event) => {
-  // Siempre red, nunca caché
-  event.respondWith(fetch(event.request));
-});
+// A propósito, no hacemos nada aquí (ni event.respondWith, ni caché).
+// Con solo tener este listener registrado, el navegador ya considera
+// instalable la app, y todas las peticiones siguen su camino normal.
+self.addEventListener('fetch', () => {});
