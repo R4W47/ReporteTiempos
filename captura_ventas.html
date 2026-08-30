@@ -487,7 +487,20 @@ document.getElementById('saveBtn').addEventListener('click', function() {
         var numeroGanador = document.getElementById('numeroGanador').value;
         var bolitaActual = BOLITAS.find(function(b) { return b.id == bolitaSeleccionadaId; });
 
-        var registros = data.map(function(row) {
+        // Las filas NUEVAS (sin id) que quedan en cero no se guardan, para no llenar
+        // la base de datos con registros vacíos. Las que YA EXISTÍAN sí se actualizan
+        // aunque se pongan en cero (para dejar corregido lo que ya estaba guardado).
+        var dataAGuardar = data.filter(function(row) {
+            if (row.id) return true;
+            return (parseFloat(row.venta) || 0) !== 0 || (parseFloat(row.venta_premio) || 0) !== 0;
+        });
+
+        if (dataAGuardar.length === 0) {
+            statusEl.innerHTML = '<div class="status error">⚠️ No hay ninguna venta digitada para guardar</div>';
+            return;
+        }
+
+        var registros = dataAGuardar.map(function(row) {
             return {
                 id: row.id || null,
                 vendedor_id: row.vendedor_id,
