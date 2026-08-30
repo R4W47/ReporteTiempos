@@ -342,7 +342,7 @@ function recalcularGananciaFinal() {
     document.querySelector('.totales-ganancia-puestos').textContent = num(gananciaPuestos);
     document.querySelector('.totales-ganancia-puestos').className = 'totales-ganancia-puestos' + (gananciaPuestos < 0 ? ' negativo' : '');
 
-    const gananciaFinal = gananciaListas - oficina + gananciaPuestos + gananciaNoPasadas;
+    const gananciaFinal = gananciaListas - oficina + gananciaPuestos + (ocultarNoPasadasGuardado ? 0 : gananciaNoPasadas);
     const el = document.getElementById('gananciaFinal');
     el.textContent = (gananciaFinal < 0 ? '⚠️ Pérdida del día: ' : '✅ Ganancia del día: ') + num(gananciaFinal);
     el.className = 'ganancia-final' + (gananciaFinal < 0 ? ' negativo' : '');
