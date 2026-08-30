@@ -238,11 +238,16 @@ function editorConFlechas(cell, onRendered, success, cancel) {
     return input;
 }
 
+function urlConAuth(base) {
+    var sep = base.indexOf('?') === -1 ? '?' : '&';
+    return base + sep + 'pw=' + encodeURIComponent(APP_PASSWORD) + '&user=' + encodeURIComponent(APP_USER);
+}
+
 function cargarSorteos() {
     statusEl.innerHTML = '<div class="status loading">⏳ Cargando sorteos...</div>';
 
-    var urlSorteos = WORKER_URL + '/api/sorteos?pw=' + encodeURIComponent(APP_PASSWORD);
-    var urlBolitas = WORKER_URL + '/api/bolitas?pw=' + encodeURIComponent(APP_PASSWORD);
+    var urlSorteos = urlConAuth(WORKER_URL + '/api/sorteos');
+    var urlBolitas = urlConAuth(WORKER_URL + '/api/bolitas');
 
     Promise.all([
         fetch(urlSorteos, { cache: 'no-store' }),
@@ -296,9 +301,9 @@ function cargarTabla() {
     statusEl.innerHTML = '<div class="status loading">⏳ Cargando vendedores...</div>';
     tableArea.innerHTML = '';
 
-    var urlVendedores = WORKER_URL + '/api/vendedor-sorteo?sorteo_id=' + sorteoId + '&pw=' + encodeURIComponent(APP_PASSWORD);
-    var urlBanca = WORKER_URL + '/api/banca-sorteo?sorteo_id=' + sorteoId + '&pw=' + encodeURIComponent(APP_PASSWORD);
-    var urlExistentes = WORKER_URL + '/api/ventas?sorteo_id=' + sorteoId + '&fecha=' + fechaInput.value + '&pw=' + encodeURIComponent(APP_PASSWORD);
+    var urlVendedores = urlConAuth(WORKER_URL + '/api/vendedor-sorteo?sorteo_id=' + sorteoId);
+    var urlBanca = urlConAuth(WORKER_URL + '/api/banca-sorteo?sorteo_id=' + sorteoId);
+    var urlExistentes = urlConAuth(WORKER_URL + '/api/ventas?sorteo_id=' + sorteoId + '&fecha=' + fechaInput.value);
 
     Promise.all([
         fetch(urlVendedores, { cache: 'no-store' }),
@@ -520,7 +525,7 @@ document.getElementById('saveBtn').addEventListener('click', function() {
         btn.disabled = true;
         btn.textContent = '⏳ Guardando...';
 
-        fetch(WORKER_URL + '/api/ventas?pw=' + encodeURIComponent(APP_PASSWORD), {
+        fetch(urlConAuth(WORKER_URL + '/api/ventas'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

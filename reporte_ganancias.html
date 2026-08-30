@@ -370,7 +370,7 @@ saveBtn.addEventListener('click', async function() {
     this.textContent = '⏳ Guardando...';
 
     try {
-        const response = await fetch(`${WORKER_URL}/api/gastos?pw=${encodeURIComponent(APP_PASSWORD)}`, {
+        const response = await fetch(urlConAuth(`${WORKER_URL}/api/gastos`), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ fecha, registros })

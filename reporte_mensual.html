@@ -314,7 +314,7 @@
             statusEl.innerHTML = `<div class="status-message loading">⏳ Cargando lista de vendedores desde ${filePath}...</div>`;
             
             try {
-                const response = await fetch(WORKER_URL + '?path=' + encodeURIComponent(filePath) + '&pw=' + encodeURIComponent(APP_PASSWORD) + '&t=' + Date.now(), { cache: 'no-store' });
+                const response = await fetch(WORKER_URL + '?path=' + encodeURIComponent(filePath) + '&pw=' + encodeURIComponent(APP_PASSWORD) + '&user=' + encodeURIComponent(APP_USER) + '&t=' + Date.now(), { cache: 'no-store' });
                 if (!response.ok) throw new Error('No se encontró el archivo ' + filePath);
                 
                 const arrayBuffer = await response.arrayBuffer();

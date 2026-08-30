@@ -76,6 +76,11 @@ const VENDEDOR_FORZADO = params.get('vendedor') || ''; // si viene, se oculta el
 const APP_USER = params.get('user') || '';
 document.getElementById('btnMenu').href = `index.html?pw=${encodeURIComponent(APP_PASSWORD)}&user=${encodeURIComponent(APP_USER)}`;
 
+function urlConAuth(base) {
+    const sep = base.indexOf('?') === -1 ? '?' : '&';
+    return base + sep + 'pw=' + encodeURIComponent(APP_PASSWORD) + '&user=' + encodeURIComponent(APP_USER);
+}
+
 let vendedores = [];
 let vendedorSeleccionadoId = null;
 let ultimoReporteData = null;
@@ -110,7 +115,7 @@ const fechaInput = document.getElementById('fechaInput');
 // ===== Cargar lista de vendedores activos (o forzar uno solo) =====
 async function cargarVendedores() {
     try {
-        const response = await fetch(`${WORKER_URL}/api/vendedores-activos?pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' });
+        const response = await fetch(urlConAuth(`${WORKER_URL}/api/vendedores-activos`), { cache: 'no-store' });
         if (!response.ok) throw new Error('No se pudo cargar la lista de vendedores');
         vendedores = await response.json();
 
@@ -161,12 +166,12 @@ async function cargarReporte() {
         let data;
         if (TIPO === 'mensual') {
             const [anio, mes] = fechaInput.value.split('-');
-            const response = await fetch(`${WORKER_URL}/api/reporte-mensual?vendedor_id=${vendedorSeleccionadoId}&anio=${anio}&mes=${mes}&pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' });
+            const response = await fetch(urlConAuth(`${WORKER_URL}/api/reporte-mensual?vendedor_id=${vendedorSeleccionadoId}&anio=${anio}&mes=${mes}`), { cache: 'no-store' });
             if (!response.ok) throw new Error('No se pudo cargar el reporte mensual');
             data = await response.json();
             mostrarReporteMensual(data);
         } else {
-            const response = await fetch(`${WORKER_URL}/api/reporte-diario?vendedor_id=${vendedorSeleccionadoId}&fecha=${fechaInput.value}&pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' });
+            const response = await fetch(urlConAuth(`${WORKER_URL}/api/reporte-diario?vendedor_id=${vendedorSeleccionadoId}&fecha=${fechaInput.value}`), { cache: 'no-store' });
             if (!response.ok) throw new Error('No se pudo cargar el reporte diario');
             data = await response.json();
             mostrarReporteDiario(data);

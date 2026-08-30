@@ -380,7 +380,7 @@
             exportBtn.disabled = true;
             
             try {
-                const response = await fetch(WORKER_URL + '?path=' + encodeURIComponent(filePath) + '&pw=' + encodeURIComponent(APP_PASSWORD) + '&t=' + Date.now(), { cache: 'no-store' });
+                const response = await fetch(WORKER_URL + '?path=' + encodeURIComponent(filePath) + '&pw=' + encodeURIComponent(APP_PASSWORD) + '&user=' + encodeURIComponent(APP_USER) + '&t=' + Date.now(), { cache: 'no-store' });
                 if (!response.ok) throw new Error('No se encontró el archivo ' + filePath);
                 
                 const arrayBuffer = await response.arrayBuffer();

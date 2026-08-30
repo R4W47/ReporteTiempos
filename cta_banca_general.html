@@ -108,6 +108,11 @@ function num(n) {
     return (n || 0).toLocaleString('es-CR', { minimumFractionDigits: 2 });
 }
 
+function urlConAuth(base) {
+    const sep = base.indexOf('?') === -1 ? '?' : '&';
+    return base + sep + 'pw=' + encodeURIComponent(APP_PASSWORD) + '&user=' + encodeURIComponent(APP_USER);
+}
+
 async function cargarReporte() {
     const fecha = fechaInput.value;
     if (!fecha) return;
@@ -117,7 +122,7 @@ async function cargarReporte() {
     exportBtn.disabled = true;
 
     try {
-        const response = await fetch(`${WORKER_URL}/api/cta-banca?fecha=${fecha}&pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' });
+        const response = await fetch(urlConAuth(`${WORKER_URL}/api/cta-banca?fecha=${fecha}`), { cache: 'no-store' });
         if (!response.ok) throw new Error('No se pudo cargar el reporte');
         const data = await response.json();
 
@@ -228,7 +233,7 @@ saveBtn.addEventListener('click', async function() {
     this.textContent = '⏳ Guardando...';
 
     try {
-        const response = await fetch(`${WORKER_URL}/api/cta-banca?pw=${encodeURIComponent(APP_PASSWORD)}`, {
+        const response = await fetch(urlConAuth(`${WORKER_URL}/api/cta-banca`), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
