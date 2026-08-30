@@ -99,6 +99,7 @@
 const WORKER_URL = 'https://frosty-base-53ff.watsonmraul.workers.dev';
 const APP_PASSWORD = new URLSearchParams(window.location.search).get('pw') || '';
 const APP_USER = new URLSearchParams(window.location.search).get('user') || '';
+const APP_ROLE = new URLSearchParams(window.location.search).get('role') || '';
 document.getElementById('btnMenu').href = `index.html?pw=${encodeURIComponent(APP_PASSWORD)}&user=${encodeURIComponent(APP_USER)}`;
 
 const fechaInput = document.getElementById('fechaInput');
@@ -111,7 +112,9 @@ fechaInput.value = new Date().getFullYear() + '-' + String(new Date().getMonth()
 
 let listasData = [];
 let puestosData = [];
+let noPasadasData = { venta: 0, comision_pagar: 0, premio_pagar: 0 };
 let gastosExistentes = [];
+let ocultarNoPasadas = false;
 
 function num(n) {
     return (n || 0).toLocaleString('es-CR', { minimumFractionDigits: 2 });
@@ -135,6 +138,7 @@ async function cargarReporte() {
         const ganancias = await respGanancias.json();
         listasData = ganancias.listas || [];
         puestosData = ganancias.puestos || [];
+        noPasadasData = ganancias.noPasadas || { venta: 0, comision_pagar: 0, premio_pagar: 0 };
         gastosExistentes = respGastos.ok ? await respGastos.json() : [];
 
         renderizarReporte();
@@ -195,6 +199,30 @@ function renderizarReporte() {
         <td class="${totalesListas.ganancia < 0 ? 'negativo' : ''}">${num(totalesListas.ganancia)}</td>
     </tr></tbody></table>`;
 
+    // ===== Listas no pasadas a la banca =====
+    const gananciaNoPasadas = noPasadasData.venta - noPasadasData.comision_pagar - noPasadasData.premio_pagar;
+    const hayNoPasadas = (noPasadasData.venta || 0) !== 0;
+
+    let htmlNoPasadas = '';
+    if (hayNoPasadas) {
+        htmlNoPasadas = `<div class="seccion-titulo" style="background:#8a6d00;">LISTAS NO PASADAS A BANCA</div>
+        <table id="tablaNoPasadas"><thead><tr>
+            <th>Venta</th><th>Comisión Pagar</th><th>Premio Pagar</th><th>Ganancia</th>
+        </tr></thead><tbody><tr>
+            <td>${num(noPasadasData.venta)}</td>
+            <td>${num(noPasadasData.comision_pagar)}</td>
+            <td>${num(noPasadasData.premio_pagar)}</td>
+            <td class="${gananciaNoPasadas < 0 ? 'negativo' : ''}">${num(gananciaNoPasadas)}</td>
+        </tr></tbody></table>`;
+
+        if (APP_ROLE === 'superadmin') {
+            htmlNoPasadas += `<div class="gastos-linea" style="background:#fdecea;">
+                <label>🔒 Solo superusuario: ocultar "Listas no pasadas" de este reporte</label>
+                <input type="checkbox" id="ocultarNoPasadasCheck" ${ocultarNoPasadas ? 'checked' : ''} style="width:20px; height:20px;">
+            </div>`;
+        }
+    }
+
     // ===== Línea de Oficina (editable) =====
     const gastoOficina = buscarGastoExistente('oficina', null);
     const oficinaDefault = gastoOficina ? gastoOficina.monto : (totalesListas.venta > 0 ? 35000 : 0);
@@ -244,22 +272,32 @@ function renderizarReporte() {
         <td class="totales-ganancia-puestos"></td>
     </tr></tbody></table>`;
 
-    contenidoEl.innerHTML = htmlListas + htmlOficina + htmlPuestos + '<div class="ganancia-final" id="gananciaFinal"></div>';
+    contenidoEl.innerHTML = htmlListas + htmlNoPasadas + htmlOficina + htmlPuestos + '<div class="ganancia-final" id="gananciaFinal"></div>';
 
     // Guardar totales de listas para el cálculo final
     contenidoEl.dataset.gananciaListas = totalesListas.ganancia;
+    contenidoEl.dataset.gananciaNoPasadas = gananciaNoPasadas;
 
     // Listeners para recalcular en vivo
     document.getElementById('oficinaInput').addEventListener('input', recalcularGananciaFinal);
     document.querySelectorAll('.salario-puesto').forEach(input => {
         input.addEventListener('input', recalcularGananciaFinal);
     });
+    const checkOcultar = document.getElementById('ocultarNoPasadasCheck');
+    if (checkOcultar) {
+        checkOcultar.addEventListener('change', function() {
+            ocultarNoPasadas = this.checked;
+            document.getElementById('tablaNoPasadas').style.opacity = ocultarNoPasadas ? '0.35' : '1';
+            recalcularGananciaFinal();
+        });
+    }
 
     recalcularGananciaFinal();
 }
 
 function recalcularGananciaFinal() {
     const gananciaListas = parseFloat(contenidoEl.dataset.gananciaListas) || 0;
+    const gananciaNoPasadas = parseFloat(contenidoEl.dataset.gananciaNoPasadas) || 0;
     const oficina = parseFloat(document.getElementById('oficinaInput').value) || 0;
 
     let totalSalarios = 0;
@@ -281,7 +319,7 @@ function recalcularGananciaFinal() {
     document.querySelector('.totales-ganancia-puestos').textContent = num(gananciaPuestos);
     document.querySelector('.totales-ganancia-puestos').className = 'totales-ganancia-puestos' + (gananciaPuestos < 0 ? ' negativo' : '');
 
-    const gananciaFinal = gananciaListas - oficina + gananciaPuestos;
+    const gananciaFinal = gananciaListas - oficina + gananciaPuestos + (ocultarNoPasadas ? 0 : gananciaNoPasadas);
     const el = document.getElementById('gananciaFinal');
     el.textContent = (gananciaFinal < 0 ? '⚠️ Pérdida del día: ' : '✅ Ganancia del día: ') + num(gananciaFinal);
     el.className = 'ganancia-final' + (gananciaFinal < 0 ? ' negativo' : '');

@@ -361,7 +361,8 @@ function cargarTabla() {
                         multiplicador_base: v.multiplicador_premio,
                         multiplicador: e.multiplicador_vendedor_premio,
                         venta: e.monto_venta_total,
-                        venta_premio: e.monto_venta_numero_ganador
+                        venta_premio: e.monto_venta_numero_ganador,
+                        no_pasa_banca: e.pasada_a_banca === 0
                     });
                 });
             } else {
@@ -374,7 +375,8 @@ function cargarTabla() {
                     multiplicador_base: v.multiplicador_premio,
                     multiplicador: (esReventadoActual && bolitaActual) ? bolitaActual.multiplicador_vendedor : v.multiplicador_premio,
                     venta: 0,
-                    venta_premio: 0
+                    venta_premio: 0,
+                    no_pasa_banca: false
                 });
             }
         });
@@ -394,6 +396,8 @@ function cargarTabla() {
                 { title: 'Venta al ganador ($)', field: 'venta_premio', editor: editorConFlechas, hozAlign: 'right', widthGrow: 1, cellEdited: recalcularTotales },
                 { title: 'Comisión %', field: 'comision_pct', hozAlign: 'right', widthGrow: 1, headerSort: false, visible: false },
                 { title: 'Multiplicador', field: 'multiplicador', hozAlign: 'right', widthGrow: 1, headerSort: false, visible: false },
+                { title: '⚠️ No pasa a banca', field: 'no_pasa_banca', hozAlign: 'center', width: 110, headerSort: false,
+                  formatter: 'tickCross', editor: true },
                 { title: '', field: 'acciones', width: 50, hozAlign: 'center', headerSort: false,
                   formatter: function() { return '<button class="btn-duplicar" title="Agregar otra lista de este vendedor">+</button>'; },
                   cellClick: function(e, cell) {
@@ -508,7 +512,8 @@ document.getElementById('saveBtn').addEventListener('click', function() {
                 monto_venta_numero_ganador: row.venta_premio,
                 comision_vendedor_pct: row.comision_pct,
                 multiplicador_vendedor_premio: row.multiplicador,
-                multiplicador_banca_premio: (esReventadoActual && bolitaActual) ? bolitaActual.multiplicador_banca : null
+                multiplicador_banca_premio: (esReventadoActual && bolitaActual) ? bolitaActual.multiplicador_banca : null,
+                pasada_a_banca: row.no_pasa_banca ? 0 : 1
             };
         });
 

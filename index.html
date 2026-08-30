@@ -259,7 +259,7 @@
                     menuLinksEl.innerHTML = '';
                     
                     menuItems.forEach(item => {
-                        let href = `${item.file}?pw=${encodeURIComponent(password)}&user=${encodeURIComponent(username)}`;
+                        let href = `${item.file}?pw=${encodeURIComponent(password)}&user=${encodeURIComponent(username)}&role=${encodeURIComponent(data.role)}`;
                         if (data.vendedor) href += `&vendedor=${encodeURIComponent(data.vendedor)}`;
                         if (item.extraParams) href += `&${item.extraParams}`;
                         
