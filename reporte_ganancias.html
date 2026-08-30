@@ -112,9 +112,9 @@ fechaInput.value = new Date().getFullYear() + '-' + String(new Date().getMonth()
 
 let listasData = [];
 let puestosData = [];
-let noPasadasData = { venta: 0, comision_pagar: 0, premio_pagar: 0 };
+let noPasadasData = null;
 let gastosExistentes = [];
-let ocultarNoPasadas = false;
+let ocultarNoPasadasGuardado = false;
 
 function num(n) {
     return (n || 0).toLocaleString('es-CR', { minimumFractionDigits: 2 });
@@ -138,7 +138,8 @@ async function cargarReporte() {
         const ganancias = await respGanancias.json();
         listasData = ganancias.listas || [];
         puestosData = ganancias.puestos || [];
-        noPasadasData = ganancias.noPasadas || { venta: 0, comision_pagar: 0, premio_pagar: 0 };
+        noPasadasData = ganancias.noPasadas; // null si está oculto para este usuario
+        ocultarNoPasadasGuardado = !!ganancias.ocultarNoPasadas;
         gastosExistentes = respGastos.ok ? await respGastos.json() : [];
 
         renderizarReporte();
@@ -200,25 +201,29 @@ function renderizarReporte() {
     </tr></tbody></table>`;
 
     // ===== Listas no pasadas a la banca =====
-    const gananciaNoPasadas = noPasadasData.venta - noPasadasData.comision_pagar - noPasadasData.premio_pagar;
-    const hayNoPasadas = (noPasadasData.venta || 0) !== 0;
-
     let htmlNoPasadas = '';
-    if (hayNoPasadas) {
-        htmlNoPasadas = `<div class="seccion-titulo" style="background:#8a6d00;">LISTAS NO PASADAS A BANCA</div>
-        <table id="tablaNoPasadas"><thead><tr>
-            <th>Venta</th><th>Comisión Pagar</th><th>Premio Pagar</th><th>Ganancia</th>
-        </tr></thead><tbody><tr>
-            <td>${num(noPasadasData.venta)}</td>
-            <td>${num(noPasadasData.comision_pagar)}</td>
-            <td>${num(noPasadasData.premio_pagar)}</td>
-            <td class="${gananciaNoPasadas < 0 ? 'negativo' : ''}">${num(gananciaNoPasadas)}</td>
-        </tr></tbody></table>`;
+    let gananciaNoPasadas = 0;
 
-        if (APP_ROLE === 'superadmin') {
+    if (noPasadasData !== null) {
+        gananciaNoPasadas = noPasadasData.venta - noPasadasData.comision_pagar - noPasadasData.premio_pagar;
+        const hayNoPasadas = (noPasadasData.venta || 0) !== 0;
+
+        if (hayNoPasadas) {
+            htmlNoPasadas = `<div class="seccion-titulo" style="background:#8a6d00;">LISTAS NO PASADAS A BANCA</div>
+            <table><thead><tr>
+                <th>Venta</th><th>Comisión Pagar</th><th>Premio Pagar</th><th>Ganancia</th>
+            </tr></thead><tbody><tr>
+                <td>${num(noPasadasData.venta)}</td>
+                <td>${num(noPasadasData.comision_pagar)}</td>
+                <td>${num(noPasadasData.premio_pagar)}</td>
+                <td class="${gananciaNoPasadas < 0 ? 'negativo' : ''}">${num(gananciaNoPasadas)}</td>
+            </tr></tbody></table>`;
+        }
+
+        if (APP_ROLE === 'superadmin' && (hayNoPasadas || ocultarNoPasadasGuardado)) {
             htmlNoPasadas += `<div class="gastos-linea" style="background:#fdecea;">
-                <label>🔒 Solo superusuario: ocultar "Listas no pasadas" de este reporte</label>
-                <input type="checkbox" id="ocultarNoPasadasCheck" ${ocultarNoPasadas ? 'checked' : ''} style="width:20px; height:20px;">
+                <label>🔒 Solo superusuario: ocultar "Listas no pasadas" para los demás perfiles</label>
+                <input type="checkbox" id="ocultarNoPasadasCheck" ${ocultarNoPasadasGuardado ? 'checked' : ''} style="width:20px; height:20px;">
             </div>`;
         }
     }
@@ -285,10 +290,23 @@ function renderizarReporte() {
     });
     const checkOcultar = document.getElementById('ocultarNoPasadasCheck');
     if (checkOcultar) {
-        checkOcultar.addEventListener('change', function() {
-            ocultarNoPasadas = this.checked;
-            document.getElementById('tablaNoPasadas').style.opacity = ocultarNoPasadas ? '0.35' : '1';
-            recalcularGananciaFinal();
+        checkOcultar.addEventListener('change', async function() {
+            const nuevoValor = this.checked;
+            this.disabled = true;
+            try {
+                const resp = await fetch(`${WORKER_URL}/api/ganancias-config?pw=${encodeURIComponent(APP_PASSWORD)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pw: APP_PASSWORD, fecha: fechaInput.value, ocultar_no_pasadas: nuevoValor })
+                });
+                if (!resp.ok) throw new Error('No se pudo guardar el cambio');
+                statusEl.innerHTML = '<div class="status success">✅ Preferencia guardada</div>';
+                await cargarReporte();
+            } catch (err) {
+                statusEl.innerHTML = `<div class="status error">⚠️ ${err.message}</div>`;
+                this.checked = !nuevoValor;
+                this.disabled = false;
+            }
         });
     }
 
@@ -319,7 +337,7 @@ function recalcularGananciaFinal() {
     document.querySelector('.totales-ganancia-puestos').textContent = num(gananciaPuestos);
     document.querySelector('.totales-ganancia-puestos').className = 'totales-ganancia-puestos' + (gananciaPuestos < 0 ? ' negativo' : '');
 
-    const gananciaFinal = gananciaListas - oficina + gananciaPuestos + (ocultarNoPasadas ? 0 : gananciaNoPasadas);
+    const gananciaFinal = gananciaListas - oficina + gananciaPuestos + gananciaNoPasadas;
     const el = document.getElementById('gananciaFinal');
     el.textContent = (gananciaFinal < 0 ? '⚠️ Pérdida del día: ' : '✅ Ganancia del día: ') + num(gananciaFinal);
     el.className = 'ganancia-final' + (gananciaFinal < 0 ? ' negativo' : '');
