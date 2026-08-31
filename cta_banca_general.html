@@ -208,9 +208,13 @@ function recalcular() {
     const comparacionBox = document.getElementById('comparacionBox');
     const diferencia = Math.round((totalNuestro - ctaBanca) * 100) / 100;
 
-    if (diferencia === 0) {
+    if (Math.abs(diferencia) <= 100) {
         comparacionBox.className = 'comparacion coincide';
-        comparacionBox.textContent = `✅ Cuadra: nuestro cálculo (${num(totalNuestro)}) coincide con la banca`;
+        if (diferencia === 0) {
+            comparacionBox.textContent = `✅ Cuadra: nuestro cálculo (${num(totalNuestro)}) coincide con la banca`;
+        } else {
+            comparacionBox.textContent = `✅ Cuadra (diferencia de redondeo de ${num(diferencia)}): nuestro cálculo es ${num(totalNuestro)}, la banca da ${num(ctaBanca)}`;
+        }
     } else {
         comparacionBox.className = 'comparacion no-coincide';
         comparacionBox.textContent = `⚠️ No cuadra: nuestro cálculo es ${num(totalNuestro)}, la banca da ${num(ctaBanca)} (diferencia de ${num(diferencia)})`;
