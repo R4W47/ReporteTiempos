@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Administrar Sorteos</title>
+<style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: Arial, sans-serif; background:#f5f5f5; padding:15px; }
+    .container { max-width:750px; margin:0 auto; background:white; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.1); overflow:hidden; }
+    .header { background:#2c3e50; color:white; padding:15px 20px; text-align:center; position:relative; }
+    .header h1 { font-size:1.4em; }
+    .btn-menu {
+        position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+        background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 5px;
+        padding: 8px 12px; font-size: 13px; cursor: pointer; text-decoration: none;
+    }
+    .btn-menu:hover { background: rgba(255,255,255,0.25); }
+    .status { padding:12px; font-size:14px; }
+    .status.success { background:#eafaf1; color:#27ae60; }
+    .status.error { background:#fdecea; color:#c0392b; }
+    table { border-collapse: collapse; width:100%; font-size:14px; }
+    th, td { border:1px solid #ddd; padding:8px; text-align:left; }
+    th { background:#3498db; color:white; }
+    tr.inactivo { opacity:0.5; }
+    input[type=text], input[type=time] { padding:6px; border:1px solid #bdc3c7; border-radius:4px; width:100%; }
+    .nueva-fila { padding:15px; background:#ecf0f1; display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; }
+    .nueva-fila .field { display:flex; flex-direction:column; gap:4px; flex:1; min-width:120px; }
+    .nueva-fila label { font-size:12px; font-weight:bold; color:#2c3e50; }
+    button.guardar { padding:8px 14px; background:#27ae60; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px; }
+    button.guardar:hover { background:#219150; }
+    .tabla-wrap { padding:15px; overflow-x:auto; }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <a href="#" class="btn-menu" id="btnMenu">← Menú</a>
+        <h1>🎲 Administrar Sorteos</h1>
+    </div>
+
+    <div id="statusMsg"></div>
+
+    <div class="nueva-fila">
+        <div class="field">
+            <label>Nombre nuevo sorteo</label>
+            <input type="text" id="nuevoNombre" placeholder="ej. Dominicana 4pm (domingo)">
+        </div>
+        <div class="field">
+            <label>Hora</label>
+            <input type="time" id="nuevaHora">
+        </div>
+        <div class="field">
+            <label>Grupo de banca</label>
+            <input type="text" id="nuevoGrupo" placeholder="ej. Dominicana">
+        </div>
+        <button class="guardar" id="crearBtn">+ Crear</button>
+    </div>
+
+    <div class="tabla-wrap">
+        <table id="tablaSorteos">
+            <thead><tr><th>Nombre</th><th>Hora</th><th>Grupo Banca</th><th>Activo</th><th></th></tr></thead>
+            <tbody id="tbodySorteos"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+const WORKER_URL = 'https://frosty-base-53ff.watsonmraul.workers.dev';
+const APP_PASSWORD = new URLSearchParams(window.location.search).get('pw') || '';
+const APP_USER = new URLSearchParams(window.location.search).get('user') || '';
+document.getElementById('btnMenu').href = `index.html?pw=${encodeURIComponent(APP_PASSWORD)}&user=${encodeURIComponent(APP_USER)}`;
+
+function urlConAuth(base) {
+    const sep = base.indexOf('?') === -1 ? '?' : '&';
+    return base + sep + 'pw=' + encodeURIComponent(APP_PASSWORD) + '&user=' + encodeURIComponent(APP_USER);
+}
+
+const statusEl = document.getElementById('statusMsg');
+const tbody = document.getElementById('tbodySorteos');
+let sorteos = [];
+
+async function cargar() {
+    try {
+        const resp = await fetch(urlConAuth(`${WORKER_URL}/api/admin/sorteos`), { cache: 'no-store' });
+        if (!resp.ok) throw new Error('No se pudo cargar (¿tienes permiso de admin?)');
+        sorteos = await resp.json();
+        render();
+    } catch (e) {
+        statusEl.innerHTML = `<div class="status error">⚠️ ${e.message}</div>`;
+    }
+}
+
+function render() {
+    tbody.innerHTML = '';
+    sorteos.forEach(s => {
+        const tr = document.createElement('tr');
+        if (!s.activo) tr.className = 'inactivo';
+        tr.innerHTML = `
+            <td><input type="text" value="${s.nombre}" data-field="nombre"></td>
+            <td><input type="time" value="${s.hora || ''}" data-field="hora"></td>
+            <td><input type="text" value="${s.grupo_banca}" data-field="grupo_banca"></td>
+            <td style="text-align:center;"><input type="checkbox" data-field="activo" ${s.activo ? 'checked' : ''}></td>
+            <td><button class="guardar" data-id="${s.id}">Guardar</button></td>
+        `;
+        tr.querySelector('button').addEventListener('click', () => guardarFila(s.id, tr));
+        tbody.appendChild(tr);
+    });
+}
+
+async function guardarFila(id, tr) {
+    const nombre = tr.querySelector('[data-field="nombre"]').value.trim();
+    const hora = tr.querySelector('[data-field="hora"]').value;
+    const grupo_banca = tr.querySelector('[data-field="grupo_banca"]').value.trim();
+    const activo = tr.querySelector('[data-field="activo"]').checked;
+
+    try {
+        const resp = await fetch(urlConAuth(`${WORKER_URL}/api/admin/sorteos`), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pw: APP_PASSWORD, id, nombre, hora, grupo_banca, activo })
+        });
+        const result = await resp.json();
+        if (!resp.ok || !result.ok) throw new Error(result.error || 'Error al guardar');
+        statusEl.innerHTML = '<div class="status success">✅ Guardado</div>';
+        await cargar();
+    } catch (e) {
+        statusEl.innerHTML = `<div class="status error">⚠️ ${e.message}</div>`;
+    }
+}
+
+document.getElementById('crearBtn').addEventListener('click', async function() {
+    const nombre = document.getElementById('nuevoNombre').value.trim();
+    const hora = document.getElementById('nuevaHora').value;
+    const grupo_banca = document.getElementById('nuevoGrupo').value.trim();
+    if (!nombre || !grupo_banca) {
+        statusEl.innerHTML = '<div class="status error">⚠️ Escribe al menos el nombre y el grupo de banca</div>';
+        return;
+    }
+    try {
+        const resp = await fetch(urlConAuth(`${WORKER_URL}/api/admin/sorteos`), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pw: APP_PASSWORD, nombre, hora, grupo_banca, activo: true })
+        });
+        const result = await resp.json();
+        if (!resp.ok || !result.ok) throw new Error(result.error || 'Error al crear');
+        statusEl.innerHTML = `<div class="status success">✅ "${nombre}" creado</div>`;
+        document.getElementById('nuevoNombre').value = '';
+        document.getElementById('nuevoGrupo').value = '';
+        await cargar();
+    } catch (e) {
+        statusEl.innerHTML = `<div class="status error">⚠️ ${e.message}</div>`;
+    }
+});
+
+cargar();
+</script>
+</body>
+</html>

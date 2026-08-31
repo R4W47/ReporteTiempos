@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Condiciones por Vendedor</title>
+<style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: Arial, sans-serif; background:#f5f5f5; padding:15px; }
+    .container { max-width:800px; margin:0 auto; background:white; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.1); overflow:hidden; }
+    .header { background:#2c3e50; color:white; padding:15px 20px; text-align:center; position:relative; }
+    .header h1 { font-size:1.4em; }
+    .btn-menu {
+        position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+        background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 5px;
+        padding: 8px 12px; font-size: 13px; cursor: pointer; text-decoration: none;
+    }
+    .btn-menu:hover { background: rgba(255,255,255,0.25); }
+    .controls { padding:15px; background:#ecf0f1; display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; }
+    .field { display:flex; flex-direction:column; gap:4px; }
+    .field label { font-size:13px; font-weight:bold; color:#2c3e50; }
+    select { padding:10px; border:2px solid #3498db; border-radius:5px; font-size:15px; min-width:200px; }
+    .status { padding:12px; font-size:14px; }
+    .status.success { background:#eafaf1; color:#27ae60; }
+    .status.error { background:#fdecea; color:#c0392b; }
+    table { border-collapse: collapse; width:100%; font-size:13px; }
+    th, td { border:1px solid #ddd; padding:6px 8px; text-align:center; }
+    th { background:#3498db; color:white; }
+    td:first-child, th:first-child { text-align:left; }
+    tr.inactivo-sorteo { opacity:0.4; }
+    input[type=number] { width:80px; padding:5px; border:1px solid #bdc3c7; border-radius:4px; text-align:right; }
+    .tabla-wrap { padding:15px; overflow-x:auto; }
+    #guardarTodoBtn { margin:15px; padding:12px 25px; background:#27ae60; color:white; border:none; border-radius:5px; font-size:15px; font-weight:bold; cursor:pointer; }
+    #guardarTodoBtn:hover { background:#219150; }
+    #guardarTodoBtn:disabled { background:#95a5a6; cursor:not-allowed; }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <a href="#" class="btn-menu" id="btnMenu">← Menú</a>
+        <h1>⚖️ Condiciones por Vendedor</h1>
+    </div>
+
+    <div class="controls">
+        <div class="field">
+            <label>Vendedor</label>
+            <select id="vendedorSelect">
+                <option value="">-- Elige un vendedor --</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="statusMsg"></div>
+
+    <div class="tabla-wrap">
+        <table id="tabla" style="display:none;">
+            <thead><tr>
+                <th>Sorteo</th><th>Recibe</th><th>Comisión %</th><th>Multiplicador</th>
+            </tr></thead>
+            <tbody id="tbody"></tbody>
+        </table>
+    </div>
+
+    <button id="guardarTodoBtn" style="display:none;">💾 Guardar todos los cambios</button>
+</div>
+
+<script>
+const WORKER_URL = 'https://frosty-base-53ff.watsonmraul.workers.dev';
+const APP_PASSWORD = new URLSearchParams(window.location.search).get('pw') || '';
+const APP_USER = new URLSearchParams(window.location.search).get('user') || '';
+document.getElementById('btnMenu').href = `index.html?pw=${encodeURIComponent(APP_PASSWORD)}&user=${encodeURIComponent(APP_USER)}`;
+
+function urlConAuth(base) {
+    const sep = base.indexOf('?') === -1 ? '?' : '&';
+    return base + sep + 'pw=' + encodeURIComponent(APP_PASSWORD) + '&user=' + encodeURIComponent(APP_USER);
+}
+
+const statusEl = document.getElementById('statusMsg');
+const vendedorSelect = document.getElementById('vendedorSelect');
+const tabla = document.getElementById('tabla');
+const tbody = document.getElementById('tbody');
+const guardarTodoBtn = document.getElementById('guardarTodoBtn');
+
+async function cargarVendedores() {
+    try {
+        const resp = await fetch(urlConAuth(`${WORKER_URL}/api/admin/vendedores`), { cache: 'no-store' });
+        if (!resp.ok) throw new Error('No se pudo cargar la lista (¿tienes permiso de admin?)');
+        const vendedores = await resp.json();
+        vendedorSelect.innerHTML = '<option value="">-- Elige un vendedor --</option>';
+        vendedores.forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v.id;
+            opt.textContent = `${v.nombre} (${v.tipo}${v.activo ? '' : ' - inactivo'})`;
+            vendedorSelect.appendChild(opt);
+        });
+    } catch (e) {
+        statusEl.innerHTML = `<div class="status error">⚠️ ${e.message}</div>`;
+    }
+}
+
+async function cargarCondiciones() {
+    const vendedorId = vendedorSelect.value;
+    if (!vendedorId) {
+        tabla.style.display = 'none';
+        guardarTodoBtn.style.display = 'none';
+        return;
+    }
+
+    statusEl.innerHTML = '<div class="status">⏳ Cargando...</div>';
+    try {
+        const resp = await fetch(urlConAuth(`${WORKER_URL}/api/admin/vendedor-sorteo?vendedor_id=${vendedorId}`), { cache: 'no-store' });
+        if (!resp.ok) throw new Error('No se pudo cargar');
+        const filas = await resp.json();
+
+        tbody.innerHTML = '';
+        filas.forEach(f => {
+            const tr = document.createElement('tr');
+            if (!f.sorteo_activo) tr.className = 'inactivo-sorteo';
+            tr.dataset.sorteoId = f.sorteo_id;
+            tr.innerHTML = `
+                <td>${f.sorteo_nombre} ${f.sorteo_activo ? '' : '(inactivo)'}</td>
+                <td><input type="checkbox" data-field="recibe" ${f.recibe_este_sorteo ? 'checked' : ''}></td>
+                <td><input type="number" data-field="comision" value="${f.comision_pct != null ? f.comision_pct : 0}" min="0" step="0.1"></td>
+                <td><input type="number" data-field="multiplicador" value="${f.multiplicador_premio != null ? f.multiplicador_premio : 0}" min="0"></td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        tabla.style.display = 'table';
+        guardarTodoBtn.style.display = 'inline-block';
+        statusEl.innerHTML = '';
+    } catch (e) {
+        statusEl.innerHTML = `<div class="status error">⚠️ ${e.message}</div>`;
+    }
+}
+
+guardarTodoBtn.addEventListener('click', async function() {
+    const vendedorId = vendedorSelect.value;
+    const registros = [];
+    tbody.querySelectorAll('tr').forEach(tr => {
+        registros.push({
+            sorteo_id: parseInt(tr.dataset.sorteoId),
+            recibe_este_sorteo: tr.querySelector('[data-field="recibe"]').checked,
+            comision_pct: parseFloat(tr.querySelector('[data-field="comision"]').value) || 0,
+            multiplicador_premio: parseFloat(tr.querySelector('[data-field="multiplicador"]').value) || 0
+        });
+    });
+
+    this.disabled = true;
+    this.textContent = '⏳ Guardando...';
+
+    try {
+        const resp = await fetch(urlConAuth(`${WORKER_URL}/api/admin/vendedor-sorteo`), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pw: APP_PASSWORD, vendedor_id: vendedorId, registros })
+        });
+        const result = await resp.json();
+        if (!resp.ok || !result.ok) throw new Error(result.error || 'Error al guardar');
+        statusEl.innerHTML = '<div class="status success">✅ Condiciones guardadas correctamente</div>';
+    } catch (e) {
+        statusEl.innerHTML = `<div class="status error">⚠️ ${e.message}</div>`;
+    } finally {
+        this.disabled = false;
+        this.textContent = '💾 Guardar todos los cambios';
+    }
+});
+
+vendedorSelect.addEventListener('change', cargarCondiciones);
+cargarVendedores();
+</script>
+</body>
+</html>
