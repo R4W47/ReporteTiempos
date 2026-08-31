@@ -71,7 +71,7 @@
 const WORKER_URL = 'https://frosty-base-53ff.watsonmraul.workers.dev';
 const params = new URLSearchParams(window.location.search);
 const APP_PASSWORD = params.get('pw') || '';
-const TIPO = params.get('tipo') === 'mensual' ? 'mensual' : 'diario'; // por defecto diario
+const TIPO = params.get('tipo') === 'mensual' ? 'mensual' : (params.get('tipo') === 'rango' ? 'rango' : 'diario');
 const VENDEDOR_FORZADO = params.get('vendedor') || ''; // si viene, se oculta el selector
 const APP_USER = params.get('user') || '';
 document.getElementById('btnMenu').href = `index.html?pw=${encodeURIComponent(APP_PASSWORD)}&user=${encodeURIComponent(APP_USER)}`;
@@ -92,8 +92,8 @@ const vendedorSelect = document.getElementById('vendedorSelect');
 const fechaField = document.getElementById('fechaField');
 const exportBtn = document.getElementById('exportBtn');
 
-document.getElementById('pageTitle').textContent = TIPO === 'mensual' ? '📊 Reporte Mensual' : '📅 Reporte Diario';
-document.title = TIPO === 'mensual' ? 'Reporte Mensual' : 'Reporte Diario';
+document.getElementById('pageTitle').textContent = TIPO === 'mensual' ? '📊 Reporte Mensual' : (TIPO === 'rango' ? '📆 Reporte por Rango de Fechas' : '📅 Reporte Diario');
+document.title = TIPO === 'mensual' ? 'Reporte Mensual' : (TIPO === 'rango' ? 'Reporte por Rango' : 'Reporte Diario');
 
 // ===== Armar el campo de fecha según el tipo =====
 if (TIPO === 'mensual') {
@@ -103,6 +103,20 @@ if (TIPO === 'mensual') {
         <label>Mes</label>
         <input type="month" id="fechaInput" value="${valorDefault}">
     `;
+} else if (TIPO === 'rango') {
+    const hoy = new Date();
+    const valorHoy = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
+    const primerDiaMes = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-01';
+    fechaField.innerHTML = `
+        <label>Desde</label>
+        <input type="date" id="fechaInicioInput" value="${primerDiaMes}">
+    `;
+    fechaField.insertAdjacentHTML('afterend', `
+        <div class="field" id="fechaFinField">
+            <label>Hasta</label>
+            <input type="date" id="fechaFinInput" value="${valorHoy}">
+        </div>
+    `);
 } else {
     const valorDefault = new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0');
     fechaField.innerHTML = `
@@ -110,7 +124,9 @@ if (TIPO === 'mensual') {
         <input type="date" id="fechaInput" value="${valorDefault}">
     `;
 }
-const fechaInput = document.getElementById('fechaInput');
+const fechaInput = TIPO === 'rango' ? null : document.getElementById('fechaInput');
+const fechaInicioInput = TIPO === 'rango' ? document.getElementById('fechaInicioInput') : null;
+const fechaFinInput = TIPO === 'rango' ? document.getElementById('fechaFinInput') : null;
 
 // ===== Cargar lista de vendedores activos (o forzar uno solo) =====
 async function cargarVendedores() {
@@ -149,7 +165,12 @@ vendedorSelect.addEventListener('change', function() {
     vendedorSeleccionadoId = this.value || null;
     cargarReporte();
 });
-fechaInput.addEventListener('change', cargarReporte);
+if (TIPO === 'rango') {
+    fechaInicioInput.addEventListener('change', cargarReporte);
+    fechaFinInput.addEventListener('change', cargarReporte);
+} else {
+    fechaInput.addEventListener('change', cargarReporte);
+}
 
 // ===== Cargar y mostrar el reporte =====
 async function cargarReporte() {
@@ -168,6 +189,17 @@ async function cargarReporte() {
             const [anio, mes] = fechaInput.value.split('-');
             const response = await fetch(urlConAuth(`${WORKER_URL}/api/reporte-mensual?vendedor_id=${vendedorSeleccionadoId}&anio=${anio}&mes=${mes}`), { cache: 'no-store' });
             if (!response.ok) throw new Error('No se pudo cargar el reporte mensual');
+            data = await response.json();
+            mostrarReporteMensual(data);
+        } else if (TIPO === 'rango') {
+            if (!fechaInicioInput.value || !fechaFinInput.value) {
+                viewerEl.innerHTML = '<div class="placeholder">👆 Elige las dos fechas</div>';
+                statusEl.innerHTML = '';
+                exportBtn.disabled = true;
+                return;
+            }
+            const response = await fetch(urlConAuth(`${WORKER_URL}/api/reporte-rango?vendedor_id=${vendedorSeleccionadoId}&fecha_inicio=${fechaInicioInput.value}&fecha_fin=${fechaFinInput.value}`), { cache: 'no-store' });
+            if (!response.ok) throw new Error('No se pudo cargar el reporte por rango');
             data = await response.json();
             mostrarReporteMensual(data);
         } else {
@@ -306,7 +338,7 @@ exportBtn.addEventListener('click', async function() {
 
     try {
         const nombreVendedor = VENDEDOR_FORZADO || (vendedores.find(v => v.id == vendedorSeleccionadoId)?.nombre) || 'Vendedor';
-        const etiquetaFecha = TIPO === 'mensual' ? fechaInput.value : fechaInput.value;
+        const etiquetaFecha = TIPO === 'rango' ? `${fechaInicioInput.value} a ${fechaFinInput.value}` : fechaInput.value;
 
         const clone = table.cloneNode(true);
         clone.querySelectorAll('th').forEach(th => th.style.position = 'static');
@@ -326,7 +358,7 @@ exportBtn.addEventListener('click', async function() {
         titleEl.style.color = '#2c3e50';
         titleEl.style.marginBottom = '10px';
         titleEl.style.whiteSpace = 'nowrap';
-        titleEl.textContent = `${nombreVendedor} — ${etiquetaFecha} (${TIPO === 'mensual' ? 'Mensual' : 'Diario'})`;
+        titleEl.textContent = `${nombreVendedor} — ${etiquetaFecha} (${TIPO === 'mensual' ? 'Mensual' : (TIPO === 'rango' ? 'Rango' : 'Diario')})`;
         wrapper.appendChild(titleEl);
         wrapper.appendChild(clone);
         document.body.appendChild(wrapper);
