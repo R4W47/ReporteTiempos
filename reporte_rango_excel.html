@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Reporte por Rango (Histórico Excel)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family: Arial, sans-serif; background:#f5f5f5; padding:10px; }
+        .container { max-width:100%; background:white; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.1); overflow:hidden; }
+        .header { background:#2c3e50; color:white; padding:15px; text-align:center; position:relative; }
+        .header h1 { font-size:1.4em; }
+        .btn-menu {
+            position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+            background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 5px;
+            padding: 8px 12px; font-size: 13px; cursor: pointer; text-decoration: none;
+        }
+        .btn-menu:hover { background: rgba(255,255,255,0.25); }
+        .search-section { padding:15px; background:#ecf0f1; border-bottom:2px solid #bdc3c7; }
+        .search-box-wrapper { display:flex; gap:8px; margin-bottom:15px; flex-wrap:wrap; }
+        .search-box-wrapper:last-child { margin-bottom:0; }
+        .field { display:flex; flex-direction:column; gap:5px; flex:1; min-width:140px; }
+        .field label { font-weight:bold; font-size:13px; color:#2c3e50; }
+        select, input { padding:12px; border:2px solid #3498db; border-radius:5px; font-size:15px; background:white; }
+        #exportBtn { padding:12px 20px; background:#27ae60; color:white; border:none; border-radius:5px; font-size:16px; cursor:pointer; white-space:nowrap; }
+        #exportBtn:hover { background:#219150; }
+        #exportBtn:disabled { background:#95a5a6; cursor:not-allowed; }
+        .status-message { padding:12px 15px; font-size:14px; }
+        .status-message.error { background:#fdecea; color:#c0392b; }
+        .status-message.success { background:#eafaf1; color:#27ae60; }
+        .status-message.loading { background:#eaf2fa; color:#2980b9; }
+        .viewer { padding:15px; overflow-x:auto; overflow-y:auto; max-height:65vh; }
+        .info-message { text-align:center; padding:40px 20px; color:#7f8c8d; }
+        table { border-collapse: collapse; width:100%; font-size:13px; }
+        th, td { border:1px solid #ddd; padding:8px; text-align:left; white-space:nowrap; }
+        thead { position: sticky; top:0; z-index:10; }
+        th { background-color:#3498db; color:white; font-weight:bold; }
+        tr:nth-child(even) { background-color:#f9f9f9; }
+        tr.fila-mes { background-color:#dfe9f3; font-weight:bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="#" class="btn-menu" id="btnMenu">← Menú</a>
+            <h1>📆 Reporte por Rango (Histórico Excel)</h1>
+        </div>
+
+        <div class="search-section">
+            <div class="search-box-wrapper" id="vendedorField">
+                <div class="field">
+                    <label for="vendedorSelect">Vendedor</label>
+                    <select id="vendedorSelect">
+                        <option value="">-- Elige un vendedor --</option>
+                    </select>
+                </div>
+            </div>
+            <div class="search-box-wrapper">
+                <div class="field">
+                    <label for="fechaInicioInput">Desde</label>
+                    <input type="date" id="fechaInicioInput">
+                </div>
+                <div class="field">
+                    <label for="fechaFinInput">Hasta</label>
+                    <input type="date" id="fechaFinInput">
+                </div>
+                <button id="exportBtn" disabled>📷 Exportar imagen</button>
+            </div>
+        </div>
+
+        <div id="statusMessage"></div>
+
+        <div id="viewer" class="viewer">
+            <div class="info-message"><p>👆 Elige un vendedor y el rango de fechas</p></div>
+        </div>
+    </div>
+
+    <script>
+        const WORKER_URL = 'https://frosty-base-53ff.watsonmraul.workers.dev';
+        const APP_PASSWORD = new URLSearchParams(window.location.search).get('pw') || '';
+        const APP_USER = new URLSearchParams(window.location.search).get('user') || '';
+        const VENDEDOR_FORZADO = new URLSearchParams(window.location.search).get('vendedor') || '';
+        document.getElementById('btnMenu').href = `index.html?pw=${encodeURIComponent(APP_PASSWORD)}&user=${encodeURIComponent(APP_USER)}`;
+
+        function urlConAuth(base) {
+            const sep = base.indexOf('?') === -1 ? '?' : '&';
+            return base + sep + 'pw=' + encodeURIComponent(APP_PASSWORD) + '&user=' + encodeURIComponent(APP_USER);
+        }
+
+        const MONTHS = [
+            { num: 1, name: 'Enero' }, { num: 2, name: 'Febrero' }, { num: 3, name: 'Marzo' },
+            { num: 4, name: 'Abril' }, { num: 5, name: 'Mayo' }, { num: 6, name: 'Junio' },
+            { num: 7, name: 'Julio' }, { num: 8, name: 'Agosto' }, { num: 9, name: 'Septiembre' },
+            { num: 10, name: 'Octubre' }, { num: 11, name: 'Noviembre' }, { num: 12, name: 'Diciembre' }
+        ];
+
+        function getMonthFolder(month) {
+            const numStr = String(month.num).padStart(2, '0');
+            return `${numStr}- CUENTAS DIARIAS ${month.name.toUpperCase()}`;
+        }
+        function getMonthFile(month, year) {
+            return `${month.name.toUpperCase()} ${year}.xlsm`;
+        }
+        function getMonthFilePath(month, year) {
+            return `${getMonthFolder(month)}/${getMonthFile(month, year)}`;
+        }
+
+        const vendedorSelect = document.getElementById('vendedorSelect');
+        const fechaInicioInput = document.getElementById('fechaInicioInput');
+        const fechaFinInput = document.getElementById('fechaFinInput');
+        const statusEl = document.getElementById('statusMessage');
+        const viewerEl = document.getElementById('viewer');
+        const exportBtn = document.getElementById('exportBtn');
+
+        // Valores por defecto: del día 1 del mes actual a hoy
+        const hoy = new Date();
+        fechaFinInput.value = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
+        fechaInicioInput.value = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-01';
+
+        let vendedorSeleccionadoNombre = null;
+
+        // ===== Cargar la lista de vendedores (desde el mes de la fecha "Desde") =====
+        async function cargarListaVendedores() {
+            if (VENDEDOR_FORZADO) {
+                vendedorSeleccionadoNombre = VENDEDOR_FORZADO;
+                document.getElementById('vendedorField').style.display = 'none';
+                cargarReporte();
+                return;
+            }
+
+            const [anio, mesNum] = fechaInicioInput.value.split('-').map(Number);
+            const month = MONTHS[mesNum - 1];
+            const filePath = getMonthFilePath(month, anio);
+
+            statusEl.innerHTML = `<div class="status-message loading">⏳ Cargando lista de vendedores...</div>`;
+
+            try {
+                const response = await fetch(urlConAuth(`${WORKER_URL}/?path=${encodeURIComponent(filePath)}`) + '&t=' + Date.now(), { cache: 'no-store' });
+                if (!response.ok) throw new Error('No se encontró ' + filePath);
+                const arrayBuffer = await response.arrayBuffer();
+                const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
+
+                if (!workbook.Sheets['Resumen']) throw new Error('No se encontró la hoja "Resumen" en ' + filePath);
+                const rows = XLSX.utils.sheet_to_json(workbook.Sheets['Resumen'], { header: 1, defval: '' });
+                const EXCLUDE = ['totales', 'ir a resumen', 'grafico dinamico', 'gráfico dinámico'];
+
+                vendedorSelect.innerHTML = '<option value="">-- Elige un vendedor --</option>';
+                for (let i = 2; i < rows.length; i++) {
+                    const name = (rows[i][0] || '').toString().trim();
+                    if (name === '' || EXCLUDE.includes(name.toLowerCase())) continue;
+                    const opt = document.createElement('option');
+                    opt.value = name;
+                    opt.textContent = name;
+                    vendedorSelect.appendChild(opt);
+                }
+                statusEl.innerHTML = '';
+            } catch (error) {
+                statusEl.innerHTML = `<div class="status-message error">⚠️ ${error.message}</div>`;
+            }
+        }
+
+        // ===== Buscar la fila "Totales" =====
+        function findTotalesRow(sheet, colIndex, startRow, maxRow) {
+            for (let r = startRow; r <= maxRow; r++) {
+                const addr = XLSX.utils.encode_cell({ r, c: colIndex });
+                const cell = sheet[addr];
+                if (cell && cell.v !== undefined && cell.v !== null) {
+                    if (cell.v.toString().toLowerCase().includes('total')) return r;
+                }
+            }
+            return null;
+        }
+
+        // ===== Extraer los días de un mes (para un vendedor) dentro de un rango de días =====
+        async function extraerDiasDeMes(month, anio, nombreVendedor, diaDesde, diaHasta) {
+            const filePath = getMonthFilePath(month, anio);
+            const response = await fetch(urlConAuth(`${WORKER_URL}/?path=${encodeURIComponent(filePath)}`) + '&t=' + Date.now(), { cache: 'no-store' });
+            if (!response.ok) throw new Error('No se encontró ' + filePath);
+            const arrayBuffer = await response.arrayBuffer();
+            const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
+
+            if (!workbook.Sheets['Resumen']) throw new Error('No se encontró "Resumen" en ' + filePath);
+            const resumenRows = XLSX.utils.sheet_to_json(workbook.Sheets['Resumen'], { header: 1, defval: '' });
+
+            let sheetName = null;
+            for (let i = 2; i < resumenRows.length; i++) {
+                const name = (resumenRows[i][0] || '').toString().trim();
+                if (name.toLowerCase() === nombreVendedor.toLowerCase()) {
+                    sheetName = 'Vendedor' + (i - 1);
+                    break;
+                }
+            }
+            if (!sheetName) throw new Error(`No se encontró a "${nombreVendedor}" en ${filePath}`);
+
+            const sheet = workbook.Sheets[sheetName];
+            if (!sheet) throw new Error(`No existe la hoja "${sheetName}" en ${filePath}`);
+
+            const fullRange = XLSX.utils.decode_range(sheet['!ref']);
+            const scanLimit = Math.max(fullRange.e.r, 60);
+            let endRow = findTotalesRow(sheet, fullRange.s.c, 4, scanLimit);
+            if (endRow === null) endRow = Math.max(fullRange.e.r, 36);
+            const colEnd = Math.max(fullRange.e.c, 14);
+
+            const range = { s: { r: 3, c: fullRange.s.c }, e: { r: endRow, c: colEnd } };
+            const json = XLSX.utils.sheet_to_json(sheet, { range, defval: '', blankrows: true });
+
+            // json[0] = fila "Saldo", json[1] = Dia1, json[2] = Dia2, ...
+            const filasDelRango = [];
+            for (let dia = diaDesde; dia <= diaHasta && dia <= 31; dia++) {
+                if (json[dia] !== undefined) {
+                    filasDelRango.push({ dia, mes: month.name, anio, datos: json[dia] });
+                }
+            }
+            return filasDelRango;
+        }
+
+        function diasEnMes(month, anio) {
+            return new Date(anio, month.num, 0).getDate();
+        }
+
+        // ===== Cargar el reporte completo (puede cruzar varios meses) =====
+        async function cargarReporte() {
+            if (!vendedorSeleccionadoNombre || !fechaInicioInput.value || !fechaFinInput.value) {
+                viewerEl.innerHTML = '<div class="info-message"><p>👆 Elige un vendedor y el rango de fechas</p></div>';
+                exportBtn.disabled = true;
+                return;
+            }
+
+            const inicio = new Date(fechaInicioInput.value + 'T00:00:00');
+            const fin = new Date(fechaFinInput.value + 'T00:00:00');
+
+            if (inicio > fin) {
+                statusEl.innerHTML = '<div class="status-message error">⚠️ La fecha "Desde" no puede ser después de "Hasta"</div>';
+                return;
+            }
+
+            statusEl.innerHTML = '<div class="status-message loading">⏳ Cargando datos (puede tardar si cruza varios meses)...</div>';
+            viewerEl.innerHTML = '';
+            exportBtn.disabled = true;
+
+            // Armar la lista de meses a recorrer
+            const mesesARecorrer = [];
+            let cursor = new Date(inicio.getFullYear(), inicio.getMonth(), 1);
+            while (cursor <= fin) {
+                mesesARecorrer.push({ anio: cursor.getFullYear(), mesNum: cursor.getMonth() + 1 });
+                cursor.setMonth(cursor.getMonth() + 1);
+            }
+
+            try {
+                let todasLasFilas = [];
+                let columnasFinales = null;
+
+                for (const { anio, mesNum } of mesesARecorrer) {
+                    const month = MONTHS[mesNum - 1];
+                    const primerDiaDeEsteMes = new Date(anio, mesNum - 1, 1);
+                    const ultimoDiaDeEsteMes = new Date(anio, mesNum, 0);
+
+                    const diaDesde = (primerDiaDeEsteMes < inicio) ? inicio.getDate() : 1;
+                    const diaHasta = (ultimoDiaDeEsteMes > fin) ? fin.getDate() : diasEnMes(month, anio);
+
+                    const filas = await extraerDiasDeMes(month, anio, vendedorSeleccionadoNombre, diaDesde, diaHasta);
+                    todasLasFilas = todasLasFilas.concat(filas);
+
+                    if (!columnasFinales && filas.length > 0) {
+                        columnasFinales = Object.keys(filas[0].datos);
+                    }
+                }
+
+                if (todasLasFilas.length === 0 || !columnasFinales) {
+                    viewerEl.innerHTML = '<div class="info-message"><p>No se encontraron datos en ese rango.</p></div>';
+                    statusEl.innerHTML = '';
+                    return;
+                }
+
+                // Quitar columnas totalmente vacías en todo el rango
+                columnasFinales = columnasFinales.filter(col =>
+                    todasLasFilas.some(f => f.datos[col] !== '' && f.datos[col] !== null && f.datos[col] !== undefined)
+                );
+
+                let html = '<table><thead><tr><th>Fecha</th>';
+                columnasFinales.forEach(col => { html += `<th>${col}</th>`; });
+                html += '</tr></thead><tbody>';
+
+                let mesActualEtiqueta = null;
+                todasLasFilas.forEach(f => {
+                    if (f.mes !== mesActualEtiqueta) {
+                        mesActualEtiqueta = f.mes;
+                        html += `<tr class="fila-mes"><td colspan="${columnasFinales.length + 1}">${f.mes} ${f.anio}</td></tr>`;
+                    }
+                    html += `<tr><td>Día ${f.dia}</td>`;
+                    columnasFinales.forEach(col => {
+                        html += `<td>${f.datos[col]}</td>`;
+                    });
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+
+                viewerEl.innerHTML = html;
+                statusEl.innerHTML = `<div class="status-message success">✅ Mostrando datos de: ${vendedorSeleccionadoNombre}</div>`;
+                exportBtn.disabled = false;
+
+            } catch (error) {
+                statusEl.innerHTML = `<div class="status-message error">⚠️ ${error.message}</div>`;
+                viewerEl.innerHTML = '';
+            }
+        }
+
+        vendedorSelect.addEventListener('change', function() {
+            vendedorSeleccionadoNombre = this.value || null;
+            cargarReporte();
+        });
+        fechaInicioInput.addEventListener('change', function() {
+            if (!VENDEDOR_FORZADO) cargarListaVendedores();
+            else cargarReporte();
+        });
+        fechaFinInput.addEventListener('change', cargarReporte);
+
+        // ===== Exportar como imagen =====
+        exportBtn.addEventListener('click', async function() {
+            const table = viewerEl.querySelector('table');
+            if (!table) {
+                statusEl.innerHTML = '<div class="status-message error">⚠️ No hay ninguna tabla para exportar</div>';
+                return;
+            }
+
+            this.disabled = true;
+            this.textContent = '⏳ Generando imagen...';
+
+            try {
+                const clone = table.cloneNode(true);
+                clone.querySelectorAll('th').forEach(th => th.style.position = 'static');
+
+                const wrapper = document.createElement('div');
+                wrapper.style.position = 'fixed';
+                wrapper.style.top = '0';
+                wrapper.style.left = '-100000px';
+                wrapper.style.background = '#ffffff';
+                wrapper.style.padding = '10px';
+                wrapper.style.display = 'inline-block';
+
+                const titleEl = document.createElement('div');
+                titleEl.style.fontFamily = 'Arial, sans-serif';
+                titleEl.style.fontWeight = 'bold';
+                titleEl.style.fontSize = '18px';
+                titleEl.style.color = '#2c3e50';
+                titleEl.style.marginBottom = '10px';
+                titleEl.style.whiteSpace = 'nowrap';
+                titleEl.textContent = `${vendedorSeleccionadoNombre} — ${fechaInicioInput.value} a ${fechaFinInput.value}`;
+                wrapper.appendChild(titleEl);
+                wrapper.appendChild(clone);
+                document.body.appendChild(wrapper);
+
+                await new Promise(resolve => requestAnimationFrame(resolve));
+
+                const MAX_DIMENSION = 4000;
+                const naturalWidth = wrapper.scrollWidth;
+                const naturalHeight = wrapper.scrollHeight;
+                const maxNaturalDim = Math.max(naturalWidth, naturalHeight);
+                let scale = 2;
+                if (maxNaturalDim * scale > MAX_DIMENSION) scale = MAX_DIMENSION / maxNaturalDim;
+
+                const canvas = await html2canvas(wrapper, { backgroundColor: '#ffffff', scale });
+                document.body.removeChild(wrapper);
+
+                canvas.toBlob(async (blob) => {
+                    const fileName = `Reporte ${vendedorSeleccionadoNombre} ${fechaInicioInput.value}_a_${fechaFinInput.value}.png`;
+                    const filesArray = [new File([blob], fileName, { type: 'image/png' })];
+
+                    if (navigator.canShare && navigator.canShare({ files: filesArray })) {
+                        try { await navigator.share({ files: filesArray, title: fileName }); } catch (e) {}
+                    } else {
+                        const link = document.createElement('a');
+                        link.download = fileName;
+                        link.href = URL.createObjectURL(blob);
+                        link.click();
+                    }
+                    this.disabled = false;
+                    this.textContent = '📷 Exportar imagen';
+                }, 'image/png');
+
+            } catch (error) {
+                statusEl.innerHTML = `<div class="status-message error">⚠️ Error al generar la imagen: ${error.message}</div>`;
+                this.disabled = false;
+                this.textContent = '📷 Exportar imagen';
+            }
+        });
+
+        // Inicializar
+        cargarListaVendedores();
+    </script>
+</body>
+</html>
