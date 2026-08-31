@@ -42,6 +42,7 @@
         th { background-color:#3498db; color:white; font-weight:bold; }
         tr:nth-child(even) { background-color:#f9f9f9; }
         tr.fila-mes { background-color:#dfe9f3; font-weight:bold; }
+        tr.fila-totales { background-color:#fdf6e3; font-weight:bold; }
     </style>
 </head>
 <body>
@@ -286,6 +287,15 @@
                 columnasFinales.forEach(col => { html += `<th>${col}</th>`; });
                 html += '</tr></thead><tbody>';
 
+                function aNumero(v) {
+                    if (typeof v === 'number') return v;
+                    const n = parseFloat((v || '').toString().replace(/,/g, ''));
+                    return isNaN(n) ? 0 : n;
+                }
+
+                const totales = {};
+                columnasFinales.forEach(col => { totales[col] = 0; });
+
                 let mesActualEtiqueta = null;
                 todasLasFilas.forEach(f => {
                     if (f.mes !== mesActualEtiqueta) {
@@ -295,9 +305,17 @@
                     html += `<tr><td>Día ${f.dia}</td>`;
                     columnasFinales.forEach(col => {
                         html += `<td>${f.datos[col]}</td>`;
+                        totales[col] += aNumero(f.datos[col]);
                     });
                     html += '</tr>';
                 });
+
+                html += '<tr class="fila-totales"><td>Totales</td>';
+                columnasFinales.forEach(col => {
+                    html += `<td>${totales[col].toLocaleString('es-CR', { minimumFractionDigits: 2 })}</td>`;
+                });
+                html += '</tr>';
+
                 html += '</tbody></table>';
 
                 viewerEl.innerHTML = html;
