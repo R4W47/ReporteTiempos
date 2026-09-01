@@ -67,7 +67,8 @@
         </div>
         <div class="field" id="vendedorField" style="display:none;">
             <label>Nombre del vendedor (tal como está en la tabla vendedores)</label>
-            <input type="text" id="vendedorNombre" placeholder="ej. Yoyo" autocomplete="off">
+            <input type="text" id="vendedorNombre" placeholder="ej. Yoyo" autocomplete="off" list="listaNombresVendedores">
+            <datalist id="listaNombresVendedores"></datalist>
             <div id="avisoVendedor" style="margin-top:6px; font-size:13px;"></div>
         </div>
 
@@ -119,7 +120,16 @@ let listaVendedoresExistentes = [];
 async function cargarListaVendedoresExistentes() {
     try {
         const resp = await fetch(urlConAuth(`${WORKER_URL}/api/admin/vendedores`), { cache: 'no-store' });
-        if (resp.ok) listaVendedoresExistentes = await resp.json();
+        if (resp.ok) {
+            listaVendedoresExistentes = await resp.json();
+            const datalist = document.getElementById('listaNombresVendedores');
+            datalist.innerHTML = '';
+            listaVendedoresExistentes.forEach(v => {
+                const opt = document.createElement('option');
+                opt.value = v.nombre;
+                datalist.appendChild(opt);
+            });
+        }
     } catch (e) {}
 }
 cargarListaVendedoresExistentes();
