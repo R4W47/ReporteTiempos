@@ -68,6 +68,15 @@
         <div class="field" id="vendedorField" style="display:none;">
             <label>Nombre del vendedor (tal como está en la tabla vendedores)</label>
             <input type="text" id="vendedorNombre" placeholder="ej. Yoyo" autocomplete="off">
+            <div id="avisoVendedor" style="margin-top:6px; font-size:13px;"></div>
+        </div>
+
+        <div class="field" id="tipoNuevoVendedorField" style="display:none;">
+            <label>Ese vendedor no existe todavía — ¿qué tipo es?</label>
+            <select id="tipoNuevoVendedor">
+                <option value="lista">lista</option>
+                <option value="puesto">puesto</option>
+            </select>
         </div>
 
         <button id="crearBtn">Crear usuario</button>
@@ -103,6 +112,37 @@ const tbody = document.getElementById('tbodyUsuarios');
 
 rolSelect.addEventListener('change', function() {
     vendedorField.style.display = this.value === 'vendedor' ? 'block' : 'none';
+    document.getElementById('tipoNuevoVendedorField').style.display = 'none';
+});
+
+let listaVendedoresExistentes = [];
+async function cargarListaVendedoresExistentes() {
+    try {
+        const resp = await fetch(urlConAuth(`${WORKER_URL}/api/admin/vendedores`), { cache: 'no-store' });
+        if (resp.ok) listaVendedoresExistentes = await resp.json();
+    } catch (e) {}
+}
+cargarListaVendedoresExistentes();
+
+const vendedorNombreInput = document.getElementById('vendedorNombre');
+const avisoVendedor = document.getElementById('avisoVendedor');
+const tipoNuevoVendedorField = document.getElementById('tipoNuevoVendedorField');
+
+vendedorNombreInput.addEventListener('input', function() {
+    const nombre = this.value.trim();
+    if (!nombre) {
+        avisoVendedor.innerHTML = '';
+        tipoNuevoVendedorField.style.display = 'none';
+        return;
+    }
+    const existe = listaVendedoresExistentes.some(v => v.nombre.toLowerCase() === nombre.toLowerCase());
+    if (existe) {
+        avisoVendedor.innerHTML = '<span style="color:#27ae60;">✅ Ya existe como vendedor</span>';
+        tipoNuevoVendedorField.style.display = 'none';
+    } else {
+        avisoVendedor.innerHTML = '<span style="color:#8a6d00;">⚠️ No existe todavía — se creará junto con el usuario</span>';
+        tipoNuevoVendedorField.style.display = 'block';
+    }
 });
 
 crearBtn.addEventListener('click', async function() {
@@ -126,6 +166,22 @@ crearBtn.addEventListener('click', async function() {
     crearBtn.textContent = 'Creando...';
 
     try {
+        // Si es vendedor y no existe todavía, lo creamos primero
+        if (rol === 'vendedor') {
+            const yaExiste = listaVendedoresExistentes.some(v => v.nombre.toLowerCase() === vendedorNombre.toLowerCase());
+            if (!yaExiste) {
+                const tipoNuevo = document.getElementById('tipoNuevoVendedor').value;
+                const respVendedor = await fetch(urlConAuth(`${WORKER_URL}/api/admin/vendedores`), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pw: APP_PASSWORD, nombre: vendedorNombre, tipo: tipoNuevo, activo: true })
+                });
+                const resultVendedor = await respVendedor.json();
+                if (!respVendedor.ok || !resultVendedor.ok) throw new Error(resultVendedor.error || 'No se pudo crear el vendedor');
+                await cargarListaVendedoresExistentes();
+            }
+        }
+
         const response = await fetch(urlConAuth(`${WORKER_URL}/api/usuarios`), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -144,6 +200,8 @@ crearBtn.addEventListener('click', async function() {
             document.getElementById('username').value = '';
             document.getElementById('password').value = '';
             document.getElementById('vendedorNombre').value = '';
+            avisoVendedor.innerHTML = '';
+            tipoNuevoVendedorField.style.display = 'none';
             await cargarUsuarios();
         } else {
             throw new Error(result.error || 'No se pudo crear el usuario');
