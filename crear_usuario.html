@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Crear Usuario</title>
+<title>Administrar Usuarios</title>
 <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     body { font-family: Arial, sans-serif; background:#f5f5f5; padding:15px; }
-    .container { max-width:500px; margin:0 auto; background:white; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.1); overflow:hidden; }
+    .container { max-width:700px; margin:0 auto; background:white; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.1); overflow:hidden; }
     .header { background:#2c3e50; color:white; padding:15px 20px; text-align:center; position:relative; }
     .header h1 { font-size:1.4em; }
     .btn-menu {
@@ -16,27 +16,38 @@
         padding: 8px 12px; font-size: 13px; cursor: pointer; text-decoration: none;
     }
     .btn-menu:hover { background: rgba(255,255,255,0.25); }
-    .form-body { padding:25px; }
-    .field { margin-bottom:18px; }
-    .field label { display:block; font-weight:bold; color:#2c3e50; margin-bottom:6px; font-size:14px; }
-    .field input, .field select { width:100%; padding:11px; border:2px solid #3498db; border-radius:5px; font-size:15px; }
-    #crearBtn { width:100%; padding:13px; background:#27ae60; color:white; border:none; border-radius:5px; font-size:15px; font-weight:bold; cursor:pointer; }
+    .seccion { padding:20px; border-bottom:2px solid #ecf0f1; }
+    .seccion h2 { font-size:1em; color:#2c3e50; margin-bottom:15px; }
+    .field { margin-bottom:14px; }
+    .field label { display:block; font-weight:bold; color:#2c3e50; margin-bottom:5px; font-size:13px; }
+    .field input, .field select { width:100%; padding:10px; border:2px solid #3498db; border-radius:5px; font-size:14px; }
+    #crearBtn { width:100%; padding:12px; background:#27ae60; color:white; border:none; border-radius:5px; font-size:14px; font-weight:bold; cursor:pointer; }
     #crearBtn:hover { background:#219150; }
     #crearBtn:disabled { background:#95a5a6; cursor:not-allowed; }
-    .status { padding:12px; border-radius:5px; font-size:14px; margin-bottom:18px; }
+    .status { padding:12px; border-radius:5px; font-size:14px; margin-bottom:14px; }
     .status.success { background:#eafaf1; color:#27ae60; }
     .status.error { background:#fdecea; color:#c0392b; }
+    table { border-collapse: collapse; width:100%; font-size:13px; }
+    th, td { border:1px solid #ddd; padding:7px; text-align:left; }
+    th { background:#3498db; color:white; }
+    tr.inactivo { opacity:0.5; }
+    .btn-small { padding:5px 9px; border:none; border-radius:4px; font-size:12px; cursor:pointer; margin-right:4px; }
+    .btn-condiciones { background:#3498db; color:white; }
+    .btn-condiciones:hover { background:#2980b9; }
+    .btn-eliminar { background:#e74c3c; color:white; }
+    .btn-eliminar:hover { background:#c0392b; }
 </style>
 </head>
 <body>
 <div class="container">
     <div class="header">
         <a href="#" class="btn-menu" id="btnMenu">← Menú</a>
-        <h1>👤 Crear Usuario Nuevo</h1>
+        <h1>👤 Administrar Usuarios</h1>
     </div>
 
-    <div class="form-body">
-        <div id="statusMsg"></div>
+    <div class="seccion">
+        <h2>Crear usuario nuevo</h2>
+        <div id="statusCrear"></div>
 
         <div class="field">
             <label>Usuario</label>
@@ -61,6 +72,15 @@
 
         <button id="crearBtn">Crear usuario</button>
     </div>
+
+    <div class="seccion">
+        <h2>Usuarios existentes</h2>
+        <div id="statusLista"></div>
+        <table id="tablaUsuarios">
+            <thead><tr><th>Usuario</th><th>Rol</th><th>Vendedor</th><th>Activo</th><th></th></tr></thead>
+            <tbody id="tbodyUsuarios"></tbody>
+        </table>
+    </div>
 </div>
 
 <script>
@@ -69,10 +89,17 @@ const APP_PASSWORD = new URLSearchParams(window.location.search).get('pw') || ''
 const APP_USER = new URLSearchParams(window.location.search).get('user') || '';
 document.getElementById('btnMenu').href = `index.html?pw=${encodeURIComponent(APP_PASSWORD)}&user=${encodeURIComponent(APP_USER)}`;
 
-const statusEl = document.getElementById('statusMsg');
+function urlConAuth(base) {
+    const sep = base.indexOf('?') === -1 ? '?' : '&';
+    return base + sep + 'pw=' + encodeURIComponent(APP_PASSWORD) + '&user=' + encodeURIComponent(APP_USER);
+}
+
+const statusCrear = document.getElementById('statusCrear');
+const statusLista = document.getElementById('statusLista');
 const rolSelect = document.getElementById('rol');
 const vendedorField = document.getElementById('vendedorField');
 const crearBtn = document.getElementById('crearBtn');
+const tbody = document.getElementById('tbodyUsuarios');
 
 rolSelect.addEventListener('change', function() {
     vendedorField.style.display = this.value === 'vendedor' ? 'block' : 'none';
@@ -84,14 +111,14 @@ crearBtn.addEventListener('click', async function() {
     const rol = rolSelect.value;
     const vendedorNombre = document.getElementById('vendedorNombre').value.trim();
 
-    statusEl.innerHTML = '';
+    statusCrear.innerHTML = '';
 
     if (!username || !password) {
-        statusEl.innerHTML = '<div class="status error">⚠️ Escribe usuario y contraseña</div>';
+        statusCrear.innerHTML = '<div class="status error">⚠️ Escribe usuario y contraseña</div>';
         return;
     }
     if (rol === 'vendedor' && !vendedorNombre) {
-        statusEl.innerHTML = '<div class="status error">⚠️ Escribe el nombre del vendedor</div>';
+        statusCrear.innerHTML = '<div class="status error">⚠️ Escribe el nombre del vendedor</div>';
         return;
     }
 
@@ -99,7 +126,7 @@ crearBtn.addEventListener('click', async function() {
     crearBtn.textContent = 'Creando...';
 
     try {
-        const response = await fetch(`${WORKER_URL}/api/usuarios`, {
+        const response = await fetch(urlConAuth(`${WORKER_URL}/api/usuarios`), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -113,20 +140,82 @@ crearBtn.addEventListener('click', async function() {
         const result = await response.json();
 
         if (response.ok && result.ok) {
-            statusEl.innerHTML = `<div class="status success">✅ Usuario "${username}" creado correctamente</div>`;
+            statusCrear.innerHTML = `<div class="status success">✅ Usuario "${username}" creado correctamente</div>`;
             document.getElementById('username').value = '';
             document.getElementById('password').value = '';
             document.getElementById('vendedorNombre').value = '';
+            await cargarUsuarios();
         } else {
             throw new Error(result.error || 'No se pudo crear el usuario');
         }
     } catch (error) {
-        statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
+        statusCrear.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
     } finally {
         crearBtn.disabled = false;
         crearBtn.textContent = 'Crear usuario';
     }
 });
+
+async function cargarUsuarios() {
+    try {
+        const resp = await fetch(urlConAuth(`${WORKER_URL}/api/usuarios`), { cache: 'no-store' });
+        if (!resp.ok) throw new Error('No se pudo cargar la lista de usuarios');
+        const usuarios = await resp.json();
+
+        tbody.innerHTML = '';
+        usuarios.forEach(u => {
+            const tr = document.createElement('tr');
+            if (!u.activo) tr.className = 'inactivo';
+
+            let botones = `<button class="btn-small btn-eliminar" data-id="${u.id}" data-username="${u.username}">Eliminar</button>`;
+            if (u.rol === 'vendedor' && u.vendedor_nombre) {
+                botones = `<button class="btn-small btn-condiciones" data-vendedor="${u.vendedor_nombre}">Condiciones</button>` + botones;
+            }
+
+            tr.innerHTML = `
+                <td>${u.username}</td>
+                <td>${u.rol}</td>
+                <td>${u.vendedor_nombre || '-'}</td>
+                <td>${u.activo ? 'Sí' : 'No'}</td>
+                <td>${botones}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        tbody.querySelectorAll('.btn-eliminar').forEach(btn => {
+            btn.addEventListener('click', () => eliminarUsuario(btn.dataset.id, btn.dataset.username));
+        });
+        tbody.querySelectorAll('.btn-condiciones').forEach(btn => {
+            btn.addEventListener('click', () => {
+                window.location.href = `admin_vendedor_sorteo.html?pw=${encodeURIComponent(APP_PASSWORD)}&user=${encodeURIComponent(APP_USER)}&preseleccionar=${encodeURIComponent(btn.dataset.vendedor)}`;
+            });
+        });
+
+        statusLista.innerHTML = '';
+    } catch (e) {
+        statusLista.innerHTML = `<div class="status error">⚠️ ${e.message}</div>`;
+    }
+}
+
+async function eliminarUsuario(id, username) {
+    if (!confirm(`¿Seguro que quieres eliminar al usuario "${username}"? Esto no se puede deshacer.`)) return;
+
+    try {
+        const resp = await fetch(urlConAuth(`${WORKER_URL}/api/usuarios`), {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pw: APP_PASSWORD, id })
+        });
+        const result = await resp.json();
+        if (!resp.ok || !result.ok) throw new Error(result.error || 'Error al eliminar');
+        statusLista.innerHTML = `<div class="status success">✅ Usuario "${username}" eliminado</div>`;
+        await cargarUsuarios();
+    } catch (e) {
+        statusLista.innerHTML = `<div class="status error">⚠️ ${e.message}</div>`;
+    }
+}
+
+cargarUsuarios();
 </script>
 </body>
 </html>

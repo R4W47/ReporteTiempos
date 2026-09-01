@@ -92,8 +92,18 @@ async function cargarVendedores() {
             const opt = document.createElement('option');
             opt.value = v.id;
             opt.textContent = `${v.nombre} (${v.tipo}${v.activo ? '' : ' - inactivo'})`;
+            opt.dataset.nombre = v.nombre;
             vendedorSelect.appendChild(opt);
         });
+
+        const preseleccionar = new URLSearchParams(window.location.search).get('preseleccionar');
+        if (preseleccionar) {
+            const match = Array.from(vendedorSelect.options).find(o => o.dataset.nombre && o.dataset.nombre.toLowerCase() === preseleccionar.toLowerCase());
+            if (match) {
+                vendedorSelect.value = match.value;
+                cargarCondiciones();
+            }
+        }
     } catch (e) {
         statusEl.innerHTML = `<div class="status error">⚠️ ${e.message}</div>`;
     }
