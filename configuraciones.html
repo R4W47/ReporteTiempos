@@ -30,22 +30,36 @@
         <a href="#" class="btn-menu" id="btnMenu">← Menú</a>
         <h1>⚙️ Configuraciones</h1>
 
-        <a href="crear_usuario.html" class="menu-item" id="linkCrearUsuario">
+        <a href="#" class="menu-item" id="linkUsuarios">
             <span class="icon">👤</span>
-            Crear Usuario Nuevo
+            Administrar Usuarios
         </a>
 
-        <a href="generador_usuarios.html" class="menu-item">
-            <span class="icon">🔑</span>
-            Generador de Usuarios (offline, para migraciones)
+        <a href="#" class="menu-item" id="linkVendedores">
+            <span class="icon">👥</span>
+            Administrar Vendedores
+        </a>
+
+        <a href="#" class="menu-item" id="linkSorteos">
+            <span class="icon">🎲</span>
+            Administrar Sorteos
+        </a>
+
+        <a href="#" class="menu-item" id="linkCondiciones">
+            <span class="icon">⚖️</span>
+            Condiciones por Vendedor
         </a>
     </div>
 
     <script>
         const APP_PASSWORD = new URLSearchParams(window.location.search).get('pw') || '';
         const APP_USER = new URLSearchParams(window.location.search).get('user') || '';
-        document.getElementById('btnMenu').href = `index.html?pw=${encodeURIComponent(APP_PASSWORD)}&user=${encodeURIComponent(APP_USER)}`;
-        document.getElementById('linkCrearUsuario').href = `crear_usuario.html?pw=${encodeURIComponent(APP_PASSWORD)}&user=${encodeURIComponent(APP_USER)}`;
+        const base = `?pw=${encodeURIComponent(APP_PASSWORD)}&user=${encodeURIComponent(APP_USER)}`;
+        document.getElementById('btnMenu').href = `index.html${base}`;
+        document.getElementById('linkUsuarios').href = `crear_usuario.html${base}`;
+        document.getElementById('linkVendedores').href = `admin_vendedores.html${base}`;
+        document.getElementById('linkSorteos').href = `admin_sorteos.html${base}`;
+        document.getElementById('linkCondiciones').href = `admin_vendedor_sorteo.html${base}`;
     </script>
 </body>
 </html>
