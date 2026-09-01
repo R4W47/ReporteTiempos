@@ -49,7 +49,14 @@
                 <option value="">-- Elige un vendedor --</option>
             </select>
         </div>
+        <div class="field" id="copiarField" style="display:none;">
+            <label>Copiar condiciones de</label>
+            <select id="copiarDeSelect"></select>
+        </div>
+        <button id="copiarBtn" style="display:none; padding:10px 16px; background:#3498db; color:white; border:none; border-radius:5px; cursor:pointer;">Copiar</button>
     </div>
+
+    <div id="sugerenciaMsg"></div>
 
     <div id="statusMsg"></div>
 
@@ -77,23 +84,34 @@ function urlConAuth(base) {
 }
 
 const statusEl = document.getElementById('statusMsg');
+const sugerenciaEl = document.getElementById('sugerenciaMsg');
 const vendedorSelect = document.getElementById('vendedorSelect');
+const copiarField = document.getElementById('copiarField');
+const copiarDeSelect = document.getElementById('copiarDeSelect');
+const copiarBtn = document.getElementById('copiarBtn');
 const tabla = document.getElementById('tabla');
 const tbody = document.getElementById('tbody');
 const guardarTodoBtn = document.getElementById('guardarTodoBtn');
+let listaVendedores = [];
 
 async function cargarVendedores() {
     try {
         const resp = await fetch(urlConAuth(`${WORKER_URL}/api/admin/vendedores`), { cache: 'no-store' });
         if (!resp.ok) throw new Error('No se pudo cargar la lista (¿tienes permiso de admin?)');
-        const vendedores = await resp.json();
+        listaVendedores = await resp.json();
         vendedorSelect.innerHTML = '<option value="">-- Elige un vendedor --</option>';
-        vendedores.forEach(v => {
+        copiarDeSelect.innerHTML = '';
+        listaVendedores.forEach(v => {
             const opt = document.createElement('option');
             opt.value = v.id;
             opt.textContent = `${v.nombre} (${v.tipo}${v.activo ? '' : ' - inactivo'})`;
             opt.dataset.nombre = v.nombre;
             vendedorSelect.appendChild(opt);
+
+            const opt2 = document.createElement('option');
+            opt2.value = v.id;
+            opt2.textContent = v.nombre;
+            copiarDeSelect.appendChild(opt2);
         });
 
         const preseleccionar = new URLSearchParams(window.location.search).get('preseleccionar');
@@ -109,11 +127,47 @@ async function cargarVendedores() {
     }
 }
 
+// ===== Trae las condiciones de OTRO vendedor (para copiar) =====
+async function obtenerCondicionesDe(vendedorId) {
+    const resp = await fetch(urlConAuth(`${WORKER_URL}/api/admin/vendedor-sorteo?vendedor_id=${vendedorId}`), { cache: 'no-store' });
+    if (!resp.ok) return null;
+    return await resp.json();
+}
+
+function aplicarCondicionesATabla(filasOrigen) {
+    tbody.querySelectorAll('tr').forEach(tr => {
+        const sorteoId = tr.dataset.sorteoId;
+        const origen = filasOrigen.find(f => String(f.sorteo_id) === String(sorteoId));
+        if (!origen) return;
+        tr.querySelector('[data-field="recibe"]').checked = !!origen.recibe_este_sorteo;
+        tr.querySelector('[data-field="comision"]').value = origen.comision_pct != null ? origen.comision_pct : 0;
+        tr.querySelector('[data-field="multiplicador"]').value = origen.multiplicador_premio != null ? origen.multiplicador_premio : 0;
+    });
+}
+
+copiarBtn.addEventListener('click', async function() {
+    const origenId = copiarDeSelect.value;
+    if (!origenId) return;
+    this.disabled = true;
+    try {
+        const filas = await obtenerCondicionesDe(origenId);
+        if (filas) aplicarCondicionesATabla(filas);
+        sugerenciaEl.innerHTML = '<div class="status success">✅ Condiciones copiadas (revisa y dale "Guardar" para confirmar)</div>';
+    } catch (e) {
+        sugerenciaEl.innerHTML = `<div class="status error">⚠️ ${e.message}</div>`;
+    } finally {
+        this.disabled = false;
+    }
+});
+
 async function cargarCondiciones() {
     const vendedorId = vendedorSelect.value;
+    sugerenciaEl.innerHTML = '';
     if (!vendedorId) {
         tabla.style.display = 'none';
         guardarTodoBtn.style.display = 'none';
+        copiarField.style.display = 'none';
+        copiarBtn.style.display = 'none';
         return;
     }
 
@@ -139,7 +193,36 @@ async function cargarCondiciones() {
 
         tabla.style.display = 'table';
         guardarTodoBtn.style.display = 'inline-block';
+        copiarField.style.display = 'flex';
+        copiarBtn.style.display = 'inline-block';
         statusEl.innerHTML = '';
+
+        // ¿Es un vendedor sin nada configurado todavía?
+        const esNuevo = filas.every(f => !f.recibe_este_sorteo);
+        if (esNuevo) {
+            const nombreActual = vendedorSelect.options[vendedorSelect.selectedIndex].dataset.nombre;
+            let origen = listaVendedores.find(v => v.nombre.toLowerCase() === 'yoyo' && v.nombre.toLowerCase() !== nombreActual.toLowerCase());
+            let filasOrigen = origen ? await obtenerCondicionesDe(origen.id) : null;
+
+            // Si Yoyo no existe o tampoco tiene nada configurado, busca el siguiente que sí tenga
+            if (!filasOrigen || filasOrigen.every(f => !f.recibe_este_sorteo)) {
+                for (const v of listaVendedores) {
+                    if (v.nombre.toLowerCase() === nombreActual.toLowerCase()) continue;
+                    const candidatas = await obtenerCondicionesDe(v.id);
+                    if (candidatas && candidatas.some(f => f.recibe_este_sorteo)) {
+                        origen = v;
+                        filasOrigen = candidatas;
+                        break;
+                    }
+                }
+            }
+
+            if (origen && filasOrigen) {
+                aplicarCondicionesATabla(filasOrigen);
+                copiarDeSelect.value = origen.id;
+                sugerenciaEl.innerHTML = `<div class="status success">💡 Vendedor nuevo: se sugirieron las condiciones de <b>${origen.nombre}</b>. Revisa y dale "Guardar" si están bien, o cambia el que quieras copiar arriba.</div>`;
+            }
+        }
     } catch (e) {
         statusEl.innerHTML = `<div class="status error">⚠️ ${e.message}</div>`;
     }
