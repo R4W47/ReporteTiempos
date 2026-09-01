@@ -23,6 +23,8 @@
     th, td { border:1px solid #ddd; padding:8px; text-align:left; }
     th { background:#3498db; color:white; }
     tr.inactivo { opacity:0.5; }
+    .btn-eliminar { background:#e74c3c; color:white; border:none; border-radius:4px; padding:6px 10px; cursor:pointer; font-size:12px; }
+    .btn-eliminar:hover { background:#c0392b; }
     select, input[type=text] { padding:6px; border:1px solid #bdc3c7; border-radius:4px; width:100%; }
     .nueva-fila { padding:15px; background:#ecf0f1; display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; }
     .nueva-fila .field { display:flex; flex-direction:column; gap:4px; flex:1; min-width:120px; }
@@ -58,7 +60,7 @@
 
     <div class="tabla-wrap">
         <table id="tablaVendedores">
-            <thead><tr><th>Nombre</th><th>Tipo</th><th>Activo</th><th></th></tr></thead>
+            <thead><tr><th>Nombre</th><th>Tipo</th><th>Activo</th><th></th><th></th></tr></thead>
             <tbody id="tbodyVendedores"></tbody>
         </table>
     </div>
@@ -105,10 +107,40 @@ function render() {
             </td>
             <td style="text-align:center;"><input type="checkbox" data-field="activo" ${v.activo ? 'checked' : ''}></td>
             <td><button class="guardar" data-id="${v.id}">Guardar</button></td>
+            <td><button class="btn-eliminar" data-id="${v.id}" data-nombre="${v.nombre}">Eliminar</button></td>
         `;
-        tr.querySelector('button').addEventListener('click', () => guardarFila(v.id, tr));
+        tr.querySelector('.guardar').addEventListener('click', () => guardarFila(v.id, tr));
+        tr.querySelector('.btn-eliminar').addEventListener('click', () => eliminarVendedor(v.id, v.nombre, tr));
         tbody.appendChild(tr);
     });
+}
+
+async function eliminarVendedor(id, nombre, tr) {
+    if (!confirm(`¿Eliminar al vendedor "${nombre}"? Esto no se puede deshacer.`)) return;
+
+    try {
+        const resp = await fetch(urlConAuth(`${WORKER_URL}/api/admin/vendedores`), {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pw: APP_PASSWORD, id })
+        });
+        const result = await resp.json();
+
+        if (resp.status === 409 && result.sugerirInactivar) {
+            const inactivar = confirm(`⚠️ ${result.error}\n\nNo se puede eliminar porque tiene historial. ¿Quieres INACTIVARLO en su lugar? (deja de aparecer en los reportes nuevos, pero conserva el historial)`);
+            if (inactivar) {
+                tr.querySelector('[data-field="activo"]').checked = false;
+                await guardarFila(id, tr);
+            }
+            return;
+        }
+
+        if (!resp.ok || !result.ok) throw new Error(result.error || 'Error al eliminar');
+        statusEl.innerHTML = `<div class="status success">✅ "${nombre}" eliminado</div>`;
+        await cargar();
+    } catch (e) {
+        statusEl.innerHTML = `<div class="status error">⚠️ ${e.message}</div>`;
+    }
 }
 
 async function guardarFila(id, tr) {
