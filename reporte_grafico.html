@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gráfico de Ventas</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: Arial, sans-serif; background:#f5f5f5; padding:15px; }
+    .container { max-width:950px; margin:0 auto; background:white; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.1); overflow:hidden; }
+    .header { background:#2c3e50; color:white; padding:15px 20px; text-align:center; position:relative; }
+    .header h1 { font-size:1.4em; }
+    .btn-menu {
+        position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+        background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 5px;
+        padding: 8px 12px; font-size: 13px; cursor: pointer; text-decoration: none;
+    }
+    .btn-menu:hover { background: rgba(255,255,255,0.25); }
+    .controls { padding:20px; background:#ecf0f1; display:flex; gap:15px; flex-wrap:wrap; align-items:flex-end; border-bottom:2px solid #bdc3c7; }
+    .field { display:flex; flex-direction:column; gap:5px; }
+    .field label { font-weight:bold; font-size:13px; color:#2c3e50; }
+    select, input { padding:10px; border:2px solid #3498db; border-radius:5px; font-size:14px; min-width:140px; }
+    .status { padding:10px 20px; font-size:14px; }
+    .status.error { background:#fdecea; color:#c0392b; }
+    .status.loading { background:#eaf2fa; color:#2980b9; }
+    .chart-area { padding:20px; }
+    .placeholder { text-align:center; color:#7f8c8d; padding:60px 20px; }
+    .leyenda-info { display:flex; gap:20px; justify-content:center; padding:0 20px 15px; font-size:13px; flex-wrap:wrap; }
+    .leyenda-info span { display:flex; align-items:center; gap:5px; }
+    .cuadro { width:12px; height:12px; border-radius:3px; display:inline-block; }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <a href="#" class="btn-menu" id="btnMenu">← Menú</a>
+        <h1>📈 Gráfico de Ventas</h1>
+    </div>
+
+    <div class="controls">
+        <div class="field" id="vendedorField">
+            <label>Vendedor</label>
+            <select id="vendedorSelect">
+                <option value="">-- Elige un vendedor --</option>
+            </select>
+        </div>
+        <div class="field">
+            <label>Agrupar por</label>
+            <select id="agruparSelect">
+                <option value="diario">Día</option>
+                <option value="mensual">Mes</option>
+            </select>
+        </div>
+        <div class="field">
+            <label>Desde</label>
+            <input type="date" id="fechaInicioInput">
+        </div>
+        <div class="field">
+            <label>Hasta</label>
+            <input type="date" id="fechaFinInput">
+        </div>
+    </div>
+
+    <div id="statusMsg"></div>
+
+    <div class="chart-area">
+        <canvas id="grafico" style="display:none;"></canvas>
+        <div class="placeholder" id="placeholder">👆 Elige un vendedor y el rango de fechas</div>
+    </div>
+</div>
+
+<script>
+const WORKER_URL = 'https://frosty-base-53ff.watsonmraul.workers.dev';
+const APP_PASSWORD = new URLSearchParams(window.location.search).get('pw') || '';
+const APP_USER = new URLSearchParams(window.location.search).get('user') || '';
+const VENDEDOR_FORZADO = new URLSearchParams(window.location.search).get('vendedor') || '';
+document.getElementById('btnMenu').href = `index.html?pw=${encodeURIComponent(APP_PASSWORD)}&user=${encodeURIComponent(APP_USER)}`;
+
+function urlConAuth(base) {
+    const sep = base.indexOf('?') === -1 ? '?' : '&';
+    return base + sep + 'pw=' + encodeURIComponent(APP_PASSWORD) + '&user=' + encodeURIComponent(APP_USER);
+}
+
+const statusEl = document.getElementById('statusMsg');
+const vendedorSelect = document.getElementById('vendedorSelect');
+const agruparSelect = document.getElementById('agruparSelect');
+const fechaInicioInput = document.getElementById('fechaInicioInput');
+const fechaFinInput = document.getElementById('fechaFinInput');
+const canvas = document.getElementById('grafico');
+const placeholder = document.getElementById('placeholder');
+
+let vendedorSeleccionadoId = null;
+let chart = null;
+
+// Valores por defecto: último mes
+const hoy = new Date();
+fechaFinInput.value = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
+const haceUnMes = new Date(hoy.getFullYear(), hoy.getMonth() - 1, hoy.getDate());
+fechaInicioInput.value = haceUnMes.getFullYear() + '-' + String(haceUnMes.getMonth() + 1).padStart(2, '0') + '-' + String(haceUnMes.getDate()).padStart(2, '0');
+
+async function cargarVendedores() {
+    if (VENDEDOR_FORZADO) {
+        document.getElementById('vendedorField').style.display = 'none';
+        // Buscamos su id por nombre
+        const resp = await fetch(urlConAuth(`${WORKER_URL}/api/vendedores-activos`), { cache: 'no-store' });
+        if (resp.ok) {
+            const lista = await resp.json();
+            const match = lista.find(v => v.nombre.toLowerCase() === VENDEDOR_FORZADO.toLowerCase());
+            if (match) {
+                vendedorSeleccionadoId = match.id;
+                cargarGrafico();
+            }
+        }
+        return;
+    }
+
+    try {
+        const resp = await fetch(urlConAuth(`${WORKER_URL}/api/vendedores-activos`), { cache: 'no-store' });
+        if (!resp.ok) throw new Error('No se pudo cargar la lista de vendedores');
+        const vendedores = await resp.json();
+        vendedorSelect.innerHTML = '<option value="">-- Elige un vendedor --</option>';
+        vendedores.forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v.id;
+            opt.textContent = v.nombre;
+            vendedorSelect.appendChild(opt);
+        });
+    } catch (e) {
+        statusEl.innerHTML = `<div class="status error">⚠️ ${e.message}</div>`;
+    }
+}
+
+async function cargarGrafico() {
+    if (!vendedorSeleccionadoId || !fechaInicioInput.value || !fechaFinInput.value) {
+        canvas.style.display = 'none';
+        placeholder.style.display = 'block';
+        return;
+    }
+
+    statusEl.innerHTML = '<div class="status loading">⏳ Cargando...</div>';
+
+    try {
+        const agrupar = agruparSelect.value;
+        const url = urlConAuth(`${WORKER_URL}/api/reporte-rango?vendedor_id=${vendedorSeleccionadoId}&fecha_inicio=${fechaInicioInput.value}&fecha_fin=${fechaFinInput.value}&agrupar=${agrupar}`);
+        const resp = await fetch(url, { cache: 'no-store' });
+        if (!resp.ok) throw new Error('No se pudo cargar el reporte');
+        const data = await resp.json();
+
+        if (data.length === 0) {
+            canvas.style.display = 'none';
+            placeholder.style.display = 'block';
+            placeholder.innerHTML = 'No hay ventas registradas en ese rango.';
+            statusEl.innerHTML = '';
+            return;
+        }
+
+        const etiquetas = data.map(d => d.fecha);
+        const ventas = data.map(d => d.venta || 0);
+        const comisiones = data.map(d => d.comision || 0);
+        const premios = data.map(d => d.premio || 0);
+
+        if (chart) chart.destroy();
+
+        canvas.style.display = 'block';
+        placeholder.style.display = 'none';
+
+        chart = new Chart(canvas, {
+            type: agrupar === 'mensual' ? 'bar' : 'line',
+            data: {
+                labels: etiquetas,
+                datasets: [
+                    { label: 'Venta', data: ventas, borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.2)', tension: 0.2 },
+                    { label: 'Comisión', data: comisiones, borderColor: '#27ae60', backgroundColor: 'rgba(39,174,96,0.2)', tension: 0.2 },
+                    { label: 'Premio', data: premios, borderColor: '#e74c3c', backgroundColor: 'rgba(231,76,60,0.2)', tension: 0.2 }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { position: 'top' } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+
+        statusEl.innerHTML = '';
+    } catch (error) {
+        statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
+    }
+}
+
+vendedorSelect.addEventListener('change', function() {
+    vendedorSeleccionadoId = this.value || null;
+    cargarGrafico();
+});
+agruparSelect.addEventListener('change', cargarGrafico);
+fechaInicioInput.addEventListener('change', cargarGrafico);
+fechaFinInput.addEventListener('change', cargarGrafico);
+
+cargarVendedores();
+</script>
+</body>
+</html>
