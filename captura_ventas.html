@@ -59,6 +59,10 @@
         background: #2980b9;
     }
 
+    /* Fila de ajuste */
+    .fila-ajuste { background-color: #fef9e7 !important; }
+    .fila-ajuste:hover { background-color: #fdf2c4 !important; }
+
     #confirmModal {
         display: none;
         position: fixed;
@@ -168,6 +172,9 @@ var APP_PASSWORD = new URLSearchParams(window.location.search).get('pw') || '';
 var APP_USER = new URLSearchParams(window.location.search).get('user') || '';
 document.getElementById('btnMenu').href = 'index.html?pw=' + encodeURIComponent(APP_PASSWORD) + '&user=' + encodeURIComponent(APP_USER);
 
+// ID del vendedor especial de ajuste en la tabla vendedores
+var AJUSTE_VENDEDOR_ID = 15;
+
 var SORTEOS = [];
 var BOLITAS = [];
 var vendedoresDeEsteSorteo = [];
@@ -185,6 +192,7 @@ var bolitaSelect = document.getElementById('bolitaSelect');
 var hoyLocal = new Date();
 fechaInput.value = hoyLocal.getFullYear() + '-' + String(hoyLocal.getMonth() + 1).padStart(2, '0') + '-' + String(hoyLocal.getDate()).padStart(2, '0');
 
+// Editor normal (solo positivos) para vendedores regulares
 function editorConFlechas(cell, onRendered, success, cancel) {
     var input = document.createElement('input');
     input.type = 'number';
@@ -203,38 +211,48 @@ function editorConFlechas(cell, onRendered, success, cancel) {
     }
 
     input.addEventListener('blur', confirmar);
-
     input.addEventListener('keydown', function(e) {
-        if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            confirmar();
-            setTimeout(function() { cell.navigateUp(); }, 0);
-        } else if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            confirmar();
-            setTimeout(function() { cell.navigateDown(); }, 0);
-        } else if (e.key === 'ArrowLeft') {
-            e.preventDefault();
-            confirmar();
-            setTimeout(function() { cell.navigateLeft(); }, 0);
-        } else if (e.key === 'ArrowRight') {
-            e.preventDefault();
-            confirmar();
-            setTimeout(function() { cell.navigateRight(); }, 0);
-        } else if (e.key === 'Enter') {
-            e.preventDefault();
-            confirmar();
-            setTimeout(function() { cell.navigateDown(); }, 0);
-        } else if (e.key === 'Escape') {
-            cancel();
-        }
+        if (e.key === 'ArrowUp') { e.preventDefault(); confirmar(); setTimeout(function() { cell.navigateUp(); }, 0); }
+        else if (e.key === 'ArrowDown') { e.preventDefault(); confirmar(); setTimeout(function() { cell.navigateDown(); }, 0); }
+        else if (e.key === 'ArrowLeft') { e.preventDefault(); confirmar(); setTimeout(function() { cell.navigateLeft(); }, 0); }
+        else if (e.key === 'ArrowRight') { e.preventDefault(); confirmar(); setTimeout(function() { cell.navigateRight(); }, 0); }
+        else if (e.key === 'Enter') { e.preventDefault(); confirmar(); setTimeout(function() { cell.navigateDown(); }, 0); }
+        else if (e.key === 'Escape') { cancel(); }
     });
 
-    onRendered(function() {
-        input.focus();
-        input.select();
+    onRendered(function() { input.focus(); input.select(); });
+    return input;
+}
+
+// Editor que permite negativos (para la fila de ajuste)
+function editorConFlechasNegativo(cell, onRendered, success, cancel) {
+    var input = document.createElement('input');
+    input.type = 'number';
+    // Sin min — acepta negativos
+    input.style.width = '100%';
+    input.style.height = '100%';
+    input.style.boxSizing = 'border-box';
+    input.style.border = 'none';
+    input.style.padding = '4px 8px';
+    input.style.fontSize = 'inherit';
+    input.value = cell.getValue() || 0;
+
+    function confirmar() {
+        var val = parseFloat(input.value) || 0;
+        success(val);
+    }
+
+    input.addEventListener('blur', confirmar);
+    input.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowUp') { e.preventDefault(); confirmar(); setTimeout(function() { cell.navigateUp(); }, 0); }
+        else if (e.key === 'ArrowDown') { e.preventDefault(); confirmar(); setTimeout(function() { cell.navigateDown(); }, 0); }
+        else if (e.key === 'ArrowLeft') { e.preventDefault(); confirmar(); setTimeout(function() { cell.navigateLeft(); }, 0); }
+        else if (e.key === 'ArrowRight') { e.preventDefault(); confirmar(); setTimeout(function() { cell.navigateRight(); }, 0); }
+        else if (e.key === 'Enter') { e.preventDefault(); confirmar(); setTimeout(function() { cell.navigateDown(); }, 0); }
+        else if (e.key === 'Escape') { cancel(); }
     });
 
+    onRendered(function() { input.focus(); input.select(); });
     return input;
 }
 
@@ -253,13 +271,10 @@ function cargarSorteos() {
         fetch(urlSorteos, { cache: 'no-store' }),
         fetch(urlBolitas, { cache: 'no-store' })
     ]).then(function(responses) {
-        var respSorteos = responses[0];
-        var respBolitas = responses[1];
-        if (!respSorteos.ok) throw new Error('No se pudo cargar la lista de sorteos (revisa la contraseña)');
-
+        if (!responses[0].ok) throw new Error('No se pudo cargar la lista de sorteos (revisa la contraseña)');
         return Promise.all([
-            respSorteos.json(),
-            respBolitas.ok ? respBolitas.json() : Promise.resolve([])
+            responses[0].json(),
+            responses[1].ok ? responses[1].json() : Promise.resolve([])
         ]);
     }).then(function(datos) {
         SORTEOS = datos[0];
@@ -310,15 +325,11 @@ function cargarTabla() {
         fetch(urlBanca, { cache: 'no-store' }),
         fetch(urlExistentes, { cache: 'no-store' })
     ]).then(function(responses) {
-        var respVendedores = responses[0];
-        var respBanca = responses[1];
-        var respExistentes = responses[2];
-        if (!respVendedores.ok) throw new Error('No se pudo cargar la lista de vendedores');
-
+        if (!responses[0].ok) throw new Error('No se pudo cargar la lista de vendedores');
         return Promise.all([
-            respVendedores.json(),
-            respBanca.ok ? respBanca.json() : Promise.resolve([]),
-            respExistentes.ok ? respExistentes.json() : Promise.resolve([])
+            responses[0].json(),
+            responses[1].ok ? responses[1].json() : Promise.resolve([]),
+            responses[2].ok ? responses[2].json() : Promise.resolve([])
         ]);
     }).then(function(datos) {
         vendedoresDeEsteSorteo = datos[0];
@@ -353,6 +364,8 @@ function cargarTabla() {
         tableArea.innerHTML = '<div id="grid"></div>';
 
         var rows = [];
+
+        // Filas de vendedores normales
         vendedoresDeEsteSorteo.forEach(function(v) {
             var existentesDeEsteVendedor = ventasExistentes.filter(function(e) { return e.vendedor_id === v.vendedor_id; });
 
@@ -367,7 +380,8 @@ function cargarTabla() {
                         multiplicador: e.multiplicador_vendedor_premio,
                         venta: e.monto_venta_total,
                         venta_premio: e.monto_venta_numero_ganador,
-                        no_pasa_banca: e.pasada_a_banca === 0
+                        no_pasa_banca: e.pasada_a_banca === 0,
+                        es_ajuste: false
                     });
                 });
             } else {
@@ -381,9 +395,25 @@ function cargarTabla() {
                     multiplicador: (esReventadoActual && bolitaActual) ? bolitaActual.multiplicador_vendedor : v.multiplicador_premio,
                     venta: 0,
                     venta_premio: 0,
-                    no_pasa_banca: false
+                    no_pasa_banca: false,
+                    es_ajuste: false
                 });
             }
+        });
+
+        // Fila de ajuste — buscar si ya existe un registro guardado para este vendedor especial
+        var ajusteExistente = ventasExistentes.find(function(e) { return e.vendedor_id === AJUSTE_VENDEDOR_ID; });
+        rows.push({
+            id: ajusteExistente ? ajusteExistente.id : null,
+            vendedor_id: AJUSTE_VENDEDOR_ID,
+            vendedor: '⚖️ Ajuste',
+            comision_pct: 0,
+            multiplicador_base: 1,
+            multiplicador: ajusteExistente ? ajusteExistente.multiplicador_vendedor_premio : 1,
+            venta: ajusteExistente ? ajusteExistente.monto_venta_total : 0,
+            venta_premio: ajusteExistente ? ajusteExistente.monto_venta_numero_ganador : 0,
+            no_pasa_banca: false,
+            es_ajuste: true
         });
 
         var numeroGanadorEncontrado = null;
@@ -395,22 +425,60 @@ function cargarTabla() {
         table = new Tabulator('#grid', {
             data: rows,
             layout: 'fitColumns',
+            rowFormatter: function(row) {
+                if (row.getData().es_ajuste) {
+                    row.getElement().classList.add('fila-ajuste');
+                }
+            },
             columns: [
                 { title: 'Vendedor', field: 'vendedor', headerSort: false, widthGrow: 2 },
-                { title: 'Venta ($)', field: 'venta', editor: editorConFlechas, hozAlign: 'right', widthGrow: 1, cellEdited: recalcularTotales },
-                { title: 'Venta al ganador ($)', field: 'venta_premio', editor: editorConFlechas, hozAlign: 'right', widthGrow: 1, cellEdited: recalcularTotales },
+                {
+                    title: 'Venta ($)', field: 'venta', hozAlign: 'right', widthGrow: 1, cellEdited: recalcularTotales,
+                    editor: function(cell, onRendered, success, cancel) {
+                        var esAjuste = cell.getRow().getData().es_ajuste;
+                        return esAjuste
+                            ? editorConFlechasNegativo(cell, onRendered, success, cancel)
+                            : editorConFlechas(cell, onRendered, success, cancel);
+                    }
+                },
+                {
+                    title: 'Venta al ganador ($)', field: 'venta_premio', hozAlign: 'right', widthGrow: 1, cellEdited: recalcularTotales,
+                    editor: function(cell, onRendered, success, cancel) {
+                        var esAjuste = cell.getRow().getData().es_ajuste;
+                        return esAjuste
+                            ? editorConFlechasNegativo(cell, onRendered, success, cancel)
+                            : editorConFlechas(cell, onRendered, success, cancel);
+                    }
+                },
                 { title: 'Comisión %', field: 'comision_pct', hozAlign: 'right', widthGrow: 1, headerSort: false, visible: false },
                 { title: 'Multiplicador', field: 'multiplicador', hozAlign: 'right', widthGrow: 1, headerSort: false, visible: false },
-                { title: '⚠️ No pasa a banca', field: 'no_pasa_banca', hozAlign: 'center', width: 110, headerSort: false,
-                  formatter: 'tickCross', editor: 'tickCross' },
-                { title: '', field: 'acciones', width: 50, hozAlign: 'center', headerSort: false,
-                  formatter: function() { return '<button class="btn-duplicar" title="Agregar otra lista de este vendedor">+</button>'; },
-                  cellClick: function(e, cell) {
-                      var rowData = cell.getRow().getData();
-                      var nuevaFila = Object.assign({}, rowData, { id: null, venta: 0, venta_premio: 0 });
-                      table.addRow(nuevaFila, false, cell.getRow());
-                      recalcularTotales();
-                  }
+                {
+                    title: '⚠️ No pasa a banca', field: 'no_pasa_banca', hozAlign: 'center', width: 110, headerSort: false,
+                    formatter: function(cell) {
+                        // La fila de ajuste no tiene esta opción
+                        if (cell.getRow().getData().es_ajuste) return '';
+                        return cell.getValue() ? '✔' : '✘';
+                    },
+                    editor: function(cell, onRendered, success, cancel) {
+                        if (cell.getRow().getData().es_ajuste) { cancel(); return; }
+                        // Usar el editor tickCross nativo de Tabulator
+                        return Tabulator.findTable('#grid')[0].modules.edit.editors['tickCross'](cell, onRendered, success, cancel);
+                    }
+                },
+                {
+                    title: '', field: 'acciones', width: 50, hozAlign: 'center', headerSort: false,
+                    formatter: function(cell) {
+                        // La fila de ajuste no tiene botón de duplicar
+                        if (cell.getRow().getData().es_ajuste) return '';
+                        return '<button class="btn-duplicar" title="Agregar otra lista de este vendedor">+</button>';
+                    },
+                    cellClick: function(e, cell) {
+                        if (cell.getRow().getData().es_ajuste) return;
+                        var rowData = cell.getRow().getData();
+                        var nuevaFila = Object.assign({}, rowData, { id: null, venta: 0, venta_premio: 0, es_ajuste: false });
+                        table.addRow(nuevaFila, false, cell.getRow());
+                        recalcularTotales();
+                    }
                 }
             ]
         });
@@ -457,7 +525,10 @@ bolitaSelect.addEventListener('change', function() {
     if (!bolitaActual) return;
 
     table.getRows().forEach(function(row) {
-        row.update({ multiplicador: bolitaActual.multiplicador_vendedor });
+        // No tocar el multiplicador de la fila de ajuste
+        if (!row.getData().es_ajuste) {
+            row.update({ multiplicador: bolitaActual.multiplicador_vendedor });
+        }
     });
 
     recalcularTotales();
@@ -496,10 +567,13 @@ document.getElementById('saveBtn').addEventListener('click', function() {
         var numeroGanador = document.getElementById('numeroGanador').value;
         var bolitaActual = BOLITAS.find(function(b) { return b.id == bolitaSeleccionadaId; });
 
-        // Las filas NUEVAS (sin id) que quedan en cero no se guardan, para no llenar
-        // la base de datos con registros vacíos. Las que YA EXISTÍAN sí se actualizan
-        // aunque se pongan en cero (para dejar corregido lo que ya estaba guardado).
         var dataAGuardar = data.filter(function(row) {
+            // Filas normales: omitir si son nuevas y están en cero
+            if (!row.es_ajuste) {
+                if (row.id) return true;
+                return (parseFloat(row.venta) || 0) !== 0 || (parseFloat(row.venta_premio) || 0) !== 0;
+            }
+            // Fila de ajuste: guardar si tiene id (ya existía) o si tiene algún valor distinto de cero
             if (row.id) return true;
             return (parseFloat(row.venta) || 0) !== 0 || (parseFloat(row.venta_premio) || 0) !== 0;
         });
@@ -517,7 +591,7 @@ document.getElementById('saveBtn').addEventListener('click', function() {
                 monto_venta_numero_ganador: row.venta_premio,
                 comision_vendedor_pct: row.comision_pct,
                 multiplicador_vendedor_premio: row.multiplicador,
-                multiplicador_banca_premio: (esReventadoActual && bolitaActual) ? bolitaActual.multiplicador_banca : null,
+                multiplicador_banca_premio: (esReventadoActual && bolitaActual && !row.es_ajuste) ? bolitaActual.multiplicador_banca : null,
                 pasada_a_banca: row.no_pasa_banca ? 0 : 1
             };
         });
