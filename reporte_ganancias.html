@@ -34,65 +34,20 @@
     .contenido { padding:20px; }
     .placeholder { text-align:center; color:#7f8c8d; padding:40px; }
     .seccion-titulo { background:#2c3e50; color:white; padding:8px 12px; font-weight:bold; font-size:14px; margin-bottom:0; border-radius:6px 6px 0 0; }
-    .seccion-titulo-ajuste { background:#7f6000; color:white; padding:8px 12px; font-weight:bold; font-size:14px; margin-bottom:0; border-radius:6px 6px 0 0; }
+    .seccion-titulo-dorado { background:#7f6000; color:white; padding:8px 12px; font-weight:bold; font-size:14px; margin-bottom:0; border-radius:6px 6px 0 0; }
     table { border-collapse: collapse; width:100%; font-size:13px; margin-bottom:20px; }
     th, td { border:1px solid #ddd; padding:8px; text-align:right; white-space:nowrap; }
     th:first-child, td:first-child { text-align:left; }
     th { background-color:#3498db; color:white; font-weight:bold; }
     tr.fila-totales { background-color:#fdf6e3; font-weight:bold; }
     td.negativo { color:#c0392b; }
-    td input[type=number] {
-        width: 100px;
-        padding: 4px 6px;
-        border: 1px solid #bdc3c7;
-        border-radius: 4px;
-        text-align: right;
-        font-size: 13px;
-    }
-    .gastos-linea {
-        display:flex;
-        justify-content:space-between;
-        align-items:center;
-        padding:10px 12px;
-        background:#fdf6e3;
-        border:1px solid #ddd;
-        margin-bottom:8px;
-        border-radius:4px;
-    }
+    td input[type=number] { width:100px; padding:4px 6px; border:1px solid #bdc3c7; border-radius:4px; text-align:right; font-size:13px; }
+    .gastos-linea { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:#fdf6e3; border:1px solid #ddd; margin-bottom:8px; border-radius:4px; }
     .gastos-linea label { font-weight:bold; color:#2c3e50; font-size:14px; }
-    .ganancia-final {
-        margin-top:20px;
-        padding:18px;
-        background:#2c3e50;
-        color:white;
-        border-radius:8px;
-        text-align:center;
-        font-size:1.3em;
-        font-weight:bold;
-    }
+    .ganancia-final { margin-top:20px; padding:18px; background:#2c3e50; color:white; border-radius:8px; text-align:center; font-size:1.3em; font-weight:bold; }
     .ganancia-final.negativo { background:#c0392b; }
-
-    /* Control superusuario — igual al de no-pasadas */
-    .superusuario-control {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 10px 14px;
-        background: #fff3cd;
-        border: 1px solid #ffc107;
-        border-radius: 6px;
-        margin-bottom: 12px;
-        font-size: 13px;
-        color: #856404;
-        font-weight: bold;
-        gap: 10px;
-    }
-    .superusuario-control input[type=checkbox] {
-        width: 18px;
-        height: 18px;
-        cursor: pointer;
-        flex-shrink: 0;
-    }
+    .superusuario-control { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:#fff3cd; border:1px solid #ffc107; border-radius:6px; margin-bottom:8px; font-size:13px; color:#856404; font-weight:bold; gap:10px; }
+    .superusuario-control input[type=checkbox] { width:18px; height:18px; cursor:pointer; flex-shrink:0; }
 </style>
 </head>
 <body>
@@ -101,7 +56,6 @@
         <a href="#" class="btn-menu" id="btnMenu">← Menú</a>
         <h1>💰 Reporte de Ganancias del Día</h1>
     </div>
-
     <div class="controls">
         <div class="field">
             <label>Fecha</label>
@@ -110,9 +64,7 @@
         <button id="saveBtn">💾 Guardar gastos</button>
         <button id="exportBtn" disabled>📷 Exportar imagen</button>
     </div>
-
     <div id="statusMsg"></div>
-
     <div id="contenido" class="contenido">
         <div class="placeholder">👆 Elige una fecha para cargar el reporte</div>
     </div>
@@ -132,13 +84,8 @@ const exportBtn = document.getElementById('exportBtn');
 
 fechaInput.value = new Date().toISOString().split('T')[0];
 
-let listasData = [];
-let puestosData = [];
-let gastosExistentes = [];
-let ajustesData = null;
-let noPasadasData = null;
-let ocultarNoPasadas = false;
-let esSuperAdmin = false;
+let listasData = [], puestosData = [], gastosExistentes = [];
+let noPasadasData = null, ajustesData = null, superadminData = null;
 
 function num(n) {
     return (n || 0).toLocaleString('es-NI', { minimumFractionDigits: 2 });
@@ -150,6 +97,7 @@ async function cargarReporte() {
 
     statusEl.innerHTML = '<div class="status loading">⏳ Cargando reporte...</div>';
     saveBtn.disabled = true;
+    exportBtn.disabled = true;
 
     try {
         const [respGanancias, respGastos] = await Promise.all([
@@ -159,13 +107,12 @@ async function cargarReporte() {
 
         if (!respGanancias.ok) throw new Error('No se pudo cargar el reporte de ganancias');
 
-        const ganancias = await respGanancias.json();
-        listasData = ganancias.listas || [];
-        puestosData = ganancias.puestos || [];
-        noPasadasData = ganancias.noPasadas || null;
-        ajustesData = ganancias.ajustes || null;
-        ocultarNoPasadas = !!(ganancias.ocultarNoPasadas);
-        esSuperAdmin = ganancias.ocultarNoPasadas !== undefined; // solo superadmin recibe este campo
+        const g = await respGanancias.json();
+        listasData     = g.listas || [];
+        puestosData    = g.puestos || [];
+        noPasadasData  = g.noPasadas || null;
+        ajustesData    = g.ajustes || null;
+        superadminData = g.superadmin || null;
         gastosExistentes = respGastos.ok ? await respGastos.json() : [];
 
         renderizarReporte();
@@ -179,210 +126,151 @@ async function cargarReporte() {
     }
 }
 
-function buscarGastoExistente(categoria, vendedorId) {
+function buscarGasto(categoria, vendedorId) {
     return gastosExistentes.find(g => g.categoria === categoria && (g.vendedor_id || null) === (vendedorId || null));
 }
 
 function renderizarReporte() {
-    if (listasData.length === 0 && puestosData.length === 0 && !ajustesData) {
+    if (listasData.length === 0 && puestosData.length === 0) {
         contenidoEl.innerHTML = '<div class="placeholder">No hay ventas registradas ese día.</div>';
         return;
     }
 
-    // ===== Tabla de LISTAS =====
-    let totalesListas = { venta: 0, comision_pagar: 0, comision_recibir: 0, premio_pagar: 0, premio_recibir: 0, ganancia: 0 };
-
-    let htmlListas = '<div class="seccion-titulo">LISTAS</div><table><thead><tr>' +
-        '<th>Sorteo</th><th>Venta</th><th>Comisión Pagar</th><th>Comisión Recibir</th><th>Premio Pagar</th><th>Premio Recibir</th><th>Ganancia</th>' +
-        '</tr></thead><tbody>';
-
+    // ===== LISTAS =====
+    let totL = { venta:0, cp:0, cr:0, pp:0, pr:0, gan:0 };
+    let htmlListas = '<div class="seccion-titulo">LISTAS</div><table><thead><tr><th>Sorteo</th><th>Venta</th><th>Comisión Pagar</th><th>Comisión Recibir</th><th>Premio Pagar</th><th>Premio Recibir</th><th>Ganancia</th></tr></thead><tbody>';
     listasData.forEach(r => {
-        const ganancia = (r.comision_recibir - r.comision_pagar) + (r.premio_recibir - r.premio_pagar);
-        totalesListas.venta += r.venta;
-        totalesListas.comision_pagar += r.comision_pagar;
-        totalesListas.comision_recibir += r.comision_recibir;
-        totalesListas.premio_pagar += r.premio_pagar;
-        totalesListas.premio_recibir += r.premio_recibir;
-        totalesListas.ganancia += ganancia;
-
-        htmlListas += `<tr>
-            <td>${r.grupo_banca}</td>
-            <td>${num(r.venta)}</td>
-            <td>${num(r.comision_pagar)}</td>
-            <td>${num(r.comision_recibir)}</td>
-            <td>${num(r.premio_pagar)}</td>
-            <td>${num(r.premio_recibir)}</td>
-            <td class="${ganancia < 0 ? 'negativo' : ''}">${num(ganancia)}</td>
-        </tr>`;
+        const gan = (r.comision_recibir - r.comision_pagar) + (r.premio_recibir - r.premio_pagar);
+        totL.venta += r.venta; totL.cp += r.comision_pagar; totL.cr += r.comision_recibir;
+        totL.pp += r.premio_pagar; totL.pr += r.premio_recibir; totL.gan += gan;
+        htmlListas += `<tr><td>${r.grupo_banca}</td><td>${num(r.venta)}</td><td>${num(r.comision_pagar)}</td><td>${num(r.comision_recibir)}</td><td>${num(r.premio_pagar)}</td><td>${num(r.premio_recibir)}</td><td class="${gan<0?'negativo':''}">${num(gan)}</td></tr>`;
     });
+    htmlListas += `<tr class="fila-totales"><td>Totales</td><td>${num(totL.venta)}</td><td>${num(totL.cp)}</td><td>${num(totL.cr)}</td><td>${num(totL.pp)}</td><td>${num(totL.pr)}</td><td class="${totL.gan<0?'negativo':''}">${num(totL.gan)}</td></tr></tbody></table>`;
 
-    htmlListas += `<tr class="fila-totales">
-        <td>Totales</td>
-        <td>${num(totalesListas.venta)}</td>
-        <td>${num(totalesListas.comision_pagar)}</td>
-        <td>${num(totalesListas.comision_recibir)}</td>
-        <td>${num(totalesListas.premio_pagar)}</td>
-        <td>${num(totalesListas.premio_recibir)}</td>
-        <td class="${totalesListas.ganancia < 0 ? 'negativo' : ''}">${num(totalesListas.ganancia)}</td>
-    </tr></tbody></table>`;
-
-    // ===== Sección LISTAS NO PASADAS A BANCA =====
+    // ===== LISTAS NO PASADAS A BANCA (solo si hay datos) =====
     let htmlNoPasadas = '';
     if (noPasadasData) {
-        const ganNP = noPasadasData.venta - noPasadasData.comision_pagar - noPasadasData.premio_pagar;
-        htmlNoPasadas = `<div class="seccion-titulo" style="background:#7f6000;">LISTAS NO PASADAS A BANCA</div>
-        <table><thead><tr>
-            <th style="text-align:left">Venta</th><th>Comisión Pagar</th><th>Premio Pagar</th><th>Ganancia</th>
-        </tr></thead><tbody><tr>
-            <td style="text-align:left">${num(noPasadasData.venta)}</td>
-            <td>${num(noPasadasData.comision_pagar)}</td>
-            <td>${num(noPasadasData.premio_pagar)}</td>
-            <td class="${ganNP < 0 ? 'negativo' : ''}">${num(ganNP)}</td>
-        </tr></tbody></table>`;
+        const gan = noPasadasData.venta - noPasadasData.comision_pagar - noPasadasData.premio_pagar;
+        htmlNoPasadas = `<div class="seccion-titulo-dorado">LISTAS NO PASADAS A BANCA</div>
+        <table><thead><tr><th style="text-align:left">Venta</th><th>Comisión Pagar</th><th>Premio Pagar</th><th>Ganancia</th></tr></thead><tbody>
+        <tr><td style="text-align:left">${num(noPasadasData.venta)}</td><td>${num(noPasadasData.comision_pagar)}</td><td>${num(noPasadasData.premio_pagar)}</td><td class="${gan<0?'negativo':''}">${num(gan)}</td></tr>
+        </tbody></table>`;
     }
 
-    // ===== Sección AJUSTES =====
+    // ===== AJUSTES (solo si hay datos) =====
     let htmlAjustes = '';
     if (ajustesData) {
-        // La ganancia del ajuste: venta (puede ser negativa) menos premio_pagar (también puede ser negativo)
-        const ganAjuste = (ajustesData.venta || 0) - (ajustesData.premio_pagar || 0);
-        htmlAjustes = `<div class="seccion-titulo-ajuste">⚖️ AJUSTES</div>
-        <table><thead><tr>
-            <th style="text-align:left">Ajuste de Venta</th><th>Ajuste de Premio</th><th>Efecto en Ganancia</th>
-        </tr></thead><tbody><tr>
-            <td style="text-align:left" class="${(ajustesData.venta||0) < 0 ? 'negativo' : ''}">${num(ajustesData.venta)}</td>
-            <td class="${(ajustesData.premio_pagar||0) < 0 ? 'negativo' : ''}">${num(ajustesData.premio_pagar)}</td>
-            <td class="${ganAjuste < 0 ? 'negativo' : ''}">${num(ganAjuste)}</td>
-        </tr></tbody></table>`;
+        const gan = (ajustesData.venta || 0) - (ajustesData.premio_pagar || 0);
+        htmlAjustes = `<div class="seccion-titulo-dorado">⚖️ AJUSTES</div>
+        <table><thead><tr><th style="text-align:left">Ajuste de Venta</th><th>Ajuste de Premio</th><th>Efecto en Ganancia</th></tr></thead><tbody>
+        <tr><td style="text-align:left" class="${(ajustesData.venta||0)<0?'negativo':''}">${num(ajustesData.venta)}</td><td class="${(ajustesData.premio_pagar||0)<0?'negativo':''}">${num(ajustesData.premio_pagar)}</td><td class="${gan<0?'negativo':''}">${num(gan)}</td></tr>
+        </tbody></table>`;
     }
 
-    // ===== Control superusuario para ocultar/mostrar =====
-    let htmlControlSuper = '';
-    if (esSuperAdmin) {
-        htmlControlSuper = `<div class="superusuario-control">
-            <span>🔒 Solo superusuario: ocultar "Listas no pasadas" y "Ajustes" para los demás perfiles</span>
-            <input type="checkbox" id="checkOcultar" ${ocultarNoPasadas ? 'checked' : ''}>
-        </div>`;
+    // ===== CONTROLES SUPERUSUARIO (uno por sección, solo si hay datos en esa sección) =====
+    let htmlControles = '';
+    if (superadminData) {
+        if (superadminData.hayNoPasadas) {
+            htmlControles += `<div class="superusuario-control">
+                <span>🔒 Ocultar "Listas no pasadas" para otros perfiles</span>
+                <input type="checkbox" id="checkNoPasadas" ${superadminData.ocultarNoPasadas ? 'checked' : ''}>
+            </div>`;
+        }
+        if (superadminData.hayAjustes) {
+            htmlControles += `<div class="superusuario-control">
+                <span>🔒 Ocultar "Ajustes" para otros perfiles</span>
+                <input type="checkbox" id="checkAjustes" ${superadminData.ocultarAjustes ? 'checked' : ''}>
+            </div>`;
+        }
     }
 
-    // ===== Línea de Oficina =====
-    const gastoOficina = buscarGastoExistente('oficina', null);
-    const oficinaDefault = gastoOficina ? gastoOficina.monto : (totalesListas.venta > 0 ? 35000 : 0);
-    const oficinaId = gastoOficina ? gastoOficina.id : '';
+    // ===== OFICINA =====
+    const gastoOficina = buscarGasto('oficina', null);
+    const oficinaVal = gastoOficina ? gastoOficina.monto : (totL.venta > 0 ? 35000 : 0);
+    const oficinaId  = gastoOficina ? gastoOficina.id : '';
+    const htmlOficina = `<div class="gastos-linea"><label>Salarios de Oficina:</label>
+        <input type="number" id="oficinaInput" data-id="${oficinaId}" value="${oficinaVal}" min="0"></div>`;
 
-    let htmlOficina = `<div class="gastos-linea">
-        <label>Salarios de Oficina:</label>
-        <input type="number" id="oficinaInput" data-id="${oficinaId}" value="${oficinaDefault}" min="0" style="width:120px; padding:6px; border-radius:4px; border:1px solid #bdc3c7;">
-    </div>`;
-
-    // ===== Tabla de PUESTOS =====
-    let totalesPuestos = { venta: 0, comision_recibir: 0, premio_pagar: 0, premio_recibir: 0, salario: 0, ganancia: 0 };
-
-    let htmlPuestos = '<div class="seccion-titulo">PUESTOS</div><table><thead><tr>' +
-        '<th>Puesto</th><th>Venta</th><th>Comisión Recibir</th><th>Premio Pagar</th><th>Premio Recibir</th><th>Salario</th><th>Ganancia</th>' +
-        '</tr></thead><tbody>';
-
+    // ===== PUESTOS =====
+    let htmlPuestos = '<div class="seccion-titulo">PUESTOS</div><table><thead><tr><th>Puesto</th><th>Venta</th><th>Comisión Recibir</th><th>Premio Pagar</th><th>Premio Recibir</th><th>Salario</th><th>Ganancia</th></tr></thead><tbody>';
     puestosData.forEach(r => {
-        const gastoSalario = buscarGastoExistente('salario_puesto', r.vendedor_id);
-        const salarioDefault = gastoSalario ? gastoSalario.monto : (r.venta > 0 ? 15000 : 0);
-        const salarioId = gastoSalario ? gastoSalario.id : '';
-
-        totalesPuestos.venta += r.venta;
-        totalesPuestos.comision_recibir += r.comision_recibir;
-        totalesPuestos.premio_pagar += r.premio_pagar;
-        totalesPuestos.premio_recibir += r.premio_recibir;
-        totalesPuestos.salario += salarioDefault;
-
+        const gs = buscarGasto('salario_puesto', r.vendedor_id);
+        const salVal = gs ? gs.monto : (r.venta > 0 ? 15000 : 0);
+        const salId  = gs ? gs.id : '';
         htmlPuestos += `<tr>
-            <td>${r.nombre}</td>
-            <td>${num(r.venta)}</td>
-            <td>${num(r.comision_recibir)}</td>
-            <td>${num(r.premio_pagar)}</td>
-            <td>${num(r.premio_recibir)}</td>
-            <td><input type="number" class="salario-puesto" data-vendedor-id="${r.vendedor_id}" data-id="${salarioId}" data-nombre="${r.nombre}" data-comision="${r.comision_recibir}" data-premio-pagar="${r.premio_pagar}" data-premio-recibir="${r.premio_recibir}" value="${salarioDefault}" min="0"></td>
+            <td>${r.nombre}</td><td>${num(r.venta)}</td><td>${num(r.comision_recibir)}</td>
+            <td>${num(r.premio_pagar)}</td><td>${num(r.premio_recibir)}</td>
+            <td><input type="number" class="salario-puesto" data-vendedor-id="${r.vendedor_id}" data-id="${salId}" data-nombre="${r.nombre}" data-comision="${r.comision_recibir}" data-premio-pagar="${r.premio_pagar}" data-premio-recibir="${r.premio_recibir}" value="${salVal}" min="0"></td>
             <td class="ganancia-puesto"></td>
         </tr>`;
     });
+    htmlPuestos += `<tr class="fila-totales"><td>Totales</td><td></td><td></td><td></td><td></td><td class="totales-salario"></td><td class="totales-ganancia-puestos"></td></tr></tbody></table>`;
 
-    htmlPuestos += `<tr class="fila-totales">
-        <td>Totales</td>
-        <td>${num(totalesPuestos.venta)}</td>
-        <td>${num(totalesPuestos.comision_recibir)}</td>
-        <td>${num(totalesPuestos.premio_pagar)}</td>
-        <td>${num(totalesPuestos.premio_recibir)}</td>
-        <td class="totales-salario"></td>
-        <td class="totales-ganancia-puestos"></td>
-    </tr></tbody></table>`;
+    contenidoEl.innerHTML = htmlListas + htmlNoPasadas + htmlAjustes + htmlControles + htmlOficina + htmlPuestos + '<div class="ganancia-final" id="gananciaFinal"></div>';
 
-    contenidoEl.innerHTML = htmlListas + htmlNoPasadas + htmlAjustes + htmlControlSuper + htmlOficina + htmlPuestos + '<div class="ganancia-final" id="gananciaFinal"></div>';
+    // Guardar en dataset para recalcular
+    contenidoEl.dataset.gananciaListas    = totL.gan;
+    contenidoEl.dataset.gananciaNoPasadas = noPasadasData ? (noPasadasData.venta - noPasadasData.comision_pagar - noPasadasData.premio_pagar) : 0;
+    contenidoEl.dataset.gananciaAjustes   = ajustesData   ? ((ajustesData.venta||0) - (ajustesData.premio_pagar||0)) : 0;
 
-    contenidoEl.dataset.gananciaListas = totalesListas.ganancia;
-    contenidoEl.dataset.gananciaAjustes = ajustesData
-        ? ((ajustesData.venta || 0) - (ajustesData.premio_pagar || 0))
-        : 0;
-    contenidoEl.dataset.gananciaNoPasadas = noPasadasData
-        ? (noPasadasData.venta - noPasadasData.comision_pagar - noPasadasData.premio_pagar)
-        : 0;
+    // Listeners inputs
+    document.getElementById('oficinaInput').addEventListener('input', recalcular);
+    document.querySelectorAll('.salario-puesto').forEach(i => i.addEventListener('input', recalcular));
 
-    document.getElementById('oficinaInput').addEventListener('input', recalcularGananciaFinal);
-    document.querySelectorAll('.salario-puesto').forEach(input => {
-        input.addEventListener('input', recalcularGananciaFinal);
-    });
+    // Listeners checkboxes superadmin
+    const chkNP = document.getElementById('checkNoPasadas');
+    const chkAJ = document.getElementById('checkAjustes');
+    if (chkNP) chkNP.addEventListener('change', () => guardarConfig());
+    if (chkAJ) chkAJ.addEventListener('change', () => guardarConfig());
 
-    // Listener del checkbox de superusuario
-    const checkOcultar = document.getElementById('checkOcultar');
-    if (checkOcultar) {
-        checkOcultar.addEventListener('change', async function() {
-            const nuevoValor = this.checked;
-            try {
-                const resp = await fetch(`${WORKER_URL}/api/ganancias-config`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        pw: APP_PASSWORD,
-                        fecha: fechaInput.value,
-                        ocultar_no_pasadas: nuevoValor
-                    })
-                });
-                if (!resp.ok) throw new Error('Error al guardar configuración');
-                ocultarNoPasadas = nuevoValor;
-            } catch (e) {
-                statusEl.innerHTML = `<div class="status error">⚠️ ${e.message}</div>`;
-                this.checked = !nuevoValor; // revertir
-            }
-        });
-    }
-
-    recalcularGananciaFinal();
+    recalcular();
 }
 
-function recalcularGananciaFinal() {
-    const gananciaListas = parseFloat(contenidoEl.dataset.gananciaListas) || 0;
-    const gananciaAjustes = parseFloat(contenidoEl.dataset.gananciaAjustes) || 0;
-    const gananciaNoPasadas = parseFloat(contenidoEl.dataset.gananciaNoPasadas) || 0;
+async function guardarConfig() {
+    const chkNP = document.getElementById('checkNoPasadas');
+    const chkAJ = document.getElementById('checkAjustes');
+    try {
+        await fetch(`${WORKER_URL}/api/ganancias-config`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                pw: APP_PASSWORD,
+                fecha: fechaInput.value,
+                ocultar_no_pasadas: chkNP ? chkNP.checked : (superadminData ? superadminData.ocultarNoPasadas : false),
+                ocultar_ajustes:    chkAJ ? chkAJ.checked : (superadminData ? superadminData.ocultarAjustes   : false)
+            })
+        });
+    } catch (e) {
+        statusEl.innerHTML = `<div class="status error">⚠️ Error al guardar configuración</div>`;
+    }
+}
+
+function recalcular() {
+    const ganL  = parseFloat(contenidoEl.dataset.gananciaListas)    || 0;
+    const ganNP = parseFloat(contenidoEl.dataset.gananciaNoPasadas) || 0;
+    const ganAJ = parseFloat(contenidoEl.dataset.gananciaAjustes)   || 0;
     const oficina = parseFloat(document.getElementById('oficinaInput').value) || 0;
 
-    let totalSalarios = 0;
-    let gananciaPuestos = 0;
-
+    let totalSalarios = 0, gananciaPuestos = 0;
     document.querySelectorAll('.salario-puesto').forEach(input => {
-        const salario = parseFloat(input.value) || 0;
-        const comision = parseFloat(input.dataset.comision) || 0;
+        const salario     = parseFloat(input.value) || 0;
+        const comision    = parseFloat(input.dataset.comision)    || 0;
         const premioPagar = parseFloat(input.dataset.premioPagar) || 0;
-        const premioRecibir = parseFloat(input.dataset.premioRecibir) || 0;
-        const ganancia = (comision - salario) + (premioRecibir - premioPagar);
+        const premioRec   = parseFloat(input.dataset.premioRecibir) || 0;
+        const gan = (comision - salario) + (premioRec - premioPagar);
         totalSalarios += salario;
-        gananciaPuestos += ganancia;
-        input.closest('tr').querySelector('.ganancia-puesto').textContent = num(ganancia);
-        input.closest('tr').querySelector('.ganancia-puesto').className = 'ganancia-puesto' + (ganancia < 0 ? ' negativo' : '');
+        gananciaPuestos += gan;
+        const tdGan = input.closest('tr').querySelector('.ganancia-puesto');
+        tdGan.textContent = num(gan);
+        tdGan.className = 'ganancia-puesto' + (gan < 0 ? ' negativo' : '');
     });
 
     document.querySelector('.totales-salario').textContent = num(totalSalarios);
-    document.querySelector('.totales-ganancia-puestos').textContent = num(gananciaPuestos);
-    document.querySelector('.totales-ganancia-puestos').className = 'totales-ganancia-puestos' + (gananciaPuestos < 0 ? ' negativo' : '');
+    const tdTotGan = document.querySelector('.totales-ganancia-puestos');
+    tdTotGan.textContent = num(gananciaPuestos);
+    tdTotGan.className = 'totales-ganancia-puestos' + (gananciaPuestos < 0 ? ' negativo' : '');
 
-    // La ganancia final incluye: listas + no pasadas + ajustes + puestos - oficina
-    const gananciaFinal = gananciaListas + gananciaNoPasadas + gananciaAjustes - oficina + gananciaPuestos;
+    const gananciaFinal = ganL + ganNP + ganAJ - oficina + gananciaPuestos;
     const el = document.getElementById('gananciaFinal');
     el.textContent = (gananciaFinal < 0 ? '⚠️ Pérdida del día: ' : '✅ Ganancia del día: ') + num(gananciaFinal);
     el.className = 'ganancia-final' + (gananciaFinal < 0 ? ' negativo' : '');
@@ -392,125 +280,70 @@ saveBtn.addEventListener('click', async function() {
     const fecha = fechaInput.value;
     const registros = [];
 
-    const oficinaInput = document.getElementById('oficinaInput');
-    registros.push({
-        id: oficinaInput.dataset.id ? parseInt(oficinaInput.dataset.id) : null,
-        concepto: 'Oficina',
-        categoria: 'oficina',
-        vendedor_id: null,
-        monto: parseFloat(oficinaInput.value) || 0
-    });
+    const ofEl = document.getElementById('oficinaInput');
+    registros.push({ id: ofEl.dataset.id ? parseInt(ofEl.dataset.id) : null, concepto: 'Oficina', categoria: 'oficina', vendedor_id: null, monto: parseFloat(ofEl.value) || 0 });
 
     document.querySelectorAll('.salario-puesto').forEach(input => {
-        registros.push({
-            id: input.dataset.id ? parseInt(input.dataset.id) : null,
-            concepto: `Salario ${input.dataset.nombre}`,
-            categoria: 'salario_puesto',
-            vendedor_id: parseInt(input.dataset.vendedorId),
-            monto: parseFloat(input.value) || 0
-        });
+        registros.push({ id: input.dataset.id ? parseInt(input.dataset.id) : null, concepto: `Salario ${input.dataset.nombre}`, categoria: 'salario_puesto', vendedor_id: parseInt(input.dataset.vendedorId), monto: parseFloat(input.value) || 0 });
     });
 
-    this.disabled = true;
-    this.textContent = '⏳ Guardando...';
-
+    this.disabled = true; this.textContent = '⏳ Guardando...';
     try {
-        const response = await fetch(`${WORKER_URL}/api/gastos?pw=${encodeURIComponent(APP_PASSWORD)}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+        const r = await fetch(`${WORKER_URL}/api/gastos?pw=${encodeURIComponent(APP_PASSWORD)}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ fecha, registros })
         });
-        const result = await response.json();
-
-        if (response.ok && result.ok) {
-            statusEl.innerHTML = `<div class="status success">✅ Gastos guardados correctamente</div>`;
+        const res = await r.json();
+        if (r.ok && res.ok) {
+            statusEl.innerHTML = '<div class="status success">✅ Gastos guardados correctamente</div>';
             await cargarReporte();
-        } else {
-            throw new Error(result.error || 'Error al guardar');
-        }
-    } catch (error) {
-        statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
-    } finally {
-        this.disabled = false;
-        this.textContent = '💾 Guardar gastos';
+        } else { throw new Error(res.error || 'Error al guardar'); }
+    } catch (e) {
+        statusEl.innerHTML = `<div class="status error">⚠️ ${e.message}</div>`;
+    } finally { this.disabled = false; this.textContent = '💾 Guardar gastos'; }
+});
+
+exportBtn.addEventListener('click', async function() {
+    if (!contenidoEl.querySelector('table')) { statusEl.innerHTML = '<div class="status error">⚠️ No hay nada para exportar</div>'; return; }
+    this.disabled = true; this.textContent = '⏳ Generando imagen...';
+    try {
+        const clone = contenidoEl.cloneNode(true);
+        clone.querySelectorAll('.superusuario-control').forEach(el => el.remove());
+        clone.querySelectorAll('input').forEach(input => {
+            const div = document.createElement('div');
+            div.textContent = num(parseFloat(input.value) || 0);
+            div.style.fontWeight = 'bold'; div.style.textAlign = 'right';
+            input.replaceWith(div);
+        });
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'position:fixed;top:0;left:-100000px;background:#fff;padding:15px;width:700px;font-family:Arial,sans-serif;';
+        const title = document.createElement('div');
+        title.style.cssText = 'font-weight:bold;font-size:18px;color:#2c3e50;margin-bottom:12px;';
+        title.textContent = `Reporte de Ganancias — ${fechaInput.value}`;
+        wrapper.appendChild(title); wrapper.appendChild(clone);
+        document.body.appendChild(wrapper);
+        await new Promise(r => requestAnimationFrame(r));
+        const canvas = await html2canvas(wrapper, { backgroundColor: '#ffffff', scale: 2 });
+        document.body.removeChild(wrapper);
+        canvas.toBlob(async blob => {
+            const fileName = `Ganancias ${fechaInput.value}.png`;
+            const files = [new File([blob], fileName, { type: 'image/png' })];
+            if (navigator.canShare && navigator.canShare({ files })) {
+                try { await navigator.share({ files, title: fileName }); } catch(e) {}
+            } else {
+                const a = document.createElement('a'); a.download = fileName;
+                a.href = URL.createObjectURL(blob); a.click();
+            }
+            this.disabled = false; this.textContent = '📷 Exportar imagen';
+        }, 'image/png');
+    } catch(e) {
+        statusEl.innerHTML = `<div class="status error">⚠️ Error: ${e.message}</div>`;
+        this.disabled = false; this.textContent = '📷 Exportar imagen';
     }
 });
 
 fechaInput.addEventListener('change', cargarReporte);
 cargarReporte();
-
-// ===== Exportar como imagen =====
-exportBtn.addEventListener('click', async function() {
-    if (!contenidoEl.querySelector('table')) {
-        statusEl.innerHTML = '<div class="status error">⚠️ No hay nada para exportar</div>';
-        return;
-    }
-
-    this.disabled = true;
-    this.textContent = '⏳ Generando imagen...';
-
-    try {
-        const clone = contenidoEl.cloneNode(true);
-
-        // Ocultar el control de superusuario en la imagen
-        const ctrlSuper = clone.querySelector('.superusuario-control');
-        if (ctrlSuper) ctrlSuper.remove();
-
-        clone.querySelectorAll('input').forEach(input => {
-            const div = document.createElement('div');
-            div.textContent = num(parseFloat(input.value) || 0);
-            div.style.fontWeight = 'bold';
-            div.style.textAlign = 'right';
-            input.replaceWith(div);
-        });
-
-        const wrapper = document.createElement('div');
-        wrapper.style.position = 'fixed';
-        wrapper.style.top = '0';
-        wrapper.style.left = '-100000px';
-        wrapper.style.background = '#ffffff';
-        wrapper.style.padding = '15px';
-        wrapper.style.width = '700px';
-        wrapper.style.fontFamily = 'Arial, sans-serif';
-
-        const titleEl = document.createElement('div');
-        titleEl.style.fontWeight = 'bold';
-        titleEl.style.fontSize = '18px';
-        titleEl.style.color = '#2c3e50';
-        titleEl.style.marginBottom = '12px';
-        titleEl.textContent = `Reporte de Ganancias — ${fechaInput.value}`;
-        wrapper.appendChild(titleEl);
-        wrapper.appendChild(clone);
-        document.body.appendChild(wrapper);
-
-        await new Promise(resolve => requestAnimationFrame(resolve));
-
-        const canvas = await html2canvas(wrapper, { backgroundColor: '#ffffff', scale: 2 });
-        document.body.removeChild(wrapper);
-
-        canvas.toBlob(async (blob) => {
-            const fileName = `Ganancias ${fechaInput.value}.png`;
-            const filesArray = [new File([blob], fileName, { type: 'image/png' })];
-
-            if (navigator.canShare && navigator.canShare({ files: filesArray })) {
-                try { await navigator.share({ files: filesArray, title: fileName }); } catch (e) {}
-            } else {
-                const link = document.createElement('a');
-                link.download = fileName;
-                link.href = URL.createObjectURL(blob);
-                link.click();
-            }
-
-            this.disabled = false;
-            this.textContent = '📷 Exportar imagen';
-        }, 'image/png');
-
-    } catch (error) {
-        statusEl.innerHTML = `<div class="status error">⚠️ Error al generar la imagen: ${error.message}</div>`;
-        this.disabled = false;
-        this.textContent = '📷 Exportar imagen';
-    }
-});
 </script>
 </body>
 </html>
