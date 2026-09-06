@@ -34,6 +34,7 @@
     .contenido { padding:20px; }
     .placeholder { text-align:center; color:#7f8c8d; padding:40px; }
     .seccion-titulo { background:#2c3e50; color:white; padding:8px 12px; font-weight:bold; font-size:14px; margin-bottom:0; border-radius:6px 6px 0 0; }
+    .seccion-titulo-ajuste { background:#7f6000; color:white; padding:8px 12px; font-weight:bold; font-size:14px; margin-bottom:0; border-radius:6px 6px 0 0; }
     table { border-collapse: collapse; width:100%; font-size:13px; margin-bottom:20px; }
     th, td { border:1px solid #ddd; padding:8px; text-align:right; white-space:nowrap; }
     th:first-child, td:first-child { text-align:left; }
@@ -70,6 +71,28 @@
         font-weight:bold;
     }
     .ganancia-final.negativo { background:#c0392b; }
+
+    /* Control superusuario — igual al de no-pasadas */
+    .superusuario-control {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 14px;
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        border-radius: 6px;
+        margin-bottom: 12px;
+        font-size: 13px;
+        color: #856404;
+        font-weight: bold;
+        gap: 10px;
+    }
+    .superusuario-control input[type=checkbox] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
 </style>
 </head>
 <body>
@@ -99,13 +122,7 @@
 const WORKER_URL = 'https://frosty-base-53ff.watsonmraul.workers.dev';
 const APP_PASSWORD = new URLSearchParams(window.location.search).get('pw') || '';
 const APP_USER = new URLSearchParams(window.location.search).get('user') || '';
-const APP_ROLE = new URLSearchParams(window.location.search).get('role') || '';
 document.getElementById('btnMenu').href = `index.html?pw=${encodeURIComponent(APP_PASSWORD)}&user=${encodeURIComponent(APP_USER)}`;
-
-function urlConAuth(base) {
-    const sep = base.indexOf('?') === -1 ? '?' : '&';
-    return base + sep + 'pw=' + encodeURIComponent(APP_PASSWORD) + '&user=' + encodeURIComponent(APP_USER);
-}
 
 const fechaInput = document.getElementById('fechaInput');
 const statusEl = document.getElementById('statusMsg');
@@ -113,16 +130,18 @@ const contenidoEl = document.getElementById('contenido');
 const saveBtn = document.getElementById('saveBtn');
 const exportBtn = document.getElementById('exportBtn');
 
-fechaInput.value = new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0');
+fechaInput.value = new Date().toISOString().split('T')[0];
 
 let listasData = [];
 let puestosData = [];
-let noPasadasData = null;
 let gastosExistentes = [];
-let ocultarNoPasadasGuardado = false;
+let ajustesData = null;
+let noPasadasData = null;
+let ocultarNoPasadas = false;
+let esSuperAdmin = false;
 
 function num(n) {
-    return (n || 0).toLocaleString('es-CR', { minimumFractionDigits: 2 });
+    return (n || 0).toLocaleString('es-NI', { minimumFractionDigits: 2 });
 }
 
 async function cargarReporte() {
@@ -131,12 +150,11 @@ async function cargarReporte() {
 
     statusEl.innerHTML = '<div class="status loading">⏳ Cargando reporte...</div>';
     saveBtn.disabled = true;
-    exportBtn.disabled = true;
 
     try {
         const [respGanancias, respGastos] = await Promise.all([
-            fetch(urlConAuth(`${WORKER_URL}/api/reporte-ganancias?fecha=${fecha}`), { cache: 'no-store' }),
-            fetch(urlConAuth(`${WORKER_URL}/api/gastos?fecha=${fecha}`), { cache: 'no-store' })
+            fetch(`${WORKER_URL}/api/reporte-ganancias?fecha=${fecha}&pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' }),
+            fetch(`${WORKER_URL}/api/gastos?fecha=${fecha}&pw=${encodeURIComponent(APP_PASSWORD)}`, { cache: 'no-store' })
         ]);
 
         if (!respGanancias.ok) throw new Error('No se pudo cargar el reporte de ganancias');
@@ -144,8 +162,10 @@ async function cargarReporte() {
         const ganancias = await respGanancias.json();
         listasData = ganancias.listas || [];
         puestosData = ganancias.puestos || [];
-        noPasadasData = ganancias.noPasadas;
-        ocultarNoPasadasGuardado = !!ganancias.ocultarNoPasadas;
+        noPasadasData = ganancias.noPasadas || null;
+        ajustesData = ganancias.ajustes || null;
+        ocultarNoPasadas = !!(ganancias.ocultarNoPasadas);
+        esSuperAdmin = ganancias.ocultarNoPasadas !== undefined; // solo superadmin recibe este campo
         gastosExistentes = respGastos.ok ? await respGastos.json() : [];
 
         renderizarReporte();
@@ -164,7 +184,7 @@ function buscarGastoExistente(categoria, vendedorId) {
 }
 
 function renderizarReporte() {
-    if (listasData.length === 0 && puestosData.length === 0) {
+    if (listasData.length === 0 && puestosData.length === 0 && !ajustesData) {
         contenidoEl.innerHTML = '<div class="placeholder">No hay ventas registradas ese día.</div>';
         return;
     }
@@ -206,35 +226,46 @@ function renderizarReporte() {
         <td class="${totalesListas.ganancia < 0 ? 'negativo' : ''}">${num(totalesListas.ganancia)}</td>
     </tr></tbody></table>`;
 
-    // ===== Listas no pasadas a la banca =====
+    // ===== Sección LISTAS NO PASADAS A BANCA =====
     let htmlNoPasadas = '';
-    let gananciaNoPasadas = 0;
-
-    if (noPasadasData !== null && noPasadasData !== undefined) {
-        gananciaNoPasadas = noPasadasData.venta - noPasadasData.comision_pagar - noPasadasData.premio_pagar;
-        const hayNoPasadas = (noPasadasData.venta || 0) !== 0;
-
-        if (hayNoPasadas) {
-            htmlNoPasadas = `<div class="seccion-titulo" style="background:#8a6d00;">LISTAS NO PASADAS A BANCA</div>
-            <table><thead><tr>
-                <th>Venta</th><th>Comisión Pagar</th><th>Premio Pagar</th><th>Ganancia</th>
-            </tr></thead><tbody><tr>
-                <td>${num(noPasadasData.venta)}</td>
-                <td>${num(noPasadasData.comision_pagar)}</td>
-                <td>${num(noPasadasData.premio_pagar)}</td>
-                <td class="${gananciaNoPasadas < 0 ? 'negativo' : ''}">${num(gananciaNoPasadas)}</td>
-            </tr></tbody></table>`;
-        }
-
-        if (APP_ROLE === 'superadmin' && (hayNoPasadas || ocultarNoPasadasGuardado)) {
-            htmlNoPasadas += `<div class="gastos-linea" style="background:#fdecea;">
-                <label>🔒 Solo superusuario: ocultar "Listas no pasadas" para los demás perfiles</label>
-                <input type="checkbox" id="ocultarNoPasadasCheck" ${ocultarNoPasadasGuardado ? 'checked' : ''} style="width:20px; height:20px;">
-            </div>`;
-        }
+    if (noPasadasData) {
+        const ganNP = noPasadasData.venta - noPasadasData.comision_pagar - noPasadasData.premio_pagar;
+        htmlNoPasadas = `<div class="seccion-titulo" style="background:#7f6000;">LISTAS NO PASADAS A BANCA</div>
+        <table><thead><tr>
+            <th style="text-align:left">Venta</th><th>Comisión Pagar</th><th>Premio Pagar</th><th>Ganancia</th>
+        </tr></thead><tbody><tr>
+            <td style="text-align:left">${num(noPasadasData.venta)}</td>
+            <td>${num(noPasadasData.comision_pagar)}</td>
+            <td>${num(noPasadasData.premio_pagar)}</td>
+            <td class="${ganNP < 0 ? 'negativo' : ''}">${num(ganNP)}</td>
+        </tr></tbody></table>`;
     }
 
-    // ===== Línea de Oficina (editable) =====
+    // ===== Sección AJUSTES =====
+    let htmlAjustes = '';
+    if (ajustesData) {
+        // La ganancia del ajuste: venta (puede ser negativa) menos premio_pagar (también puede ser negativo)
+        const ganAjuste = (ajustesData.venta || 0) - (ajustesData.premio_pagar || 0);
+        htmlAjustes = `<div class="seccion-titulo-ajuste">⚖️ AJUSTES</div>
+        <table><thead><tr>
+            <th style="text-align:left">Ajuste de Venta</th><th>Ajuste de Premio</th><th>Efecto en Ganancia</th>
+        </tr></thead><tbody><tr>
+            <td style="text-align:left" class="${(ajustesData.venta||0) < 0 ? 'negativo' : ''}">${num(ajustesData.venta)}</td>
+            <td class="${(ajustesData.premio_pagar||0) < 0 ? 'negativo' : ''}">${num(ajustesData.premio_pagar)}</td>
+            <td class="${ganAjuste < 0 ? 'negativo' : ''}">${num(ganAjuste)}</td>
+        </tr></tbody></table>`;
+    }
+
+    // ===== Control superusuario para ocultar/mostrar =====
+    let htmlControlSuper = '';
+    if (esSuperAdmin) {
+        htmlControlSuper = `<div class="superusuario-control">
+            <span>🔒 Solo superusuario: ocultar "Listas no pasadas" y "Ajustes" para los demás perfiles</span>
+            <input type="checkbox" id="checkOcultar" ${ocultarNoPasadas ? 'checked' : ''}>
+        </div>`;
+    }
+
+    // ===== Línea de Oficina =====
     const gastoOficina = buscarGastoExistente('oficina', null);
     const oficinaDefault = gastoOficina ? gastoOficina.monto : (totalesListas.venta > 0 ? 35000 : 0);
     const oficinaId = gastoOficina ? gastoOficina.id : '';
@@ -283,34 +314,41 @@ function renderizarReporte() {
         <td class="totales-ganancia-puestos"></td>
     </tr></tbody></table>`;
 
-    contenidoEl.innerHTML = htmlListas + htmlNoPasadas + htmlOficina + htmlPuestos + '<div class="ganancia-final" id="gananciaFinal"></div>';
+    contenidoEl.innerHTML = htmlListas + htmlNoPasadas + htmlAjustes + htmlControlSuper + htmlOficina + htmlPuestos + '<div class="ganancia-final" id="gananciaFinal"></div>';
 
     contenidoEl.dataset.gananciaListas = totalesListas.ganancia;
-    contenidoEl.dataset.gananciaNoPasadas = gananciaNoPasadas;
+    contenidoEl.dataset.gananciaAjustes = ajustesData
+        ? ((ajustesData.venta || 0) - (ajustesData.premio_pagar || 0))
+        : 0;
+    contenidoEl.dataset.gananciaNoPasadas = noPasadasData
+        ? (noPasadasData.venta - noPasadasData.comision_pagar - noPasadasData.premio_pagar)
+        : 0;
 
     document.getElementById('oficinaInput').addEventListener('input', recalcularGananciaFinal);
     document.querySelectorAll('.salario-puesto').forEach(input => {
         input.addEventListener('input', recalcularGananciaFinal);
     });
 
-    const checkOcultar = document.getElementById('ocultarNoPasadasCheck');
+    // Listener del checkbox de superusuario
+    const checkOcultar = document.getElementById('checkOcultar');
     if (checkOcultar) {
         checkOcultar.addEventListener('change', async function() {
             const nuevoValor = this.checked;
-            this.disabled = true;
             try {
-                const resp = await fetch(urlConAuth(`${WORKER_URL}/api/ganancias-config`), {
+                const resp = await fetch(`${WORKER_URL}/api/ganancias-config`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ pw: APP_PASSWORD, fecha: fechaInput.value, ocultar_no_pasadas: nuevoValor })
+                    body: JSON.stringify({
+                        pw: APP_PASSWORD,
+                        fecha: fechaInput.value,
+                        ocultar_no_pasadas: nuevoValor
+                    })
                 });
-                if (!resp.ok) throw new Error('No se pudo guardar el cambio');
-                statusEl.innerHTML = '<div class="status success">✅ Preferencia guardada</div>';
-                await cargarReporte();
-            } catch (err) {
-                statusEl.innerHTML = `<div class="status error">⚠️ ${err.message}</div>`;
-                this.checked = !nuevoValor;
-                this.disabled = false;
+                if (!resp.ok) throw new Error('Error al guardar configuración');
+                ocultarNoPasadas = nuevoValor;
+            } catch (e) {
+                statusEl.innerHTML = `<div class="status error">⚠️ ${e.message}</div>`;
+                this.checked = !nuevoValor; // revertir
             }
         });
     }
@@ -320,6 +358,7 @@ function renderizarReporte() {
 
 function recalcularGananciaFinal() {
     const gananciaListas = parseFloat(contenidoEl.dataset.gananciaListas) || 0;
+    const gananciaAjustes = parseFloat(contenidoEl.dataset.gananciaAjustes) || 0;
     const gananciaNoPasadas = parseFloat(contenidoEl.dataset.gananciaNoPasadas) || 0;
     const oficina = parseFloat(document.getElementById('oficinaInput').value) || 0;
 
@@ -342,7 +381,8 @@ function recalcularGananciaFinal() {
     document.querySelector('.totales-ganancia-puestos').textContent = num(gananciaPuestos);
     document.querySelector('.totales-ganancia-puestos').className = 'totales-ganancia-puestos' + (gananciaPuestos < 0 ? ' negativo' : '');
 
-    const gananciaFinal = gananciaListas - oficina + gananciaPuestos + (ocultarNoPasadasGuardado ? 0 : gananciaNoPasadas);
+    // La ganancia final incluye: listas + no pasadas + ajustes + puestos - oficina
+    const gananciaFinal = gananciaListas + gananciaNoPasadas + gananciaAjustes - oficina + gananciaPuestos;
     const el = document.getElementById('gananciaFinal');
     el.textContent = (gananciaFinal < 0 ? '⚠️ Pérdida del día: ' : '✅ Ganancia del día: ') + num(gananciaFinal);
     el.className = 'ganancia-final' + (gananciaFinal < 0 ? ' negativo' : '');
@@ -375,7 +415,7 @@ saveBtn.addEventListener('click', async function() {
     this.textContent = '⏳ Guardando...';
 
     try {
-        const response = await fetch(urlConAuth(`${WORKER_URL}/api/gastos`), {
+        const response = await fetch(`${WORKER_URL}/api/gastos?pw=${encodeURIComponent(APP_PASSWORD)}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ fecha, registros })
@@ -412,15 +452,16 @@ exportBtn.addEventListener('click', async function() {
     try {
         const clone = contenidoEl.cloneNode(true);
 
-        clone.querySelectorAll('input[type=number]').forEach(input => {
+        // Ocultar el control de superusuario en la imagen
+        const ctrlSuper = clone.querySelector('.superusuario-control');
+        if (ctrlSuper) ctrlSuper.remove();
+
+        clone.querySelectorAll('input').forEach(input => {
             const div = document.createElement('div');
             div.textContent = num(parseFloat(input.value) || 0);
             div.style.fontWeight = 'bold';
             div.style.textAlign = 'right';
             input.replaceWith(div);
-        });
-        clone.querySelectorAll('input[type=checkbox]').forEach(input => {
-            input.remove();
         });
 
         const wrapper = document.createElement('div');
@@ -429,7 +470,7 @@ exportBtn.addEventListener('click', async function() {
         wrapper.style.left = '-100000px';
         wrapper.style.background = '#ffffff';
         wrapper.style.padding = '15px';
-        wrapper.style.display = 'inline-block';
+        wrapper.style.width = '700px';
         wrapper.style.fontFamily = 'Arial, sans-serif';
 
         const titleEl = document.createElement('div');
@@ -437,7 +478,6 @@ exportBtn.addEventListener('click', async function() {
         titleEl.style.fontSize = '18px';
         titleEl.style.color = '#2c3e50';
         titleEl.style.marginBottom = '12px';
-        titleEl.style.whiteSpace = 'nowrap';
         titleEl.textContent = `Reporte de Ganancias — ${fechaInput.value}`;
         wrapper.appendChild(titleEl);
         wrapper.appendChild(clone);
@@ -445,16 +485,7 @@ exportBtn.addEventListener('click', async function() {
 
         await new Promise(resolve => requestAnimationFrame(resolve));
 
-        const MAX_DIMENSION = 4000;
-        const naturalWidth = wrapper.scrollWidth;
-        const naturalHeight = wrapper.scrollHeight;
-        const maxNaturalDim = Math.max(naturalWidth, naturalHeight);
-        let scale = 2;
-        if (maxNaturalDim * scale > MAX_DIMENSION) {
-            scale = MAX_DIMENSION / maxNaturalDim;
-        }
-
-        const canvas = await html2canvas(wrapper, { backgroundColor: '#ffffff', scale: scale });
+        const canvas = await html2canvas(wrapper, { backgroundColor: '#ffffff', scale: 2 });
         document.body.removeChild(wrapper);
 
         canvas.toBlob(async (blob) => {
