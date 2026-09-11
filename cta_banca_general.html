@@ -180,7 +180,7 @@ function recalcular() {
     // Cta Banca: diferencia de hoy con la banca, incluyendo abonos
     // abono negativo = pagamos a la banca = resta la diferencia
     // abono positivo = la banca nos da = suma la diferencia
-    const ctaBanca = (totalBanca - saldoAntes) + abonos;
+    const ctaBanca = (totalBanca - saldoAntes) - abonos;
     const saldo = ctaBanca;
 
     const ctaBancaEl = document.getElementById('ctaBancaValor');
