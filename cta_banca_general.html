@@ -180,10 +180,10 @@ function recalcular() {
     const totalBanca   = tica + nica + reventado + extranjeras;
 
     // Delta de hoy = lo que la banca reporta menos el saldo que ya teníamos antes
-    const ctaBanca = totalBanca - saldoAntes;
+    const ctaBanca = totalBanca - saldoAntes + abonos;
 
     // Saldo final = lo que la banca reporta + abonos (ajustes de pagos/cobros) - saldo anterior
-    const saldo = totalBanca + abonos - saldoAntes;
+    const saldo = ctaBanca;
 
     const ctaBancaEl = document.getElementById('ctaBancaValor');
     ctaBancaEl.textContent = num(ctaBanca);
