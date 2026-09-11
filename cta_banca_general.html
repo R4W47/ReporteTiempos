@@ -177,11 +177,8 @@ function recalcular() {
     const totalNuestro = parseFloat(contenidoEl.dataset.totalNuestro) || 0;
     const totalBanca   = tica + nica + reventado + extranjeras;
 
-    // Cta Banca: diferencia de hoy con la banca, incluyendo abonos
-    // abono negativo = pagamos a la banca = resta la diferencia
-    // abono positivo = la banca nos da = suma la diferencia
     const ctaBanca = (totalBanca - saldoAntes) - abonos;
-    const saldo = ctaBanca;
+    const saldo    = saldoAntes + ctaBanca;
 
     const ctaBancaEl = document.getElementById('ctaBancaValor');
     ctaBancaEl.textContent = num(ctaBanca);
