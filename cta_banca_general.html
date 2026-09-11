@@ -178,7 +178,7 @@ function recalcular() {
     const totalBanca   = tica + nica + reventado + extranjeras;
 
     const ctaBanca = (totalBanca - saldoAntes) - abonos;
-    const saldo    = saldoAntes + ctaBanca;
+    const saldo    = saldoAntes + abonos + totalNuestro;
 
     const ctaBancaEl = document.getElementById('ctaBancaValor');
     ctaBancaEl.textContent = num(ctaBanca);
