@@ -40,29 +40,13 @@
     th { background-color:#3498db; color:white; font-weight:bold; }
     tr.fila-totales { background-color:#fdf6e3; font-weight:bold; }
     td.negativo { color:#c0392b; }
-
     .tabla-resumen td:first-child { font-weight:bold; color:#2c3e50; width:60%; }
-    .tabla-resumen td input {
-        width: 100%;
-        padding: 6px 8px;
-        border: 1px solid #bdc3c7;
-        border-radius: 4px;
-        text-align: right;
-        font-size: 13px;
-    }
+    .tabla-resumen td input { width:100%; padding:6px 8px; border:1px solid #bdc3c7; border-radius:4px; text-align:right; font-size:13px; }
     .tabla-resumen tr.calculada { background:#fdf6e3; }
     .tabla-resumen tr.calculada td:last-child { font-weight:bold; }
-
-    .comparacion {
-        margin-top: 15px;
-        padding: 15px;
-        border-radius: 6px;
-        text-align: center;
-        font-weight: bold;
-        font-size: 1.05em;
-    }
-    .comparacion.coincide { background: #eafaf1; color: #27ae60; }
-    .comparacion.no-coincide { background: #fdecea; color: #c0392b; }
+    .comparacion { margin-top:15px; padding:15px; border-radius:6px; text-align:center; font-weight:bold; font-size:1.05em; }
+    .comparacion.coincide { background:#eafaf1; color:#27ae60; }
+    .comparacion.no-coincide { background:#fdecea; color:#c0392b; }
 </style>
 </head>
 <body>
@@ -125,7 +109,6 @@ async function cargarReporte() {
         const response = await fetch(urlConAuth(`${WORKER_URL}/api/cta-banca?fecha=${fecha}`), { cache: 'no-store' });
         if (!response.ok) throw new Error('No se pudo cargar el reporte');
         const data = await response.json();
-
         renderizar(data);
         statusEl.innerHTML = '';
         saveBtn.disabled = false;
@@ -186,51 +169,57 @@ function renderizar(data) {
 }
 
 function recalcular() {
-    const tica = parseFloat(document.getElementById('bancaTica').value) || 0;
-    const nica = parseFloat(document.getElementById('bancaNica').value) || 0;
-    const reventado = parseFloat(document.getElementById('bancaReventado').value) || 0;
+    const tica        = parseFloat(document.getElementById('bancaTica').value)       || 0;
+    const nica        = parseFloat(document.getElementById('bancaNica').value)        || 0;
+    const reventado   = parseFloat(document.getElementById('bancaReventado').value)   || 0;
     const extranjeras = parseFloat(document.getElementById('bancaExtranjeras').value) || 0;
-    const abonos = parseFloat(document.getElementById('abonosInput').value) || 0;
-    const saldoAntes = parseFloat(document.getElementById('saldoAntesInput').value) || 0;
+    const abonos      = parseFloat(document.getElementById('abonosInput').value)      || 0;
+    const saldoAntes  = parseFloat(document.getElementById('saldoAntesInput').value)  || 0;
 
-    const totalBanca = tica + nica + reventado + extranjeras;
     const totalNuestro = parseFloat(contenidoEl.dataset.totalNuestro) || 0;
+    const totalBanca   = tica + nica + reventado + extranjeras;
 
+    // Delta de hoy = lo que la banca reporta menos el saldo que ya teníamos antes
     const ctaBanca = totalBanca - saldoAntes;
-    const saldo = totalBanca + abonos;
+
+    // Saldo final = lo que la banca reporta + abonos (ajustes de pagos/cobros) - saldo anterior
+    const saldo = totalBanca + abonos - saldoAntes;
 
     const ctaBancaEl = document.getElementById('ctaBancaValor');
     ctaBancaEl.textContent = num(ctaBanca);
     ctaBancaEl.className = ctaBanca < 0 ? 'negativo' : '';
 
-    document.getElementById('saldoValor').textContent = num(saldo);
+    const saldoEl = document.getElementById('saldoValor');
+    saldoEl.textContent = num(saldo);
+    saldoEl.className = saldo < 0 ? 'negativo' : '';
 
+    // La comparación se hace contra el saldo final (que incluye abonos)
     const comparacionBox = document.getElementById('comparacionBox');
-    const diferencia = Math.round((totalNuestro - ctaBanca) * 100) / 100;
+    const diferencia = Math.round((totalNuestro - saldo) * 100) / 100;
 
     if (Math.abs(diferencia) <= 100) {
         comparacionBox.className = 'comparacion coincide';
         if (diferencia === 0) {
             comparacionBox.textContent = `✅ Cuadra: nuestro cálculo (${num(totalNuestro)}) coincide con la banca`;
         } else {
-            comparacionBox.textContent = `✅ Cuadra (diferencia de redondeo de ${num(diferencia)}): nuestro cálculo es ${num(totalNuestro)}, la banca da ${num(ctaBanca)}`;
+            comparacionBox.textContent = `✅ Cuadra (diferencia de redondeo de ${num(diferencia)}): nuestro cálculo es ${num(totalNuestro)}, la banca da ${num(saldo)}`;
         }
     } else {
         comparacionBox.className = 'comparacion no-coincide';
-        comparacionBox.textContent = `⚠️ No cuadra: nuestro cálculo es ${num(totalNuestro)}, la banca da ${num(ctaBanca)} (diferencia de ${num(diferencia)})`;
+        comparacionBox.textContent = `⚠️ No cuadra: nuestro cálculo es ${num(totalNuestro)}, la banca da ${num(saldo)} (diferencia de ${num(diferencia)})`;
     }
 }
 
 saveBtn.addEventListener('click', async function() {
     const fecha = fechaInput.value;
     const body = {
-        fecha: fecha,
-        banca_tica: parseFloat(document.getElementById('bancaTica').value) || 0,
-        banca_nica: parseFloat(document.getElementById('bancaNica').value) || 0,
-        banca_reventado: parseFloat(document.getElementById('bancaReventado').value) || 0,
-        banca_extranjeras: parseFloat(document.getElementById('bancaExtranjeras').value) || 0,
-        abonos: parseFloat(document.getElementById('abonosInput').value) || 0,
-        saldo_antes_manual: parseFloat(document.getElementById('saldoAntesInput').value) || 0
+        fecha,
+        banca_tica:         parseFloat(document.getElementById('bancaTica').value)       || 0,
+        banca_nica:         parseFloat(document.getElementById('bancaNica').value)        || 0,
+        banca_reventado:    parseFloat(document.getElementById('bancaReventado').value)   || 0,
+        banca_extranjeras:  parseFloat(document.getElementById('bancaExtranjeras').value) || 0,
+        abonos:             parseFloat(document.getElementById('abonosInput').value)      || 0,
+        saldo_antes_manual: parseFloat(document.getElementById('saldoAntesInput').value)  || 0
     };
 
     this.disabled = true;
@@ -243,7 +232,6 @@ saveBtn.addEventListener('click', async function() {
             body: JSON.stringify(body)
         });
         const result = await response.json();
-
         if (response.ok && result.ok) {
             statusEl.innerHTML = '<div class="status success">✅ Guardado correctamente</div>';
         } else {
@@ -257,7 +245,6 @@ saveBtn.addEventListener('click', async function() {
     }
 });
 
-// ===== Exportar como imagen =====
 exportBtn.addEventListener('click', async function() {
     if (!contenidoEl.querySelector('table')) {
         statusEl.innerHTML = '<div class="status error">⚠️ No hay nada para exportar</div>';
@@ -269,8 +256,6 @@ exportBtn.addEventListener('click', async function() {
 
     try {
         const clone = contenidoEl.cloneNode(true);
-
-        // Convertir los inputs en texto plano para que se vea limpio en la imagen
         clone.querySelectorAll('input').forEach(input => {
             const span = document.createElement('div');
             span.textContent = num(parseFloat(input.value) || 0);
@@ -299,14 +284,12 @@ exportBtn.addEventListener('click', async function() {
         document.body.appendChild(wrapper);
 
         await new Promise(resolve => requestAnimationFrame(resolve));
-
         const canvas = await html2canvas(wrapper, { backgroundColor: '#ffffff', scale: 2 });
         document.body.removeChild(wrapper);
 
         canvas.toBlob(async (blob) => {
             const fileName = `Cuentas Banca ${fechaInput.value}.png`;
             const filesArray = [new File([blob], fileName, { type: 'image/png' })];
-
             if (navigator.canShare && navigator.canShare({ files: filesArray })) {
                 try { await navigator.share({ files: filesArray, title: fileName }); } catch (e) {}
             } else {
@@ -315,7 +298,6 @@ exportBtn.addEventListener('click', async function() {
                 link.href = URL.createObjectURL(blob);
                 link.click();
             }
-
             this.disabled = false;
             this.textContent = '📷 Exportar imagen';
         }, 'image/png');
