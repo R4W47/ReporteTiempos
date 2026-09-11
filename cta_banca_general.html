@@ -124,7 +124,6 @@ function renderizar(data) {
     const registro = data.registroHoy || { banca_tica: 0, banca_nica: 0, banca_reventado: 0, banca_extranjeras: 0, abonos: 0 };
     const saldoAntes = data.saldoAntes || 0;
 
-    // ===== Tabla: nuestro cálculo por grupo =====
     let totalNuestro = 0;
     let htmlTabla = '<div class="seccion-titulo">NUESTRO CÁLCULO</div><table><thead><tr><th>Sorteo</th><th>Venta</th><th>Comisión</th><th>Premio</th><th>Total</th></tr></thead><tbody>';
 
@@ -145,7 +144,6 @@ function renderizar(data) {
         <td class="${totalNuestro < 0 ? 'negativo' : ''}">${num(totalNuestro)}</td>
     </tr></tbody></table>`;
 
-    // ===== Tabla resumen con la banca (editable) =====
     let htmlResumen = '<div class="seccion-titulo">RECONCILIACIÓN CON LA BANCA</div><table class="tabla-resumen"><tbody>' +
         `<tr><td>Tica (reportado por banca)</td><td><input type="number" id="bancaTica" value="${registro.banca_tica}"></td></tr>` +
         `<tr><td>Nica (reportado por banca)</td><td><input type="number" id="bancaNica" value="${registro.banca_nica}"></td></tr>` +
@@ -179,10 +177,10 @@ function recalcular() {
     const totalNuestro = parseFloat(contenidoEl.dataset.totalNuestro) || 0;
     const totalBanca   = tica + nica + reventado + extranjeras;
 
-    // Delta de hoy = lo que la banca reporta menos el saldo que ya teníamos antes
-    const ctaBanca = totalBanca - saldoAntes - abonos;
-
-    // Saldo final = lo que la banca reporta + abonos (ajustes de pagos/cobros) - saldo anterior
+    // Cta Banca: diferencia de hoy con la banca, incluyendo abonos
+    // abono negativo = pagamos a la banca = resta la diferencia
+    // abono positivo = la banca nos da = suma la diferencia
+    const ctaBanca = (totalBanca - saldoAntes) + abonos;
     const saldo = ctaBanca;
 
     const ctaBancaEl = document.getElementById('ctaBancaValor');
@@ -193,20 +191,19 @@ function recalcular() {
     saldoEl.textContent = num(saldo);
     saldoEl.className = saldo < 0 ? 'negativo' : '';
 
-    // La comparación se hace contra el saldo final (que incluye abonos)
     const comparacionBox = document.getElementById('comparacionBox');
-    const diferencia = Math.round((totalNuestro - saldo) * 100) / 100;
+    const diferencia = Math.round((totalNuestro - ctaBanca) * 100) / 100;
 
     if (Math.abs(diferencia) <= 100) {
         comparacionBox.className = 'comparacion coincide';
         if (diferencia === 0) {
             comparacionBox.textContent = `✅ Cuadra: nuestro cálculo (${num(totalNuestro)}) coincide con la banca`;
         } else {
-            comparacionBox.textContent = `✅ Cuadra (diferencia de redondeo de ${num(diferencia)}): nuestro cálculo es ${num(totalNuestro)}, la banca da ${num(saldo)}`;
+            comparacionBox.textContent = `✅ Cuadra (diferencia de redondeo de ${num(diferencia)}): nuestro cálculo es ${num(totalNuestro)}, la banca da ${num(ctaBanca)}`;
         }
     } else {
         comparacionBox.className = 'comparacion no-coincide';
-        comparacionBox.textContent = `⚠️ No cuadra: nuestro cálculo es ${num(totalNuestro)}, la banca da ${num(saldo)} (diferencia de ${num(diferencia)})`;
+        comparacionBox.textContent = `⚠️ No cuadra: nuestro cálculo es ${num(totalNuestro)}, la banca da ${num(ctaBanca)} (diferencia de ${num(diferencia)})`;
     }
 }
 
