@@ -77,7 +77,7 @@ function recalcular(){
     // Cta Banca (delta) = (totalBanca - saldoAntes) - abonos
     const ctaBanca=(totalBanca-saldoAntes)-abonos;
     const totalNuestro=dataNuestro.reduce((acc,r)=>{
-        const neto=(r.comision||0)+(r.premio_recibir||0)-(r.premio||0);
+        const neto=(r.venta||0)-(r.comision||0)-(r.premio||0);
         return acc+neto;
     },0);
     // Saldo (Acá) = saldoAntes + abonos + totalNuestro
