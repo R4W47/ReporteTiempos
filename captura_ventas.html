@@ -12,12 +12,8 @@
     .container { max-width:900px; margin:0 auto; background:white; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.1); overflow:hidden; }
     .header { background:#2c3e50; color:white; padding:15px 20px; position:relative; }
     .header h1 { font-size:1.3em; }
-    .btn-menu {
-        position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
-        background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 5px;
-        padding: 8px 12px; font-size: 13px; cursor: pointer; text-decoration: none;
-    }
-    .btn-menu:hover { background: rgba(255,255,255,0.25); }
+    .btn-menu { position:absolute; left:12px; top:50%; transform:translateY(-50%); background:rgba(255,255,255,0.15); color:white; border:none; border-radius:5px; padding:8px 12px; font-size:13px; cursor:pointer; text-decoration:none; }
+    .btn-menu:hover { background:rgba(255,255,255,0.25); }
     .controls { padding:20px; background:#ecf0f1; display:flex; gap:15px; flex-wrap:wrap; align-items:flex-end; border-bottom:2px solid #bdc3c7; }
     .field { display:flex; flex-direction:column; gap:5px; }
     .field label { font-weight:bold; font-size:13px; color:#2c3e50; }
@@ -34,604 +30,222 @@
     .status.success { background:#eafaf1; color:#27ae60; }
     .status.error { background:#fdecea; color:#c0392b; }
     .status.loading { background:#eaf2fa; color:#2980b9; }
-
-    input[type=number]::-webkit-inner-spin-button,
-    input[type=number]::-webkit-outer-spin-button {
-        -webkit-appearance: none;
-        margin: 0;
-    }
-    input[type=number] {
-        -moz-appearance: textfield;
-    }
-
-    .btn-duplicar {
-        background: #3498db;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        width: 26px;
-        height: 26px;
-        font-size: 16px;
-        cursor: pointer;
-        line-height: 1;
-    }
-    .btn-duplicar:hover {
-        background: #2980b9;
-    }
-
-    /* Fila de ajuste */
-    .fila-ajuste { background-color: #fef9e7 !important; }
-    .fila-ajuste:hover { background-color: #fdf2c4 !important; }
-
-    #confirmModal {
-        display: none;
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0,0,0,0.5);
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-        padding: 20px;
-    }
-    #confirmModal .box {
-        background: white;
-        border-radius: 8px;
-        padding: 25px;
-        max-width: 400px;
-        text-align: center;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-    }
-    #confirmModal p {
-        margin-bottom: 20px;
-        color: #2c3e50;
-        font-size: 15px;
-        line-height: 1.4;
-    }
-    #confirmModal .botones {
-        display: flex;
-        gap: 10px;
-        justify-content: center;
-    }
-    #confirmCancelBtn {
-        padding: 10px 20px;
-        background: #95a5a6;
-        color: white;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        font-size: 14px;
-    }
-    #confirmOkBtn {
-        padding: 10px 20px;
-        background: #e74c3c;
-        color: white;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: bold;
-    }
+    input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
+    input[type=number] { -moz-appearance:textfield; }
+    .btn-duplicar { background:#3498db; color:white; border:none; border-radius:4px; width:26px; height:26px; font-size:16px; cursor:pointer; line-height:1; }
+    .btn-duplicar:hover { background:#2980b9; }
+    .fila-ajuste { background-color:#fef9e7 !important; }
+    .fila-ajuste:hover { background-color:#fdf2c4 !important; }
+    #confirmModal { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; z-index:1000; padding:20px; }
+    #confirmModal .box { background:white; border-radius:8px; padding:25px; max-width:400px; text-align:center; box-shadow:0 4px 20px rgba(0,0,0,0.3); }
+    #confirmModal p { margin-bottom:20px; color:#2c3e50; font-size:15px; line-height:1.4; }
+    #confirmModal .botones { display:flex; gap:10px; justify-content:center; }
+    #confirmCancelBtn { padding:10px 20px; background:#95a5a6; color:white; border:none; border-radius:5px; cursor:pointer; font-size:14px; }
+    #confirmOkBtn { padding:10px 20px; background:#e74c3c; color:white; border:none; border-radius:5px; cursor:pointer; font-size:14px; font-weight:bold; }
 </style>
 </head>
 <body>
 <div class="container">
     <div class="header">
-        <a href="#" class="btn-menu" id="btnMenu">← Menú</a>
+        <a href="index.html" class="btn-menu">← Menú</a>
         <h1>📝 Captura de Ventas del Día</h1>
     </div>
-
     <div class="controls">
-        <div class="field">
-            <label>Sorteo</label>
-            <select id="sorteoSelect">
-                <option value="">-- Elige un sorteo --</option>
-            </select>
-        </div>
-        <div class="field">
-            <label>Fecha</label>
-            <input type="date" id="fechaInput">
-        </div>
-        <div class="field">
-            <label>Número ganador</label>
-            <input type="text" id="numeroGanador" placeholder="ej. 35">
-        </div>
-        <div class="field" id="bolitaField" style="display:none;">
-            <label>Bolita (Reventado)</label>
-            <select id="bolitaSelect"></select>
-        </div>
+        <div class="field"><label>Sorteo</label><select id="sorteoSelect"><option value="">-- Elige un sorteo --</option></select></div>
+        <div class="field"><label>Fecha</label><input type="date" id="fechaInput"></div>
+        <div class="field"><label>Número ganador</label><input type="text" id="numeroGanador" placeholder="ej. 35"></div>
+        <div class="field" id="bolitaField" style="display:none;"><label>Bolita (Reventado)</label><select id="bolitaSelect"></select></div>
     </div>
-
     <div id="statusMsg"></div>
-
-    <div id="tableArea">
-        <div class="placeholder">👆 Elige un sorteo y una fecha para cargar la lista de vendedores</div>
-    </div>
-
+    <div id="tableArea"><div class="placeholder">👆 Elige un sorteo y una fecha para cargar la lista de vendedores</div></div>
     <div class="save-bar" id="saveBar" style="display:none;">
-        <div class="totales">
-            Venta total: <b id="totalVenta">C$0</b> &nbsp;|&nbsp;
-            Total premio a pagar: <b id="totalPremio">C$0</b>
-        </div>
+        <div class="totales">Venta total: <b id="totalVenta">C$0</b> &nbsp;|&nbsp; Total premio a pagar: <b id="totalPremio">C$0</b></div>
         <button id="saveBtn">💾 Guardar ventas del día</button>
     </div>
 </div>
-
 <div id="confirmModal">
     <div class="box">
         <p>⚠️ Vas a modificar datos que <b>ya estaban guardados</b>. Esto reemplazará los valores anteriores por los nuevos.<br><br>¿Confirmas que quieres continuar?</p>
-        <div class="botones">
-            <button id="confirmCancelBtn">Cancelar</button>
-            <button id="confirmOkBtn">Sí, sustituir datos</button>
-        </div>
+        <div class="botones"><button id="confirmCancelBtn">Cancelar</button><button id="confirmOkBtn">Sí, sustituir datos</button></div>
     </div>
 </div>
-
 <script>
-var WORKER_URL = 'https://frosty-base-53ff.watsonmraul.workers.dev';
-var APP_PASSWORD = new URLSearchParams(window.location.search).get('pw') || '';
-var APP_USER = new URLSearchParams(window.location.search).get('user') || '';
-document.getElementById('btnMenu').href = 'index.html?pw=' + encodeURIComponent(APP_PASSWORD) + '&user=' + encodeURIComponent(APP_USER);
+function getSession(){try{const s=sessionStorage.getItem('rt_session');return s?JSON.parse(s):null;}catch(e){return null;}}
+const _s=getSession();if(!_s||!_s.token){window.location.href='index.html';}
+const APP_TOKEN=_s.token;
+const WORKER_URL='https://frosty-base-53ff.watsonmraul.workers.dev';
+const AJUSTE_VENDEDOR_ID=15;
+var SORTEOS=[],BOLITAS=[],vendedoresDeEsteSorteo=[],bancaConfig=null,table=null,esReventadoActual=false,bolitaSeleccionadaId=null;
+var sorteoSelect=document.getElementById('sorteoSelect');
+var fechaInput=document.getElementById('fechaInput');
+var statusEl=document.getElementById('statusMsg');
+var bolitaField=document.getElementById('bolitaField');
+var bolitaSelect=document.getElementById('bolitaSelect');
+var hoyLocal=new Date();
+fechaInput.value=hoyLocal.getFullYear()+'-'+String(hoyLocal.getMonth()+1).padStart(2,'0')+'-'+String(hoyLocal.getDate()).padStart(2,'0');
 
-// ID del vendedor especial de ajuste en la tabla vendedores
-var AJUSTE_VENDEDOR_ID = 15;
+function urlConAuth(base){const sep=base.indexOf('?')===-1?'?':'&';return base+sep+'token='+encodeURIComponent(APP_TOKEN);}
 
-var SORTEOS = [];
-var BOLITAS = [];
-var vendedoresDeEsteSorteo = [];
-var bancaConfig = null;
-var table = null;
-var esReventadoActual = false;
-var bolitaSeleccionadaId = null;
-
-var sorteoSelect = document.getElementById('sorteoSelect');
-var fechaInput = document.getElementById('fechaInput');
-var statusEl = document.getElementById('statusMsg');
-var bolitaField = document.getElementById('bolitaField');
-var bolitaSelect = document.getElementById('bolitaSelect');
-
-var hoyLocal = new Date();
-fechaInput.value = hoyLocal.getFullYear() + '-' + String(hoyLocal.getMonth() + 1).padStart(2, '0') + '-' + String(hoyLocal.getDate()).padStart(2, '0');
-
-// Editor normal (solo positivos) para vendedores regulares
-function editorConFlechas(cell, onRendered, success, cancel) {
-    var input = document.createElement('input');
-    input.type = 'number';
-    input.min = '0';
-    input.style.width = '100%';
-    input.style.height = '100%';
-    input.style.boxSizing = 'border-box';
-    input.style.border = 'none';
-    input.style.padding = '4px 8px';
-    input.style.fontSize = 'inherit';
-    input.value = cell.getValue() || 0;
-
-    function confirmar() {
-        var val = parseFloat(input.value) || 0;
-        success(val);
-    }
-
-    input.addEventListener('blur', confirmar);
-    input.addEventListener('keydown', function(e) {
-        if (e.key === 'ArrowUp') { e.preventDefault(); confirmar(); setTimeout(function() { cell.navigateUp(); }, 0); }
-        else if (e.key === 'ArrowDown') { e.preventDefault(); confirmar(); setTimeout(function() { cell.navigateDown(); }, 0); }
-        else if (e.key === 'ArrowLeft') { e.preventDefault(); confirmar(); setTimeout(function() { cell.navigateLeft(); }, 0); }
-        else if (e.key === 'ArrowRight') { e.preventDefault(); confirmar(); setTimeout(function() { cell.navigateRight(); }, 0); }
-        else if (e.key === 'Enter') { e.preventDefault(); confirmar(); setTimeout(function() { cell.navigateDown(); }, 0); }
-        else if (e.key === 'Escape') { cancel(); }
+function editorConFlechas(cell,onRendered,success,cancel){
+    var input=document.createElement('input');input.type='number';input.min='0';
+    input.style.cssText='width:100%;height:100%;box-sizing:border-box;border:none;padding:4px 8px;font-size:inherit;';
+    input.value=cell.getValue()||0;
+    function confirmar(){success(parseFloat(input.value)||0);}
+    input.addEventListener('blur',confirmar);
+    input.addEventListener('keydown',function(e){
+        if(e.key==='ArrowUp'){e.preventDefault();confirmar();setTimeout(function(){cell.navigateUp();},0);}
+        else if(e.key==='ArrowDown'){e.preventDefault();confirmar();setTimeout(function(){cell.navigateDown();},0);}
+        else if(e.key==='ArrowLeft'){e.preventDefault();confirmar();setTimeout(function(){cell.navigateLeft();},0);}
+        else if(e.key==='ArrowRight'){e.preventDefault();confirmar();setTimeout(function(){cell.navigateRight();},0);}
+        else if(e.key==='Enter'){e.preventDefault();confirmar();setTimeout(function(){cell.navigateDown();},0);}
+        else if(e.key==='Escape'){cancel();}
     });
-
-    onRendered(function() { input.focus(); input.select(); });
+    onRendered(function(){input.focus();input.select();});
+    return input;
+}
+function editorConFlechasNegativo(cell,onRendered,success,cancel){
+    var input=document.createElement('input');input.type='number';
+    input.style.cssText='width:100%;height:100%;box-sizing:border-box;border:none;padding:4px 8px;font-size:inherit;';
+    input.value=cell.getValue()||0;
+    function confirmar(){success(parseFloat(input.value)||0);}
+    input.addEventListener('blur',confirmar);
+    input.addEventListener('keydown',function(e){
+        if(e.key==='ArrowUp'){e.preventDefault();confirmar();setTimeout(function(){cell.navigateUp();},0);}
+        else if(e.key==='ArrowDown'){e.preventDefault();confirmar();setTimeout(function(){cell.navigateDown();},0);}
+        else if(e.key==='ArrowLeft'){e.preventDefault();confirmar();setTimeout(function(){cell.navigateLeft();},0);}
+        else if(e.key==='ArrowRight'){e.preventDefault();confirmar();setTimeout(function(){cell.navigateRight();},0);}
+        else if(e.key==='Enter'){e.preventDefault();confirmar();setTimeout(function(){cell.navigateDown();},0);}
+        else if(e.key==='Escape'){cancel();}
+    });
+    onRendered(function(){input.focus();input.select();});
     return input;
 }
 
-// Editor que permite negativos (para la fila de ajuste)
-function editorConFlechasNegativo(cell, onRendered, success, cancel) {
-    var input = document.createElement('input');
-    input.type = 'number';
-    // Sin min — acepta negativos
-    input.style.width = '100%';
-    input.style.height = '100%';
-    input.style.boxSizing = 'border-box';
-    input.style.border = 'none';
-    input.style.padding = '4px 8px';
-    input.style.fontSize = 'inherit';
-    input.value = cell.getValue() || 0;
-
-    function confirmar() {
-        var val = parseFloat(input.value) || 0;
-        success(val);
-    }
-
-    input.addEventListener('blur', confirmar);
-    input.addEventListener('keydown', function(e) {
-        if (e.key === 'ArrowUp') { e.preventDefault(); confirmar(); setTimeout(function() { cell.navigateUp(); }, 0); }
-        else if (e.key === 'ArrowDown') { e.preventDefault(); confirmar(); setTimeout(function() { cell.navigateDown(); }, 0); }
-        else if (e.key === 'ArrowLeft') { e.preventDefault(); confirmar(); setTimeout(function() { cell.navigateLeft(); }, 0); }
-        else if (e.key === 'ArrowRight') { e.preventDefault(); confirmar(); setTimeout(function() { cell.navigateRight(); }, 0); }
-        else if (e.key === 'Enter') { e.preventDefault(); confirmar(); setTimeout(function() { cell.navigateDown(); }, 0); }
-        else if (e.key === 'Escape') { cancel(); }
-    });
-
-    onRendered(function() { input.focus(); input.select(); });
-    return input;
+function cargarSorteos(){
+    statusEl.innerHTML='<div class="status loading">⏳ Cargando sorteos...</div>';
+    Promise.all([fetch(urlConAuth(WORKER_URL+'/api/sorteos'),{cache:'no-store'}),fetch(urlConAuth(WORKER_URL+'/api/bolitas'),{cache:'no-store'})]).then(function(responses){
+        if(!responses[0].ok)throw new Error('No se pudo cargar la lista de sorteos');
+        return Promise.all([responses[0].json(),responses[1].ok?responses[1].json():Promise.resolve([])]);
+    }).then(function(datos){
+        SORTEOS=datos[0];BOLITAS=datos[1];
+        bolitaSelect.innerHTML='';
+        BOLITAS.forEach(function(b){var opt=document.createElement('option');opt.value=b.id;opt.textContent=b.nombre;bolitaSelect.appendChild(opt);});
+        sorteoSelect.innerHTML='<option value="">-- Elige un sorteo --</option>';
+        SORTEOS.forEach(function(s){var opt=document.createElement('option');opt.value=s.id;opt.textContent=s.nombre;sorteoSelect.appendChild(opt);});
+        statusEl.innerHTML='';
+    }).catch(function(error){statusEl.innerHTML='<div class="status error">⚠️ '+error.message+'</div>';});
 }
 
-function urlConAuth(base) {
-    var sep = base.indexOf('?') === -1 ? '?' : '&';
-    return base + sep + 'pw=' + encodeURIComponent(APP_PASSWORD) + '&user=' + encodeURIComponent(APP_USER);
-}
-
-function cargarSorteos() {
-    statusEl.innerHTML = '<div class="status loading">⏳ Cargando sorteos...</div>';
-
-    var urlSorteos = urlConAuth(WORKER_URL + '/api/sorteos');
-    var urlBolitas = urlConAuth(WORKER_URL + '/api/bolitas');
-
+function cargarTabla(){
+    var sorteoId=sorteoSelect.value;
+    var saveBar=document.getElementById('saveBar');
+    var tableArea=document.getElementById('tableArea');
+    if(!sorteoId){tableArea.innerHTML='<div class="placeholder">👆 Elige un sorteo y una fecha para cargar la lista de vendedores</div>';saveBar.style.display='none';return;}
+    statusEl.innerHTML='<div class="status loading">⏳ Cargando vendedores...</div>';
+    tableArea.innerHTML='';
     Promise.all([
-        fetch(urlSorteos, { cache: 'no-store' }),
-        fetch(urlBolitas, { cache: 'no-store' })
-    ]).then(function(responses) {
-        if (!responses[0].ok) throw new Error('No se pudo cargar la lista de sorteos (revisa la contraseña)');
-        return Promise.all([
-            responses[0].json(),
-            responses[1].ok ? responses[1].json() : Promise.resolve([])
-        ]);
-    }).then(function(datos) {
-        SORTEOS = datos[0];
-        BOLITAS = datos[1];
-
-        bolitaSelect.innerHTML = '';
-        BOLITAS.forEach(function(b) {
-            var opt = document.createElement('option');
-            opt.value = b.id;
-            opt.textContent = b.nombre;
-            bolitaSelect.appendChild(opt);
-        });
-
-        sorteoSelect.innerHTML = '<option value="">-- Elige un sorteo --</option>';
-        SORTEOS.forEach(function(s) {
-            var opt = document.createElement('option');
-            opt.value = s.id;
-            opt.textContent = s.nombre;
-            sorteoSelect.appendChild(opt);
-        });
-
-        statusEl.innerHTML = '';
-    }).catch(function(error) {
-        statusEl.innerHTML = '<div class="status error">⚠️ ' + error.message + '</div>';
-    });
-}
-
-function cargarTabla() {
-    var sorteoId = sorteoSelect.value;
-    var saveBar = document.getElementById('saveBar');
-    var tableArea = document.getElementById('tableArea');
-
-    if (!sorteoId) {
-        tableArea.innerHTML = '<div class="placeholder">👆 Elige un sorteo y una fecha para cargar la lista de vendedores</div>';
-        saveBar.style.display = 'none';
-        return;
-    }
-
-    statusEl.innerHTML = '<div class="status loading">⏳ Cargando vendedores...</div>';
-    tableArea.innerHTML = '';
-
-    var urlVendedores = urlConAuth(WORKER_URL + '/api/vendedor-sorteo?sorteo_id=' + sorteoId);
-    var urlBanca = urlConAuth(WORKER_URL + '/api/banca-sorteo?sorteo_id=' + sorteoId);
-    var urlExistentes = urlConAuth(WORKER_URL + '/api/ventas?sorteo_id=' + sorteoId + '&fecha=' + fechaInput.value);
-
-    Promise.all([
-        fetch(urlVendedores, { cache: 'no-store' }),
-        fetch(urlBanca, { cache: 'no-store' }),
-        fetch(urlExistentes, { cache: 'no-store' })
-    ]).then(function(responses) {
-        if (!responses[0].ok) throw new Error('No se pudo cargar la lista de vendedores');
-        return Promise.all([
-            responses[0].json(),
-            responses[1].ok ? responses[1].json() : Promise.resolve([]),
-            responses[2].ok ? responses[2].json() : Promise.resolve([])
-        ]);
-    }).then(function(datos) {
-        vendedoresDeEsteSorteo = datos[0];
-        var bancaResults = datos[1];
-        bancaConfig = bancaResults.length > 0 ? bancaResults[0] : null;
-        var ventasExistentes = datos[2];
-
-        var sorteoInfo = SORTEOS.find(function(s) { return s.id == sorteoId; });
-        esReventadoActual = !!(sorteoInfo && sorteoInfo.grupo_banca === 'Reventado');
-        bolitaField.style.display = esReventadoActual ? 'flex' : 'none';
-
-        if (esReventadoActual) {
-            var bolitaInferida = BOLITAS.find(function(b) { return b.multiplicador_vendedor === 0; });
-            if (ventasExistentes.length > 0) {
-                var primeraConValor = ventasExistentes.find(function(e) { return e.multiplicador_vendedor_premio !== null; });
-                if (primeraConValor) {
-                    var match = BOLITAS.find(function(b) { return b.multiplicador_vendedor === primeraConValor.multiplicador_vendedor_premio; });
-                    if (match) bolitaInferida = match;
-                }
-            }
-            bolitaSeleccionadaId = bolitaInferida ? bolitaInferida.id : (BOLITAS[0] ? BOLITAS[0].id : null);
-            bolitaSelect.value = bolitaSeleccionadaId;
+        fetch(urlConAuth(WORKER_URL+'/api/vendedor-sorteo?sorteo_id='+sorteoId),{cache:'no-store'}),
+        fetch(urlConAuth(WORKER_URL+'/api/banca-sorteo?sorteo_id='+sorteoId),{cache:'no-store'}),
+        fetch(urlConAuth(WORKER_URL+'/api/ventas?sorteo_id='+sorteoId+'&fecha='+fechaInput.value),{cache:'no-store'})
+    ]).then(function(responses){
+        if(!responses[0].ok)throw new Error('No se pudo cargar la lista de vendedores');
+        return Promise.all([responses[0].json(),responses[1].ok?responses[1].json():Promise.resolve([]),responses[2].ok?responses[2].json():Promise.resolve([])]);
+    }).then(function(datos){
+        vendedoresDeEsteSorteo=datos[0];var bancaResults=datos[1];bancaConfig=bancaResults.length>0?bancaResults[0]:null;var ventasExistentes=datos[2];
+        var sorteoInfo=SORTEOS.find(function(s){return s.id==sorteoId;});
+        esReventadoActual=!!(sorteoInfo&&sorteoInfo.grupo_banca==='Reventado');
+        bolitaField.style.display=esReventadoActual?'flex':'none';
+        if(esReventadoActual){
+            var bolitaInferida=BOLITAS.find(function(b){return b.multiplicador_vendedor===0;});
+            if(ventasExistentes.length>0){var primeraConValor=ventasExistentes.find(function(e){return e.multiplicador_vendedor_premio!==null;});if(primeraConValor){var match=BOLITAS.find(function(b){return b.multiplicador_vendedor===primeraConValor.multiplicador_vendedor_premio;});if(match)bolitaInferida=match;}}
+            bolitaSeleccionadaId=bolitaInferida?bolitaInferida.id:(BOLITAS[0]?BOLITAS[0].id:null);
+            bolitaSelect.value=bolitaSeleccionadaId;
         }
-
-        if (vendedoresDeEsteSorteo.length === 0) {
-            tableArea.innerHTML = '<div class="placeholder">⚠️ Ningún vendedor tiene configurado este sorteo</div>';
-            saveBar.style.display = 'none';
-            statusEl.innerHTML = '';
-            return;
-        }
-
-        tableArea.innerHTML = '<div id="grid"></div>';
-
-        var rows = [];
-
-        // Filas de vendedores normales
-        vendedoresDeEsteSorteo.forEach(function(v) {
-            var existentesDeEsteVendedor = ventasExistentes.filter(function(e) { return e.vendedor_id === v.vendedor_id; });
-
-            if (existentesDeEsteVendedor.length > 0) {
-                existentesDeEsteVendedor.forEach(function(e) {
-                    rows.push({
-                        id: e.id,
-                        vendedor_id: v.vendedor_id,
-                        vendedor: v.nombre,
-                        comision_pct: e.comision_vendedor_pct,
-                        multiplicador_base: v.multiplicador_premio,
-                        multiplicador: e.multiplicador_vendedor_premio,
-                        venta: e.monto_venta_total,
-                        venta_premio: e.monto_venta_numero_ganador,
-                        no_pasa_banca: e.pasada_a_banca === 0,
-                        es_ajuste: false
-                    });
-                });
+        if(vendedoresDeEsteSorteo.length===0){tableArea.innerHTML='<div class="placeholder">⚠️ Ningún vendedor tiene configurado este sorteo</div>';saveBar.style.display='none';statusEl.innerHTML='';return;}
+        tableArea.innerHTML='<div id="grid"></div>';
+        var rows=[];
+        vendedoresDeEsteSorteo.forEach(function(v){
+            var existentesDeEsteVendedor=ventasExistentes.filter(function(e){return e.vendedor_id===v.vendedor_id;});
+            if(existentesDeEsteVendedor.length>0){
+                existentesDeEsteVendedor.forEach(function(e){rows.push({id:e.id,vendedor_id:v.vendedor_id,vendedor:v.nombre,comision_pct:e.comision_vendedor_pct,multiplicador_base:v.multiplicador_premio,multiplicador:e.multiplicador_vendedor_premio,venta:e.monto_venta_total,venta_premio:e.monto_venta_numero_ganador,no_pasa_banca:e.pasada_a_banca===0,es_ajuste:false});});
             } else {
-                var bolitaActual = BOLITAS.find(function(b) { return b.id == bolitaSeleccionadaId; });
-                rows.push({
-                    id: null,
-                    vendedor_id: v.vendedor_id,
-                    vendedor: v.nombre,
-                    comision_pct: v.comision_pct,
-                    multiplicador_base: v.multiplicador_premio,
-                    multiplicador: (esReventadoActual && bolitaActual) ? bolitaActual.multiplicador_vendedor : v.multiplicador_premio,
-                    venta: 0,
-                    venta_premio: 0,
-                    no_pasa_banca: false,
-                    es_ajuste: false
-                });
+                var bolitaActual=BOLITAS.find(function(b){return b.id==bolitaSeleccionadaId;});
+                rows.push({id:null,vendedor_id:v.vendedor_id,vendedor:v.nombre,comision_pct:v.comision_pct,multiplicador_base:v.multiplicador_premio,multiplicador:(esReventadoActual&&bolitaActual)?bolitaActual.multiplicador_vendedor:v.multiplicador_premio,venta:0,venta_premio:0,no_pasa_banca:false,es_ajuste:false});
             }
         });
-
-        // Fila de ajuste — buscar si ya existe un registro guardado para este vendedor especial
-        var ajusteExistente = ventasExistentes.find(function(e) { return e.vendedor_id === AJUSTE_VENDEDOR_ID; });
-        rows.push({
-            id: ajusteExistente ? ajusteExistente.id : null,
-            vendedor_id: AJUSTE_VENDEDOR_ID,
-            vendedor: '⚖️ Ajuste',
-            comision_pct: 0,
-            multiplicador_base: 1,
-            multiplicador: ajusteExistente ? ajusteExistente.multiplicador_vendedor_premio : 1,
-            venta: ajusteExistente ? ajusteExistente.monto_venta_total : 0,
-            venta_premio: ajusteExistente ? ajusteExistente.monto_venta_numero_ganador : 0,
-            no_pasa_banca: false,
-            es_ajuste: true
-        });
-
-        var numeroGanadorEncontrado = null;
-        for (var i = 0; i < ventasExistentes.length; i++) {
-            if (ventasExistentes[i].numero_ganador) { numeroGanadorEncontrado = ventasExistentes[i].numero_ganador; break; }
-        }
-        document.getElementById('numeroGanador').value = numeroGanadorEncontrado || '';
-
-        table = new Tabulator('#grid', {
-            data: rows,
-            layout: 'fitColumns',
-            rowFormatter: function(row) {
-                if (row.getData().es_ajuste) {
-                    row.getElement().classList.add('fila-ajuste');
-                }
-            },
-            columns: [
-                { title: 'Vendedor', field: 'vendedor', headerSort: false, widthGrow: 2 },
-                {
-                    title: 'Venta ($)', field: 'venta', hozAlign: 'right', widthGrow: 1, cellEdited: recalcularTotales,
-                    editor: function(cell, onRendered, success, cancel) {
-                        var esAjuste = cell.getRow().getData().es_ajuste;
-                        return esAjuste
-                            ? editorConFlechasNegativo(cell, onRendered, success, cancel)
-                            : editorConFlechas(cell, onRendered, success, cancel);
-                    }
-                },
-                {
-                    title: 'Venta al ganador ($)', field: 'venta_premio', hozAlign: 'right', widthGrow: 1, cellEdited: recalcularTotales,
-                    editor: function(cell, onRendered, success, cancel) {
-                        var esAjuste = cell.getRow().getData().es_ajuste;
-                        return esAjuste
-                            ? editorConFlechasNegativo(cell, onRendered, success, cancel)
-                            : editorConFlechas(cell, onRendered, success, cancel);
-                    }
-                },
-                { title: 'Comisión %', field: 'comision_pct', hozAlign: 'right', widthGrow: 1, headerSort: false, visible: false },
-                { title: 'Multiplicador', field: 'multiplicador', hozAlign: 'right', widthGrow: 1, headerSort: false, visible: false },
-                {
-                    title: '⚠️ No pasa a banca', field: 'no_pasa_banca', hozAlign: 'center', width: 110, headerSort: false,
-                    formatter: function(cell) {
-                        // La fila de ajuste no tiene esta opción
-                        if (cell.getRow().getData().es_ajuste) return '';
-                        return cell.getValue() ? '✔' : '✘';
-                    },
-                    editor: function(cell, onRendered, success, cancel) {
-                        if (cell.getRow().getData().es_ajuste) { cancel(); return; }
-                        // Usar el editor tickCross nativo de Tabulator
-                        return Tabulator.findTable('#grid')[0].modules.edit.editors['tickCross'](cell, onRendered, success, cancel);
-                    }
-                },
-                {
-                    title: '', field: 'acciones', width: 50, hozAlign: 'center', headerSort: false,
-                    formatter: function(cell) {
-                        // La fila de ajuste no tiene botón de duplicar
-                        if (cell.getRow().getData().es_ajuste) return '';
-                        return '<button class="btn-duplicar" title="Agregar otra lista de este vendedor">+</button>';
-                    },
-                    cellClick: function(e, cell) {
-                        if (cell.getRow().getData().es_ajuste) return;
-                        var rowData = cell.getRow().getData();
-                        var nuevaFila = Object.assign({}, rowData, { id: null, venta: 0, venta_premio: 0, es_ajuste: false });
-                        table.addRow(nuevaFila, false, cell.getRow());
-                        recalcularTotales();
-                    }
-                }
+        var ajusteExistente=ventasExistentes.find(function(e){return e.vendedor_id===AJUSTE_VENDEDOR_ID;});
+        rows.push({id:ajusteExistente?ajusteExistente.id:null,vendedor_id:AJUSTE_VENDEDOR_ID,vendedor:'⚖️ Ajuste',comision_pct:0,multiplicador_base:1,multiplicador:ajusteExistente?ajusteExistente.multiplicador_vendedor_premio:1,venta:ajusteExistente?ajusteExistente.monto_venta_total:0,venta_premio:ajusteExistente?ajusteExistente.monto_venta_numero_ganador:0,no_pasa_banca:false,es_ajuste:true});
+        var numeroGanadorEncontrado=null;
+        for(var i=0;i<ventasExistentes.length;i++){if(ventasExistentes[i].numero_ganador){numeroGanadorEncontrado=ventasExistentes[i].numero_ganador;break;}}
+        document.getElementById('numeroGanador').value=numeroGanadorEncontrado||'';
+        table=new Tabulator('#grid',{data:rows,layout:'fitColumns',
+            rowFormatter:function(row){if(row.getData().es_ajuste)row.getElement().classList.add('fila-ajuste');},
+            columns:[
+                {title:'Vendedor',field:'vendedor',headerSort:false,widthGrow:2},
+                {title:'Venta ($)',field:'venta',hozAlign:'right',widthGrow:1,cellEdited:recalcularTotales,editor:function(cell,onRendered,success,cancel){return cell.getRow().getData().es_ajuste?editorConFlechasNegativo(cell,onRendered,success,cancel):editorConFlechas(cell,onRendered,success,cancel);}},
+                {title:'Venta al ganador ($)',field:'venta_premio',hozAlign:'right',widthGrow:1,cellEdited:recalcularTotales,editor:function(cell,onRendered,success,cancel){return cell.getRow().getData().es_ajuste?editorConFlechasNegativo(cell,onRendered,success,cancel):editorConFlechas(cell,onRendered,success,cancel);}},
+                {title:'Comisión %',field:'comision_pct',hozAlign:'right',widthGrow:1,headerSort:false,visible:false},
+                {title:'Multiplicador',field:'multiplicador',hozAlign:'right',widthGrow:1,headerSort:false,visible:false},
+                {title:'⚠️ No pasa a banca',field:'no_pasa_banca',hozAlign:'center',width:110,headerSort:false,
+                    formatter:function(cell){if(cell.getRow().getData().es_ajuste)return '';return cell.getValue()?'✔':'✘';},
+                    editor:function(cell,onRendered,success,cancel){if(cell.getRow().getData().es_ajuste){cancel();return;}return Tabulator.findTable('#grid')[0].modules.edit.editors['tickCross'](cell,onRendered,success,cancel);}},
+                {title:'',field:'acciones',width:50,hozAlign:'center',headerSort:false,
+                    formatter:function(cell){if(cell.getRow().getData().es_ajuste)return '';return '<button class="btn-duplicar" title="Agregar otra lista de este vendedor">+</button>';},
+                    cellClick:function(e,cell){if(cell.getRow().getData().es_ajuste)return;var rowData=cell.getRow().getData();table.addRow(Object.assign({},rowData,{id:null,venta:0,venta_premio:0,es_ajuste:false}),false,cell.getRow());recalcularTotales();}}
             ]
         });
-
-        saveBar.style.display = 'flex';
+        saveBar.style.display='flex';
         recalcularTotales(rows);
-
-        statusEl.innerHTML = ventasExistentes.length > 0
-            ? '<div class="status success">✏️ Se cargaron los datos ya guardados de este día. Puedes corregirlos y guardar de nuevo.</div>'
-            : '';
-
-    }).catch(function(error) {
-        statusEl.innerHTML = '<div class="status error">⚠️ ' + error.message + '</div>';
-        saveBar.style.display = 'none';
-    });
+        statusEl.innerHTML=ventasExistentes.length>0?'<div class="status success">✏️ Se cargaron los datos ya guardados de este día. Puedes corregirlos y guardar de nuevo.</div>':'';
+    }).catch(function(error){statusEl.innerHTML='<div class="status error">⚠️ '+error.message+'</div>';saveBar.style.display='none';});
 }
 
-function recalcularTotales(datosOverride) {
-    var data = datosOverride || (table ? table.getData() : []);
-    if (!data || data.length === 0) return;
-
-    var totalVenta = 0;
-    var totalPremio = 0;
-
-    data.forEach(function(row) {
-        var venta = parseFloat(row.venta) || 0;
-        var ventaPremio = parseFloat(row.venta_premio) || 0;
-        totalVenta += venta;
-        totalPremio += ventaPremio * row.multiplicador;
-    });
-
-    document.getElementById('totalVenta').textContent = 'C$' + totalVenta.toLocaleString('es-CR', { minimumFractionDigits: 2 });
-    document.getElementById('totalPremio').textContent = 'C$' + totalPremio.toLocaleString('es-CR', { minimumFractionDigits: 2 });
+function recalcularTotales(datosOverride){
+    var data=datosOverride||(table?table.getData():[]);
+    if(!data||data.length===0)return;
+    var totalVenta=0,totalPremio=0;
+    data.forEach(function(row){totalVenta+=parseFloat(row.venta)||0;totalPremio+=(parseFloat(row.venta_premio)||0)*row.multiplicador;});
+    document.getElementById('totalVenta').textContent='C$'+totalVenta.toLocaleString('es-CR',{minimumFractionDigits:2});
+    document.getElementById('totalPremio').textContent='C$'+totalPremio.toLocaleString('es-CR',{minimumFractionDigits:2});
 }
 
-sorteoSelect.addEventListener('change', cargarTabla);
-fechaInput.addEventListener('change', cargarTabla);
-
-bolitaSelect.addEventListener('change', function() {
-    bolitaSeleccionadaId = this.value;
-    if (!table) return;
-
-    var bolitaActual = BOLITAS.find(function(b) { return b.id == bolitaSeleccionadaId; });
-    if (!bolitaActual) return;
-
-    table.getRows().forEach(function(row) {
-        // No tocar el multiplicador de la fila de ajuste
-        if (!row.getData().es_ajuste) {
-            row.update({ multiplicador: bolitaActual.multiplicador_vendedor });
-        }
-    });
-
+sorteoSelect.addEventListener('change',cargarTabla);
+fechaInput.addEventListener('change',cargarTabla);
+bolitaSelect.addEventListener('change',function(){
+    bolitaSeleccionadaId=this.value;if(!table)return;
+    var bolitaActual=BOLITAS.find(function(b){return b.id==bolitaSeleccionadaId;});if(!bolitaActual)return;
+    table.getRows().forEach(function(row){if(!row.getData().es_ajuste)row.update({multiplicador:bolitaActual.multiplicador_vendedor});});
     recalcularTotales();
 });
 
-function confirmarSobrescritura() {
-    return new Promise(function(resolve) {
-        var modal = document.getElementById('confirmModal');
-        var okBtn = document.getElementById('confirmOkBtn');
-        var cancelBtn = document.getElementById('confirmCancelBtn');
-
-        modal.style.display = 'flex';
-
-        function limpiar(resultado) {
-            modal.style.display = 'none';
-            okBtn.removeEventListener('click', onOk);
-            cancelBtn.removeEventListener('click', onCancel);
-            resolve(resultado);
-        }
-        function onOk() { limpiar(true); }
-        function onCancel() { limpiar(false); }
-
-        okBtn.addEventListener('click', onOk);
-        cancelBtn.addEventListener('click', onCancel);
+function confirmarSobrescritura(){
+    return new Promise(function(resolve){
+        var modal=document.getElementById('confirmModal');var okBtn=document.getElementById('confirmOkBtn');var cancelBtn=document.getElementById('confirmCancelBtn');
+        modal.style.display='flex';
+        function limpiar(r){modal.style.display='none';okBtn.removeEventListener('click',onOk);cancelBtn.removeEventListener('click',onCancel);resolve(r);}
+        function onOk(){limpiar(true);}function onCancel(){limpiar(false);}
+        okBtn.addEventListener('click',onOk);cancelBtn.addEventListener('click',onCancel);
     });
 }
 
-document.getElementById('saveBtn').addEventListener('click', function() {
-    var data = table.getData();
-    var hayDatosExistentes = data.some(function(row) { return row.id; });
-    var btn = this;
-
-    function procederGuardado() {
-        var sorteoId = sorteoSelect.value;
-        var fecha = fechaInput.value;
-        var numeroGanador = document.getElementById('numeroGanador').value;
-        var bolitaActual = BOLITAS.find(function(b) { return b.id == bolitaSeleccionadaId; });
-
-        var dataAGuardar = data.filter(function(row) {
-            // Filas normales: omitir si son nuevas y están en cero
-            if (!row.es_ajuste) {
-                if (row.id) return true;
-                return (parseFloat(row.venta) || 0) !== 0 || (parseFloat(row.venta_premio) || 0) !== 0;
-            }
-            // Fila de ajuste: guardar si tiene id (ya existía) o si tiene algún valor distinto de cero
-            if (row.id) return true;
-            return (parseFloat(row.venta) || 0) !== 0 || (parseFloat(row.venta_premio) || 0) !== 0;
+document.getElementById('saveBtn').addEventListener('click',function(){
+    var data=table.getData();var hayDatosExistentes=data.some(function(row){return row.id;});var btn=this;
+    function procederGuardado(){
+        var sorteoId=sorteoSelect.value;var fecha=fechaInput.value;var numeroGanador=document.getElementById('numeroGanador').value;
+        var bolitaActual=BOLITAS.find(function(b){return b.id==bolitaSeleccionadaId;});
+        var dataAGuardar=data.filter(function(row){
+            if(!row.es_ajuste){if(row.id)return true;return(parseFloat(row.venta)||0)!==0||(parseFloat(row.venta_premio)||0)!==0;}
+            if(row.id)return true;return(parseFloat(row.venta)||0)!==0||(parseFloat(row.venta_premio)||0)!==0;
         });
-
-        if (dataAGuardar.length === 0) {
-            statusEl.innerHTML = '<div class="status error">⚠️ No hay ninguna venta digitada para guardar</div>';
-            return;
-        }
-
-        var registros = dataAGuardar.map(function(row) {
-            return {
-                id: row.id || null,
-                vendedor_id: row.vendedor_id,
-                monto_venta_total: row.venta,
-                monto_venta_numero_ganador: row.venta_premio,
-                comision_vendedor_pct: row.comision_pct,
-                multiplicador_vendedor_premio: row.multiplicador,
-                multiplicador_banca_premio: (esReventadoActual && bolitaActual && !row.es_ajuste) ? bolitaActual.multiplicador_banca : null,
-                pasada_a_banca: row.no_pasa_banca ? 0 : 1
-            };
-        });
-
-        btn.disabled = true;
-        btn.textContent = '⏳ Guardando...';
-
-        fetch(urlConAuth(WORKER_URL + '/api/ventas'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                sorteo_id: sorteoId,
-                fecha: fecha,
-                numero_ganador: numeroGanador,
-                registros: registros
-            })
-        }).then(function(response) {
-            return response.json().then(function(result) {
-                if (response.ok && result.ok) {
-                    statusEl.innerHTML = '<div class="status success">✅ Se guardaron ' + result.procesados + ' registros correctamente</div>';
-                    cargarTabla();
-                } else {
-                    throw new Error(result.error || 'Error desconocido al guardar');
-                }
-            });
-        }).catch(function(error) {
-            statusEl.innerHTML = '<div class="status error">⚠️ ' + error.message + '</div>';
-        }).finally(function() {
-            btn.disabled = false;
-            btn.textContent = '💾 Guardar ventas del día';
-        });
+        if(dataAGuardar.length===0){statusEl.innerHTML='<div class="status error">⚠️ No hay ninguna venta digitada para guardar</div>';return;}
+        var registros=dataAGuardar.map(function(row){return{id:row.id||null,vendedor_id:row.vendedor_id,monto_venta_total:row.venta,monto_venta_numero_ganador:row.venta_premio,comision_vendedor_pct:row.comision_pct,multiplicador_vendedor_premio:row.multiplicador,multiplicador_banca_premio:(esReventadoActual&&bolitaActual&&!row.es_ajuste)?bolitaActual.multiplicador_banca:null,pasada_a_banca:row.no_pasa_banca?0:1};});
+        btn.disabled=true;btn.textContent='⏳ Guardando...';
+        fetch(urlConAuth(WORKER_URL+'/api/ventas'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sorteo_id:sorteoId,fecha:fecha,numero_ganador:numeroGanador,registros:registros})})
+        .then(function(response){return response.json().then(function(result){if(response.ok&&result.ok){statusEl.innerHTML='<div class="status success">✅ Se guardaron '+result.procesados+' registros correctamente</div>';cargarTabla();}else{throw new Error(result.error||'Error desconocido al guardar');}});})
+        .catch(function(error){statusEl.innerHTML='<div class="status error">⚠️ '+error.message+'</div>';})
+        .finally(function(){btn.disabled=false;btn.textContent='💾 Guardar ventas del día';});
     }
-
-    if (hayDatosExistentes) {
-        confirmarSobrescritura().then(function(confirmado) {
-            if (confirmado) procederGuardado();
-        });
-    } else {
-        procederGuardado();
-    }
+    if(hayDatosExistentes){confirmarSobrescritura().then(function(confirmado){if(confirmado)procederGuardado();});}else{procederGuardado();}
 });
 
 cargarSorteos();

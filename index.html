@@ -4,326 +4,167 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
     <title>Acceso - Reportes de Ventas</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: Arial, sans-serif;
-            background: linear-gradient(135deg, #2c3e50, #34495e);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 15px;
-        }
-        
-        .card {
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            padding: 30px 25px;
-            width: 100%;
-            max-width: 380px;
-        }
-        
-        .card h1 {
-            text-align: center;
-            color: #2c3e50;
-            font-size: 1.4em;
-            margin-bottom: 25px;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 6px;
-            font-weight: bold;
-            color: #2c3e50;
-            font-size: 14px;
-        }
-        
-        input {
-            width: 100%;
-            padding: 12px;
-            margin-bottom: 15px;
-            border: 2px solid #bdc3c7;
-            border-radius: 5px;
-            font-size: 16px;
-        }
-        
-        input:focus {
-            outline: none;
-            border-color: #3498db;
-        }
-        
-        button {
-            width: 100%;
-            padding: 13px;
-            background: #3498db;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-top: 5px;
-        }
-        
-        button:hover {
-            background: #2980b9;
-        }
-        
-        button:disabled {
-            background: #95a5a6;
-            cursor: not-allowed;
-        }
-        
-        .error-msg {
-            background: #fdecea;
-            color: #c0392b;
-            padding: 10px;
-            border-radius: 5px;
-            font-size: 14px;
-            margin-bottom: 15px;
-            display: none;
-        }
-        
-        /* ===== Menú (se muestra después de iniciar sesión) ===== */
-        .menu-card {
-            display: none;
-        }
-        
-        .menu-card h1 {
-            margin-bottom: 5px;
-        }
-        
-        .saludo {
-            text-align: center;
-            color: #7f8c8d;
-            margin-bottom: 25px;
-            font-size: 14px;
-        }
-        
-        .menu-item {
-            display: block;
-            width: 100%;
-            padding: 16px;
-            margin-bottom: 12px;
-            background: #ecf0f1;
-            border: 2px solid #bdc3c7;
-            border-radius: 8px;
-            text-decoration: none;
-            color: #2c3e50;
-            font-weight: bold;
-            font-size: 15px;
-            text-align: center;
-            transition: background 0.2s;
-        }
-        
-        .menu-item:hover {
-            background: #3498db;
-            color: white;
-            border-color: #3498db;
-        }
-        
-        .menu-item .icon {
-            font-size: 1.3em;
-            display: block;
-            margin-bottom: 5px;
-        }
-        
-        .btn-salir {
-            display: block;
-            width: 100%;
-            padding: 12px;
-            margin-top: 10px;
-            background: none;
-            border: 2px solid #e74c3c;
-            color: #e74c3c;
-            border-radius: 8px;
-            font-weight: bold;
-            font-size: 14px;
-            cursor: pointer;
-            text-align: center;
-            text-decoration: none;
-        }
-        .btn-salir:hover {
-            background: #e74c3c;
-            color: white;
-        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:Arial,sans-serif; background:linear-gradient(135deg,#2c3e50,#34495e); min-height:100vh; display:flex; align-items:center; justify-content:center; padding:15px; }
+        .card { background:white; border-radius:10px; box-shadow:0 4px 20px rgba(0,0,0,0.3); padding:30px 25px; width:100%; max-width:380px; }
+        .card h1 { text-align:center; color:#2c3e50; font-size:1.4em; margin-bottom:25px; }
+        label { display:block; margin-bottom:6px; font-weight:bold; color:#2c3e50; font-size:14px; }
+        input { width:100%; padding:12px; margin-bottom:15px; border:2px solid #bdc3c7; border-radius:5px; font-size:16px; }
+        input:focus { outline:none; border-color:#3498db; }
+        button { width:100%; padding:13px; background:#3498db; color:white; border:none; border-radius:5px; font-size:16px; font-weight:bold; cursor:pointer; margin-top:5px; }
+        button:hover { background:#2980b9; }
+        button:disabled { background:#95a5a6; cursor:not-allowed; }
+        .error-msg { background:#fdecea; color:#c0392b; padding:10px; border-radius:5px; font-size:14px; margin-bottom:15px; display:none; }
+        .menu-card { display:none; }
+        .menu-card h1 { margin-bottom:5px; }
+        .saludo { text-align:center; color:#7f8c8d; margin-bottom:25px; font-size:14px; }
+        .menu-item { display:block; width:100%; padding:16px; margin-bottom:12px; background:#ecf0f1; border:2px solid #bdc3c7; border-radius:8px; text-decoration:none; color:#2c3e50; font-weight:bold; font-size:15px; text-align:center; transition:background 0.2s; }
+        .menu-item:hover { background:#3498db; color:white; border-color:#3498db; }
+        .menu-item .icon { font-size:1.3em; display:block; margin-bottom:5px; }
+        .btn-salir { display:block; width:100%; padding:12px; margin-top:10px; background:none; border:2px solid #e74c3c; color:#e74c3c; border-radius:8px; font-weight:bold; font-size:14px; cursor:pointer; text-align:center; }
+        .btn-salir:hover { background:#e74c3c; color:white; }
     </style>
 </head>
 <body>
-    <div class="card" id="loginCard">
-        <h1>🔒 Acceso a Reportes</h1>
-        
-        <div id="errorMsg" class="error-msg"></div>
-        
-        <label for="username">Usuario:</label>
-        <input type="text" id="username" placeholder="Tu usuario" autocomplete="off">
-        
-        <label for="password">Contraseña:</label>
-        <input type="password" id="password" placeholder="••••••••" autocomplete="off">
-        
-        <button id="loginBtn">Entrar</button>
-    </div>
-    
-    <div class="card menu-card" id="menuCard">
-        <h1>📊 Reportes de Ventas</h1>
-        <p class="saludo" id="saludo">Bienvenido</p>
-        
-        <div id="menuLinks"></div>
-        
-        <a href="index.html" class="btn-salir">🚪 Salir</a>
-    </div>
+<div class="card" id="loginCard">
+    <h1>🔒 Acceso a Reportes</h1>
+    <div id="errorMsg" class="error-msg"></div>
+    <label for="username">Usuario:</label>
+    <input type="text" id="username" placeholder="Tu usuario" autocomplete="off">
+    <label for="password">Contraseña:</label>
+    <input type="password" id="password" placeholder="••••••••" autocomplete="off">
+    <button id="loginBtn">Entrar</button>
+</div>
 
-    <script>
-        // ===== CONFIGURACIÓN =====
-        // URL de tu Worker de Cloudflare
-        const WORKER_URL = 'https://frosty-base-53ff.watsonmraul.workers.dev/';
-        
-        // Reportes según el rol devuelto por el Worker (basado en usuarios.txt)
-        const MENUS_POR_ROL = {
-            general: [
-                { icon: '🗂️', label: 'Reportes Históricos', file: 'historicos.html' },
-                { icon: '📝', label: 'Captura de Ventas', file: 'captura_ventas.html' },
-                { icon: '📊', label: 'Reporte Mensual (Sistema Nuevo)', file: 'reporte_bd.html', extraParams: 'tipo=mensual' },
-                { icon: '📅', label: 'Reporte Diario (Sistema Nuevo)', file: 'reporte_bd.html', extraParams: 'tipo=diario' },
-                { icon: '📆', label: 'Reporte por Rango de Fechas', file: 'reporte_bd.html', extraParams: 'tipo=rango' },
-                { icon: '📈', label: 'Gráfico de Ventas', file: 'reporte_grafico.html' },
-                { icon: '💰', label: 'Reporte de Ganancias del Día', file: 'reporte_ganancias.html' },
-                { icon: '🏦', label: 'Cuentas con la Banca', file: 'cta_banca_general.html' },
-                { icon: '⚙️', label: 'Configuraciones', file: 'configuraciones.html' }
-            ],
-            superadmin: [
-                { icon: '🗂️', label: 'Reportes Históricos', file: 'historicos.html' },
-                { icon: '📝', label: 'Captura de Ventas', file: 'captura_ventas.html' },
-                { icon: '📊', label: 'Reporte Mensual (Sistema Nuevo)', file: 'reporte_bd.html', extraParams: 'tipo=mensual' },
-                { icon: '📅', label: 'Reporte Diario (Sistema Nuevo)', file: 'reporte_bd.html', extraParams: 'tipo=diario' },
-                { icon: '📆', label: 'Reporte por Rango de Fechas', file: 'reporte_bd.html', extraParams: 'tipo=rango' },
-                { icon: '📈', label: 'Gráfico de Ventas', file: 'reporte_grafico.html' },
-                { icon: '💰', label: 'Reporte de Ganancias del Día', file: 'reporte_ganancias.html' },
-                { icon: '🏦', label: 'Cuentas con la Banca', file: 'cta_banca_general.html' },
-                { icon: '⚙️', label: 'Configuraciones', file: 'configuraciones.html' }
-            ],
-            vendedor: [
-                { icon: '🗂️', label: 'Reportes Históricos', file: 'historicos.html' },
-                { icon: '📊', label: 'Reporte Mensual (Sistema Nuevo)', file: 'reporte_bd.html', extraParams: 'tipo=mensual' },
-                { icon: '📅', label: 'Reporte Diario (Sistema Nuevo)', file: 'reporte_bd.html', extraParams: 'tipo=diario' },
-                { icon: '📆', label: 'Reporte por Rango de Fechas', file: 'reporte_bd.html', extraParams: 'tipo=rango' },
-                { icon: '📈', label: 'Gráfico de Ventas', file: 'reporte_grafico.html' }
-            ],
-            captura: [
-                { icon: '📝', label: 'Captura de Ventas', file: 'captura_ventas.html' }
-            ]
-        };
-        
-        const loginCard = document.getElementById('loginCard');
-        const menuCard = document.getElementById('menuCard');
-        const errorMsg = document.getElementById('errorMsg');
-        const loginBtn = document.getElementById('loginBtn');
-        const usernameInput = document.getElementById('username');
-        const passwordInput = document.getElementById('password');
-        
-        function showError(text) {
-            errorMsg.textContent = text;
-            errorMsg.style.display = 'block';
-        }
-        
-        function hideError() {
-            errorMsg.style.display = 'none';
-        }
-        
-        async function attemptLoginConDatos(username, password) {
-            hideError();
-            
-            try {
-                const response = await fetch(
-                    WORKER_URL + '?user=' + encodeURIComponent(username) + '&pw=' + encodeURIComponent(password),
-                    { cache: 'no-store' }
-                );
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    const menuItems = MENUS_POR_ROL[data.role];
-                    
-                    if (!menuItems) {
-                        showError('⚠️ Tu usuario no tiene un rol de reportes asignado');
-                        return false;
-                    }
-                    
-                    const menuLinksEl = document.getElementById('menuLinks');
-                    menuLinksEl.innerHTML = '';
-                    
-                    menuItems.forEach(item => {
-                        let href = `${item.file}?pw=${encodeURIComponent(password)}&user=${encodeURIComponent(username)}&role=${encodeURIComponent(data.role)}`;
-                        if (data.vendedor) href += `&vendedor=${encodeURIComponent(data.vendedor)}`;
-                        if (item.extraParams) href += `&${item.extraParams}`;
-                        
-                        const a = document.createElement('a');
-                        a.href = href;
-                        a.className = 'menu-item';
-                        a.innerHTML = `<span class="icon">${item.icon}</span>${item.label}`;
-                        menuLinksEl.appendChild(a);
-                    });
-                    
-                    document.getElementById('saludo').textContent = `Bienvenido, ${username}`;
-                    
-                    loginCard.style.display = 'none';
-                    menuCard.style.display = 'block';
-                    return true;
-                } else if (response.status === 401) {
-                    showError('⚠️ Usuario o contraseña incorrectos');
-                    return false;
-                } else {
-                    showError('⚠️ No se pudo verificar el acceso (intenta de nuevo)');
-                    return false;
-                }
-            } catch (error) {
-                showError('⚠️ Error de conexión: ' + error.message);
-                return false;
-            }
-        }
-        
-        async function attemptLogin() {
-            const username = usernameInput.value.trim();
-            const password = passwordInput.value;
-            
-            if (username === '' || password === '') {
-                showError('⚠️ Ingresa usuario y contraseña');
-                return;
-            }
-            
-            loginBtn.disabled = true;
-            loginBtn.textContent = 'Verificando...';
-            
-            await attemptLoginConDatos(username, password);
-            
-            loginBtn.disabled = false;
-            loginBtn.textContent = 'Entrar';
-        }
-        
-        loginBtn.addEventListener('click', attemptLogin);
-        passwordInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') attemptLogin();
+<div class="card menu-card" id="menuCard">
+    <h1>📊 Reportes de Ventas</h1>
+    <p class="saludo" id="saludo">Bienvenido</p>
+    <div id="menuLinks"></div>
+    <button class="btn-salir" id="btnSalir">🚪 Salir</button>
+</div>
+
+<script>
+const WORKER_URL = 'https://frosty-base-53ff.watsonmraul.workers.dev';
+
+const MENUS_POR_ROL = {
+    general: [
+        { icon:'🗂️', label:'Reportes Históricos', file:'historicos.html' },
+        { icon:'📝', label:'Captura de Ventas', file:'captura_ventas.html' },
+        { icon:'📊', label:'Reporte Mensual (Sistema Nuevo)', file:'reporte_bd.html', extraParams:'tipo=mensual' },
+        { icon:'📅', label:'Reporte Diario (Sistema Nuevo)', file:'reporte_bd.html', extraParams:'tipo=diario' },
+        { icon:'📆', label:'Reporte por Rango de Fechas', file:'reporte_bd.html', extraParams:'tipo=rango' },
+        { icon:'📈', label:'Gráfico de Ventas', file:'reporte_grafico.html' },
+        { icon:'💰', label:'Reporte de Ganancias del Día', file:'reporte_ganancias.html' },
+        { icon:'🏦', label:'Cuentas con la Banca', file:'cta_banca_general.html' },
+        { icon:'⚙️', label:'Configuraciones', file:'configuraciones.html' }
+    ],
+    superadmin: [
+        { icon:'🗂️', label:'Reportes Históricos', file:'historicos.html' },
+        { icon:'📝', label:'Captura de Ventas', file:'captura_ventas.html' },
+        { icon:'📊', label:'Reporte Mensual (Sistema Nuevo)', file:'reporte_bd.html', extraParams:'tipo=mensual' },
+        { icon:'📅', label:'Reporte Diario (Sistema Nuevo)', file:'reporte_bd.html', extraParams:'tipo=diario' },
+        { icon:'📆', label:'Reporte por Rango de Fechas', file:'reporte_bd.html', extraParams:'tipo=rango' },
+        { icon:'📈', label:'Gráfico de Ventas', file:'reporte_grafico.html' },
+        { icon:'💰', label:'Reporte de Ganancias del Día', file:'reporte_ganancias.html' },
+        { icon:'🏦', label:'Cuentas con la Banca', file:'cta_banca_general.html' },
+        { icon:'⚙️', label:'Configuraciones', file:'configuraciones.html' }
+    ],
+    vendedor: [
+        { icon:'🗂️', label:'Reportes Históricos', file:'historicos.html' },
+        { icon:'📊', label:'Reporte Mensual (Sistema Nuevo)', file:'reporte_bd.html', extraParams:'tipo=mensual' },
+        { icon:'📅', label:'Reporte Diario (Sistema Nuevo)', file:'reporte_bd.html', extraParams:'tipo=diario' },
+        { icon:'📆', label:'Reporte por Rango de Fechas', file:'reporte_bd.html', extraParams:'tipo=rango' },
+        { icon:'📈', label:'Gráfico de Ventas', file:'reporte_grafico.html' }
+    ],
+    captura: [
+        { icon:'📝', label:'Captura de Ventas', file:'captura_ventas.html' }
+    ]
+};
+
+function getSession() {
+    try { const s = sessionStorage.getItem('rt_session'); return s ? JSON.parse(s) : null; } catch(e) { return null; }
+}
+function setSession(data) { sessionStorage.setItem('rt_session', JSON.stringify(data)); }
+function clearSession() { sessionStorage.removeItem('rt_session'); }
+
+const loginCard = document.getElementById('loginCard');
+const menuCard = document.getElementById('menuCard');
+const errorMsg = document.getElementById('errorMsg');
+const loginBtn = document.getElementById('loginBtn');
+
+function showError(text) { errorMsg.textContent = text; errorMsg.style.display = 'block'; }
+function hideError() { errorMsg.style.display = 'none'; }
+
+function mostrarMenu(session) {
+    const menuItems = MENUS_POR_ROL[session.role];
+    if (!menuItems) { showError('⚠️ Tu usuario no tiene un rol de reportes asignado'); return; }
+    const menuLinksEl = document.getElementById('menuLinks');
+    menuLinksEl.innerHTML = '';
+    menuItems.forEach(item => {
+        let href = item.file;
+        if (item.extraParams) href += '?' + item.extraParams;
+        const a = document.createElement('a');
+        a.href = href;
+        a.className = 'menu-item';
+        a.innerHTML = `<span class="icon">${item.icon}</span>${item.label}`;
+        menuLinksEl.appendChild(a);
+    });
+    document.getElementById('saludo').textContent = `Bienvenido, ${session.username}`;
+    loginCard.style.display = 'none';
+    menuCard.style.display = 'block';
+}
+
+async function attemptLogin() {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    if (!username || !password) { showError('⚠️ Ingresa usuario y contraseña'); return; }
+    hideError();
+    loginBtn.disabled = true;
+    loginBtn.textContent = 'Verificando...';
+    try {
+        const response = await fetch(WORKER_URL + '/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
         });
-        usernameInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') attemptLogin();
-        });
-        
-        // ===== Si venimos de un "Volver al menú" con usuario+contraseña en el link, entrar directo =====
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlUser = urlParams.get('user');
-        const urlPw = urlParams.get('pw');
-        if (urlUser && urlPw) {
-            attemptLoginConDatos(urlUser, urlPw);
+        const data = await response.json();
+        if (response.ok && data.ok) {
+            setSession({ token: data.token, role: data.role, vendedor: data.vendedor, username: data.username });
+            mostrarMenu(data);
+        } else if (response.status === 401) {
+            showError('⚠️ Usuario o contraseña incorrectos');
+        } else {
+            showError('⚠️ ' + (data.error || 'Error al iniciar sesión'));
         }
-    </script>
+    } catch (error) {
+        showError('⚠️ Error de conexión: ' + error.message);
+    } finally {
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Entrar';
+    }
+}
+
+document.getElementById('btnSalir').addEventListener('click', async function() {
+    const s = getSession();
+    if (s && s.token) {
+        try { await fetch(WORKER_URL + '/api/logout', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token: s.token }) }); } catch(e) {}
+    }
+    clearSession();
+    loginCard.style.display = 'block';
+    menuCard.style.display = 'none';
+    document.getElementById('username').value = '';
+    document.getElementById('password').value = '';
+});
+
+loginBtn.addEventListener('click', attemptLogin);
+document.getElementById('password').addEventListener('keypress', e => { if (e.key === 'Enter') attemptLogin(); });
+document.getElementById('username').addEventListener('keypress', e => { if (e.key === 'Enter') attemptLogin(); });
+
+// Si ya hay sesión activa, mostrar el menú directamente
+const sesionActiva = getSession();
+if (sesionActiva && sesionActiva.token) mostrarMenu(sesionActiva);
+</script>
 </body>
 </html>

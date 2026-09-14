@@ -1,310 +1,146 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cuentas con la Banca</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family: Arial, sans-serif; background:#f5f5f5; padding:15px; }
-    .container { max-width:700px; margin:0 auto; background:white; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.1); overflow:hidden; }
-    .header { background:#2c3e50; color:white; padding:15px 20px; text-align:center; position:relative; }
-    .header h1 { font-size:1.4em; }
-    .btn-menu {
-        position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
-        background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 5px;
-        padding: 8px 12px; font-size: 13px; cursor: pointer; text-decoration: none;
-    }
-    .btn-menu:hover { background: rgba(255,255,255,0.25); }
-    .controls { padding:20px; background:#ecf0f1; display:flex; gap:15px; flex-wrap:wrap; align-items:flex-end; border-bottom:2px solid #bdc3c7; }
-    .field { display:flex; flex-direction:column; gap:5px; }
-    .field label { font-weight:bold; font-size:13px; color:#2c3e50; }
-    .field input { padding:10px; border:2px solid #3498db; border-radius:5px; font-size:15px; }
-    .botones-accion { display:flex; gap:10px; }
-    #saveBtn { padding:10px 20px; background:#27ae60; color:white; border:none; border-radius:5px; font-size:14px; cursor:pointer; font-weight:bold; }
-    #saveBtn:hover { background:#219150; }
-    #exportBtn { padding:10px 20px; background:#3498db; color:white; border:none; border-radius:5px; font-size:14px; cursor:pointer; font-weight:bold; }
-    #exportBtn:hover { background:#2980b9; }
-    #saveBtn:disabled, #exportBtn:disabled { background:#95a5a6; cursor:not-allowed; }
-    .status { padding:10px 20px; font-size:14px; }
-    .status.success { background:#eafaf1; color:#27ae60; }
-    .status.error { background:#fdecea; color:#c0392b; }
-    .status.loading { background:#eaf2fa; color:#2980b9; }
-    .contenido { padding:20px; }
-    .placeholder { text-align:center; color:#7f8c8d; padding:40px; }
-    .seccion-titulo { background:#2c3e50; color:white; padding:8px 12px; font-weight:bold; font-size:14px; margin-bottom:0; border-radius:6px 6px 0 0; }
-    table { border-collapse: collapse; width:100%; font-size:13px; margin-bottom:20px; }
-    th, td { border:1px solid #ddd; padding:8px; text-align:right; white-space:nowrap; }
-    th:first-child, td:first-child { text-align:left; }
-    th { background-color:#3498db; color:white; font-weight:bold; }
-    tr.fila-totales { background-color:#fdf6e3; font-weight:bold; }
-    td.negativo { color:#c0392b; }
-    .tabla-resumen td:first-child { font-weight:bold; color:#2c3e50; width:60%; }
-    .tabla-resumen td input { width:100%; padding:6px 8px; border:1px solid #bdc3c7; border-radius:4px; text-align:right; font-size:13px; }
-    .tabla-resumen tr.calculada { background:#fdf6e3; }
-    .tabla-resumen tr.calculada td:last-child { font-weight:bold; }
-    .comparacion { margin-top:15px; padding:15px; border-radius:6px; text-align:center; font-weight:bold; font-size:1.05em; }
-    .comparacion.coincide { background:#eafaf1; color:#27ae60; }
-    .comparacion.no-coincide { background:#fdecea; color:#c0392b; }
+    *{margin:0;padding:0;box-sizing:border-box;}body{font-family:Arial,sans-serif;background:#f5f5f5;padding:15px;}
+    .container{max-width:800px;margin:0 auto;background:white;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.1);overflow:hidden;}
+    .header{background:#2c3e50;color:white;padding:15px 20px;text-align:center;position:relative;}
+    .header h1{font-size:1.4em;}
+    .btn-menu{position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.15);color:white;border:none;border-radius:5px;padding:8px 12px;font-size:13px;cursor:pointer;text-decoration:none;}
+    .btn-menu:hover{background:rgba(255,255,255,0.25);}
+    .controls{padding:15px 20px;background:#ecf0f1;display:flex;gap:15px;flex-wrap:wrap;align-items:flex-end;border-bottom:2px solid #bdc3c7;}
+    .field{display:flex;flex-direction:column;gap:5px;}
+    .field label{font-weight:bold;font-size:13px;color:#2c3e50;}
+    input[type=date]{padding:10px;border:2px solid #3498db;border-radius:5px;font-size:15px;}
+    .status{padding:10px 20px;font-size:14px;}
+    .status.success{background:#eafaf1;color:#27ae60;}.status.error{background:#fdecea;color:#c0392b;}.status.loading{background:#eaf2fa;color:#2980b9;}
+    .seccion{padding:15px 20px;border-bottom:2px solid #ecf0f1;}
+    .seccion h2{font-size:1em;color:#2c3e50;margin-bottom:12px;}
+    table{border-collapse:collapse;width:100%;font-size:14px;margin-bottom:10px;}th,td{border:1px solid #ddd;padding:8px 10px;text-align:right;}
+    th{background:#3498db;color:white;text-align:center;}td:first-child{text-align:left;}
+    tr.fila-totales{background:#f0f4f8;font-weight:bold;}
+    .banca-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:15px;}
+    .banca-card{background:#ecf0f1;border-radius:6px;padding:12px;}
+    .banca-card label{display:block;font-size:12px;font-weight:bold;color:#2c3e50;margin-bottom:5px;}
+    .banca-card input{width:100%;padding:8px;border:2px solid #3498db;border-radius:4px;font-size:15px;text-align:right;}
+    .saldo-row{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}
+    .saldo-row .field{flex:1;min-width:150px;}
+    .saldo-row input{width:100%;padding:8px;border:2px solid #bdc3c7;border-radius:4px;font-size:14px;text-align:right;background:#fff;}
+    #saveBtn{padding:12px 25px;background:#27ae60;color:white;border:none;border-radius:5px;font-size:15px;font-weight:bold;cursor:pointer;}
+    #saveBtn:hover{background:#219150;}#saveBtn:disabled{background:#95a5a6;cursor:not-allowed;}
+    .resultado-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}
+    .resultado-card{background:#ecf0f1;border-radius:6px;padding:12px;text-align:center;}
+    .resultado-card .label{font-size:12px;color:#7f8c8d;margin-bottom:5px;}
+    .resultado-card .valor{font-size:1.3em;font-weight:bold;color:#2c3e50;}
+    .resultado-card.positivo .valor{color:#27ae60;}.resultado-card.negativo .valor{color:#c0392b;}
+    .placeholder{text-align:center;color:#7f8c8d;padding:40px;}
 </style>
 </head>
 <body>
 <div class="container">
-    <div class="header">
-        <a href="#" class="btn-menu" id="btnMenu">← Menú</a>
-        <h1>🏦 Cuentas con la Banca</h1>
-    </div>
-
+    <div class="header"><a href="index.html" class="btn-menu">← Menú</a><h1>🏦 Cuentas con la Banca</h1></div>
     <div class="controls">
-        <div class="field">
-            <label>Fecha</label>
-            <input type="date" id="fechaInput">
-        </div>
-        <div class="botones-accion">
-            <button id="saveBtn">💾 Guardar</button>
-            <button id="exportBtn" disabled>📷 Exportar imagen</button>
-        </div>
+        <div class="field"><label>Fecha</label><input type="date" id="fechaInput"></div>
     </div>
-
     <div id="statusMsg"></div>
-
-    <div id="contenido" class="contenido">
-        <div class="placeholder">👆 Elige una fecha para cargar el reporte</div>
-    </div>
+    <div id="contenido"><div class="placeholder">👆 Elige una fecha para ver las cuentas con la banca</div></div>
 </div>
-
 <script>
-const WORKER_URL = 'https://frosty-base-53ff.watsonmraul.workers.dev';
-const APP_PASSWORD = new URLSearchParams(window.location.search).get('pw') || '';
-const APP_USER = new URLSearchParams(window.location.search).get('user') || '';
-document.getElementById('btnMenu').href = `index.html?pw=${encodeURIComponent(APP_PASSWORD)}&user=${encodeURIComponent(APP_USER)}`;
+function getSession(){try{const s=sessionStorage.getItem('rt_session');return s?JSON.parse(s):null;}catch(e){return null;}}
+const _s=getSession();if(!_s||!_s.token){window.location.href='index.html';}
+const APP_TOKEN=_s.token;
+const WORKER_URL='https://frosty-base-53ff.watsonmraul.workers.dev';
+function urlConAuth(base){const sep=base.indexOf('?')===-1?'?':'&';return base+sep+'token='+encodeURIComponent(APP_TOKEN);}
+const fechaInput=document.getElementById('fechaInput');
+const statusEl=document.getElementById('statusMsg');
+const contenidoEl=document.getElementById('contenido');
+const hoy=new Date();
+fechaInput.value=hoy.getFullYear()+'-'+String(hoy.getMonth()+1).padStart(2,'0')+'-'+String(hoy.getDate()).padStart(2,'0');
+function fmt(n){return(n||0).toLocaleString('es-CR',{minimumFractionDigits:2});}
+function fmtSigned(n){const v=n||0;return(v>=0?'+':'')+v.toLocaleString('es-CR',{minimumFractionDigits:2});}
+let dataNuestro=[];
 
-const fechaInput = document.getElementById('fechaInput');
-const statusEl = document.getElementById('statusMsg');
-const contenidoEl = document.getElementById('contenido');
-const saveBtn = document.getElementById('saveBtn');
-const exportBtn = document.getElementById('exportBtn');
-
-fechaInput.value = new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0');
-
-function num(n) {
-    return (n || 0).toLocaleString('es-CR', { minimumFractionDigits: 2 });
+function recalcular(){
+    const saldoAntes=parseFloat(document.getElementById('saldoAntes').value)||0;
+    const bancaTica=parseFloat(document.getElementById('bancaTica').value)||0;
+    const bancaNica=parseFloat(document.getElementById('bancaNica').value)||0;
+    const bancaReventado=parseFloat(document.getElementById('bancaReventado').value)||0;
+    const bancaExtranjeras=parseFloat(document.getElementById('bancaExtranjeras').value)||0;
+    const abonos=parseFloat(document.getElementById('abonos').value)||0;
+    const totalBanca=bancaTica+bancaNica+bancaReventado+bancaExtranjeras;
+    const ctaBanca=(totalBanca-saldoAntes)-abonos;
+    const totalNuestro=dataNuestro.reduce((acc,r)=>{
+        const neto=(r.comision||0)+(r.premio_recibir||0)-(r.premio||0);
+        return acc+neto;
+    },0);
+    const saldoAca=saldoAntes+abonos+totalNuestro;
+    const diffSaldo=saldoAca-totalBanca;
+    document.getElementById('resCtaBanca').textContent=fmtSigned(ctaBanca);document.getElementById('resCtaBanca').className='valor '+(ctaBanca>=0?'positivo':'negativo');
+    document.getElementById('resTotalNuestro').textContent=fmtSigned(totalNuestro);document.getElementById('resTotalNuestro').className='valor '+(totalNuestro>=0?'positivo':'negativo');
+    document.getElementById('resSaldoAca').textContent=fmt(saldoAca);
+    document.getElementById('resDiff').textContent=fmtSigned(diffSaldo);document.getElementById('resDiff').className='valor '+(Math.abs(diffSaldo)<0.01?'':'negativo');
 }
 
-function urlConAuth(base) {
-    const sep = base.indexOf('?') === -1 ? '?' : '&';
-    return base + sep + 'pw=' + encodeURIComponent(APP_PASSWORD) + '&user=' + encodeURIComponent(APP_USER);
+async function cargarDatos(){
+    const fecha=fechaInput.value;if(!fecha){contenidoEl.innerHTML='<div class="placeholder">👆 Elige una fecha</div>';return;}
+    statusEl.innerHTML='<div class="status loading">⏳ Cargando...</div>';contenidoEl.innerHTML='';
+    try{
+        const resp=await fetch(urlConAuth(`${WORKER_URL}/api/cta-banca?fecha=${fecha}`),{cache:'no-store'});
+        if(!resp.ok)throw new Error('No se pudo cargar los datos');
+        const data=await resp.json();
+        dataNuestro=data.nuestro||[];
+        const reg=data.registroHoy||{};
+        const saldoAntes=data.saldoAntes||0;
+        let html='';
+        html+=`<div class="seccion"><h2>📊 Nuestro cálculo (del sistema)</h2>`;
+        if(dataNuestro.length>0){
+            html+='<table><thead><tr><th>Banca</th><th>Venta</th><th>Com. a recibir</th><th>Premio a pagar</th><th>Premio a recibir</th><th>Neto</th></tr></thead><tbody>';
+            let totNeto=0;
+            dataNuestro.forEach(r=>{const neto=(r.comision||0)+(r.premio_recibir||0)-(r.premio||0);totNeto+=neto;html+=`<tr><td>${r.grupo_banca}</td><td>${fmt(r.venta)}</td><td style="color:#27ae60;">+${fmt(r.comision)}</td><td style="color:#c0392b;">-${fmt(r.premio)}</td><td style="color:#27ae60;">+${fmt(r.premio_recibir)}</td><td style="${neto>=0?'color:#27ae60':'color:#c0392b'}">${fmtSigned(neto)}</td></tr>`;});
+            html+=`<tr class="fila-totales"><td>TOTALES</td><td colspan="4"></td><td style="${totNeto>=0?'color:#27ae60':'color:#c0392b'}">${fmtSigned(totNeto)}</td></tr>`;
+            html+='</tbody></table>';
+        }else{html+='<p style="color:#7f8c8d;font-size:13px;">Sin ventas pasadas a banca este día.</p>';}
+        html+='</div>';
+        html+=`<div class="seccion"><h2>📥 Lo que reporta la banca</h2>
+        <div class="saldo-row">
+            <div class="field"><label>Saldo anterior (C$)</label><input type="number" id="saldoAntes" value="${saldoAntes.toFixed(2)}" min="0" oninput="recalcular()"></div>
+            <div class="field"><label>Abonos recibidos (C$)</label><input type="number" id="abonos" value="${(reg.abonos||0).toFixed(2)}" min="0" oninput="recalcular()"></div>
+        </div>
+        <div class="banca-grid">
+            <div class="banca-card"><label>Banca Tica (C$)</label><input type="number" id="bancaTica" value="${(reg.banca_tica||0).toFixed(2)}" min="0" oninput="recalcular()"></div>
+            <div class="banca-card"><label>Banca Nica (C$)</label><input type="number" id="bancaNica" value="${(reg.banca_nica||0).toFixed(2)}" min="0" oninput="recalcular()"></div>
+            <div class="banca-card"><label>Reventado (C$)</label><input type="number" id="bancaReventado" value="${(reg.banca_reventado||0).toFixed(2)}" min="0" oninput="recalcular()"></div>
+            <div class="banca-card"><label>Extranjeras (C$)</label><input type="number" id="bancaExtranjeras" value="${(reg.banca_extranjeras||0).toFixed(2)}" min="0" oninput="recalcular()"></div>
+        </div>
+        <button id="saveBtn">💾 Guardar datos de banca</button></div>`;
+        html+=`<div class="seccion"><h2>📊 Resultado</h2><div class="resultado-grid">
+            <div class="resultado-card"><div class="label">Cta Banca (delta)</div><div class="valor" id="resCtaBanca">C$0.00</div></div>
+            <div class="resultado-card"><div class="label">Nuestro cálculo (neto)</div><div class="valor" id="resTotalNuestro">C$0.00</div></div>
+            <div class="resultado-card"><div class="label">Saldo (Acá)</div><div class="valor" id="resSaldoAca">C$0.00</div></div>
+            <div class="resultado-card"><div class="label">Diferencia (Acá - Banca)</div><div class="valor" id="resDiff">C$0.00</div></div>
+        </div></div>`;
+        contenidoEl.innerHTML=html;
+        document.getElementById('saveBtn').addEventListener('click',guardarDatos);
+        recalcular();statusEl.innerHTML='';
+    }catch(e){statusEl.innerHTML=`<div class="status error">⚠️ ${e.message}</div>`;}
 }
 
-async function cargarReporte() {
-    const fecha = fechaInput.value;
-    if (!fecha) return;
-
-    statusEl.innerHTML = '<div class="status loading">⏳ Cargando...</div>';
-    saveBtn.disabled = true;
-    exportBtn.disabled = true;
-
-    try {
-        const response = await fetch(urlConAuth(`${WORKER_URL}/api/cta-banca?fecha=${fecha}`), { cache: 'no-store' });
-        if (!response.ok) throw new Error('No se pudo cargar el reporte');
-        const data = await response.json();
-        renderizar(data);
-        statusEl.innerHTML = '';
-        saveBtn.disabled = false;
-        exportBtn.disabled = false;
-    } catch (error) {
-        statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
-        contenidoEl.innerHTML = '';
-    }
+async function guardarDatos(){
+    const fecha=fechaInput.value;
+    const body={token:APP_TOKEN,fecha,banca_tica:parseFloat(document.getElementById('bancaTica').value)||0,banca_nica:parseFloat(document.getElementById('bancaNica').value)||0,banca_reventado:parseFloat(document.getElementById('bancaReventado').value)||0,banca_extranjeras:parseFloat(document.getElementById('bancaExtranjeras').value)||0,abonos:parseFloat(document.getElementById('abonos').value)||0,saldo_antes_manual:parseFloat(document.getElementById('saldoAntes').value)||0};
+    const btn=document.getElementById('saveBtn');btn.disabled=true;btn.textContent='⏳ Guardando...';
+    try{
+        const resp=await fetch(urlConAuth(`${WORKER_URL}/api/cta-banca`),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        const result=await resp.json();if(!resp.ok||!result.ok)throw new Error(result.error||'Error al guardar');
+        statusEl.innerHTML='<div class="status success">✅ Datos guardados correctamente</div>';
+    }catch(e){statusEl.innerHTML=`<div class="status error">⚠️ ${e.message}</div>`;}
+    finally{btn.disabled=false;btn.textContent='💾 Guardar datos de banca';}
 }
 
-function renderizar(data) {
-    const nuestro = data.nuestro || [];
-    const registro = data.registroHoy || { banca_tica: 0, banca_nica: 0, banca_reventado: 0, banca_extranjeras: 0, abonos: 0 };
-    const saldoAntes = data.saldoAntes || 0;
-
-    let totalNuestro = 0;
-    let htmlTabla = '<div class="seccion-titulo">NUESTRO CÁLCULO</div><table><thead><tr><th>Sorteo</th><th>Venta</th><th>Comisión</th><th>Premio</th><th>Total</th></tr></thead><tbody>';
-
-    nuestro.forEach(r => {
-        const total = r.venta - r.comision - r.premio;
-        totalNuestro += total;
-        htmlTabla += `<tr>
-            <td>${r.grupo_banca}</td>
-            <td>${num(r.venta)}</td>
-            <td>${num(r.comision)}</td>
-            <td>${num(r.premio)}</td>
-            <td class="${total < 0 ? 'negativo' : ''}">${num(total)}</td>
-        </tr>`;
-    });
-
-    htmlTabla += `<tr class="fila-totales">
-        <td>Totales</td><td></td><td></td><td></td>
-        <td class="${totalNuestro < 0 ? 'negativo' : ''}">${num(totalNuestro)}</td>
-    </tr></tbody></table>`;
-
-    let htmlResumen = '<div class="seccion-titulo">RECONCILIACIÓN CON LA BANCA</div><table class="tabla-resumen"><tbody>' +
-        `<tr><td>Tica (reportado por banca)</td><td><input type="number" id="bancaTica" value="${registro.banca_tica}"></td></tr>` +
-        `<tr><td>Nica (reportado por banca)</td><td><input type="number" id="bancaNica" value="${registro.banca_nica}"></td></tr>` +
-        `<tr><td>Reventado (reportado por banca)</td><td><input type="number" id="bancaReventado" value="${registro.banca_reventado}"></td></tr>` +
-        `<tr><td>Extranjeras (Primera+Honduras+Dominicana+Panameña)</td><td><input type="number" id="bancaExtranjeras" value="${registro.banca_extranjeras}"></td></tr>` +
-        `<tr><td>Abonos (− si pagamos, + si la banca nos da)</td><td><input type="number" id="abonosInput" value="${registro.abonos}"></td></tr>` +
-        `<tr><td>Saldo antes (día anterior)</td><td><input type="number" id="saldoAntesInput" value="${saldoAntes}"></td></tr>` +
-        `<tr class="calculada"><td>Cta Banca (delta de hoy)</td><td id="ctaBancaValor"></td></tr>` +
-        `<tr class="calculada"><td>Saldo (Acá)</td><td id="saldoValor"></td></tr>` +
-        '</tbody></table>' +
-        '<div class="comparacion" id="comparacionBox"></div>';
-
-    contenidoEl.innerHTML = htmlTabla + htmlResumen;
-    contenidoEl.dataset.totalNuestro = totalNuestro;
-
-    ['bancaTica', 'bancaNica', 'bancaReventado', 'bancaExtranjeras', 'abonosInput', 'saldoAntesInput'].forEach(id => {
-        document.getElementById(id).addEventListener('input', recalcular);
-    });
-
-    recalcular();
-}
-
-function recalcular() {
-    const tica        = parseFloat(document.getElementById('bancaTica').value)       || 0;
-    const nica        = parseFloat(document.getElementById('bancaNica').value)        || 0;
-    const reventado   = parseFloat(document.getElementById('bancaReventado').value)   || 0;
-    const extranjeras = parseFloat(document.getElementById('bancaExtranjeras').value) || 0;
-    const abonos      = parseFloat(document.getElementById('abonosInput').value)      || 0;
-    const saldoAntes  = parseFloat(document.getElementById('saldoAntesInput').value)  || 0;
-
-    const totalNuestro = parseFloat(contenidoEl.dataset.totalNuestro) || 0;
-    const totalBanca   = tica + nica + reventado + extranjeras;
-
-    const ctaBanca = (totalBanca - saldoAntes) - abonos;
-    const saldo    = saldoAntes + abonos + totalNuestro;
-
-    const ctaBancaEl = document.getElementById('ctaBancaValor');
-    ctaBancaEl.textContent = num(ctaBanca);
-    ctaBancaEl.className = ctaBanca < 0 ? 'negativo' : '';
-
-    const saldoEl = document.getElementById('saldoValor');
-    saldoEl.textContent = num(saldo);
-    saldoEl.className = saldo < 0 ? 'negativo' : '';
-
-    const comparacionBox = document.getElementById('comparacionBox');
-    const diferencia = Math.round((totalNuestro - ctaBanca) * 100) / 100;
-
-    if (Math.abs(diferencia) <= 100) {
-        comparacionBox.className = 'comparacion coincide';
-        if (diferencia === 0) {
-            comparacionBox.textContent = `✅ Cuadra: nuestro cálculo (${num(totalNuestro)}) coincide con la banca`;
-        } else {
-            comparacionBox.textContent = `✅ Cuadra (diferencia de redondeo de ${num(diferencia)}): nuestro cálculo es ${num(totalNuestro)}, la banca da ${num(ctaBanca)}`;
-        }
-    } else {
-        comparacionBox.className = 'comparacion no-coincide';
-        comparacionBox.textContent = `⚠️ No cuadra: nuestro cálculo es ${num(totalNuestro)}, la banca da ${num(ctaBanca)} (diferencia de ${num(diferencia)})`;
-    }
-}
-
-saveBtn.addEventListener('click', async function() {
-    const fecha = fechaInput.value;
-    const body = {
-        fecha,
-        banca_tica:         parseFloat(document.getElementById('bancaTica').value)       || 0,
-        banca_nica:         parseFloat(document.getElementById('bancaNica').value)        || 0,
-        banca_reventado:    parseFloat(document.getElementById('bancaReventado').value)   || 0,
-        banca_extranjeras:  parseFloat(document.getElementById('bancaExtranjeras').value) || 0,
-        abonos:             parseFloat(document.getElementById('abonosInput').value)      || 0,
-        saldo_antes_manual: parseFloat(document.getElementById('saldoAntesInput').value)  || 0
-    };
-
-    this.disabled = true;
-    this.textContent = '⏳ Guardando...';
-
-    try {
-        const response = await fetch(urlConAuth(`${WORKER_URL}/api/cta-banca`), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        });
-        const result = await response.json();
-        if (response.ok && result.ok) {
-            statusEl.innerHTML = '<div class="status success">✅ Guardado correctamente</div>';
-        } else {
-            throw new Error(result.error || 'Error al guardar');
-        }
-    } catch (error) {
-        statusEl.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
-    } finally {
-        this.disabled = false;
-        this.textContent = '💾 Guardar';
-    }
-});
-
-exportBtn.addEventListener('click', async function() {
-    if (!contenidoEl.querySelector('table')) {
-        statusEl.innerHTML = '<div class="status error">⚠️ No hay nada para exportar</div>';
-        return;
-    }
-
-    this.disabled = true;
-    this.textContent = '⏳ Generando imagen...';
-
-    try {
-        const clone = contenidoEl.cloneNode(true);
-        clone.querySelectorAll('input').forEach(input => {
-            const span = document.createElement('div');
-            span.textContent = num(parseFloat(input.value) || 0);
-            span.style.padding = '4px 0';
-            span.style.fontWeight = 'bold';
-            input.replaceWith(span);
-        });
-
-        const wrapper = document.createElement('div');
-        wrapper.style.position = 'fixed';
-        wrapper.style.top = '0';
-        wrapper.style.left = '-100000px';
-        wrapper.style.background = '#ffffff';
-        wrapper.style.padding = '15px';
-        wrapper.style.width = '650px';
-        wrapper.style.fontFamily = 'Arial, sans-serif';
-
-        const titleEl = document.createElement('div');
-        titleEl.style.fontWeight = 'bold';
-        titleEl.style.fontSize = '18px';
-        titleEl.style.color = '#2c3e50';
-        titleEl.style.marginBottom = '12px';
-        titleEl.textContent = `Cuentas con la Banca — ${fechaInput.value}`;
-        wrapper.appendChild(titleEl);
-        wrapper.appendChild(clone);
-        document.body.appendChild(wrapper);
-
-        await new Promise(resolve => requestAnimationFrame(resolve));
-        const canvas = await html2canvas(wrapper, { backgroundColor: '#ffffff', scale: 2 });
-        document.body.removeChild(wrapper);
-
-        canvas.toBlob(async (blob) => {
-            const fileName = `Cuentas Banca ${fechaInput.value}.png`;
-            const filesArray = [new File([blob], fileName, { type: 'image/png' })];
-            if (navigator.canShare && navigator.canShare({ files: filesArray })) {
-                try { await navigator.share({ files: filesArray, title: fileName }); } catch (e) {}
-            } else {
-                const link = document.createElement('a');
-                link.download = fileName;
-                link.href = URL.createObjectURL(blob);
-                link.click();
-            }
-            this.disabled = false;
-            this.textContent = '📷 Exportar imagen';
-        }, 'image/png');
-
-    } catch (error) {
-        statusEl.innerHTML = `<div class="status error">⚠️ Error al generar la imagen: ${error.message}</div>`;
-        this.disabled = false;
-        this.textContent = '📷 Exportar imagen';
-    }
-});
-
-fechaInput.addEventListener('change', cargarReporte);
-cargarReporte();
+fechaInput.addEventListener('change',cargarDatos);
+cargarDatos();
 </script>
 </body>
 </html>

@@ -1,288 +1,122 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Administrar Usuarios</title>
 <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family: Arial, sans-serif; background:#f5f5f5; padding:15px; }
-    .container { max-width:700px; margin:0 auto; background:white; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.1); overflow:hidden; }
-    .header { background:#2c3e50; color:white; padding:15px 20px; text-align:center; position:relative; }
-    .header h1 { font-size:1.4em; }
-    .btn-menu {
-        position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
-        background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 5px;
-        padding: 8px 12px; font-size: 13px; cursor: pointer; text-decoration: none;
-    }
-    .btn-menu:hover { background: rgba(255,255,255,0.25); }
-    .seccion { padding:20px; border-bottom:2px solid #ecf0f1; }
-    .seccion h2 { font-size:1em; color:#2c3e50; margin-bottom:15px; }
-    .field { margin-bottom:14px; }
-    .field label { display:block; font-weight:bold; color:#2c3e50; margin-bottom:5px; font-size:13px; }
-    .field input, .field select { width:100%; padding:10px; border:2px solid #3498db; border-radius:5px; font-size:14px; }
-    #crearBtn { width:100%; padding:12px; background:#27ae60; color:white; border:none; border-radius:5px; font-size:14px; font-weight:bold; cursor:pointer; }
-    #crearBtn:hover { background:#219150; }
-    #crearBtn:disabled { background:#95a5a6; cursor:not-allowed; }
-    .status { padding:12px; border-radius:5px; font-size:14px; margin-bottom:14px; }
-    .status.success { background:#eafaf1; color:#27ae60; }
-    .status.error { background:#fdecea; color:#c0392b; }
-    table { border-collapse: collapse; width:100%; font-size:13px; }
-    th, td { border:1px solid #ddd; padding:7px; text-align:left; }
-    th { background:#3498db; color:white; }
-    tr.inactivo { opacity:0.5; }
-    .btn-small { padding:5px 9px; border:none; border-radius:4px; font-size:12px; cursor:pointer; margin-right:4px; }
-    .btn-condiciones { background:#3498db; color:white; }
-    .btn-condiciones:hover { background:#2980b9; }
-    .btn-eliminar { background:#e74c3c; color:white; }
-    .btn-eliminar:hover { background:#c0392b; }
+    *{margin:0;padding:0;box-sizing:border-box;}body{font-family:Arial,sans-serif;background:#f5f5f5;padding:15px;}
+    .container{max-width:700px;margin:0 auto;background:white;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.1);overflow:hidden;}
+    .header{background:#2c3e50;color:white;padding:15px 20px;text-align:center;position:relative;}
+    .header h1{font-size:1.4em;}
+    .btn-menu{position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.15);color:white;border:none;border-radius:5px;padding:8px 12px;font-size:13px;cursor:pointer;text-decoration:none;}
+    .btn-menu:hover{background:rgba(255,255,255,0.25);}
+    .seccion{padding:20px;border-bottom:2px solid #ecf0f1;}
+    .seccion h2{font-size:1em;color:#2c3e50;margin-bottom:15px;}
+    .field{margin-bottom:14px;}
+    .field label{display:block;font-weight:bold;color:#2c3e50;margin-bottom:5px;font-size:13px;}
+    .field input,.field select{width:100%;padding:10px;border:2px solid #3498db;border-radius:5px;font-size:14px;}
+    #crearBtn{width:100%;padding:12px;background:#27ae60;color:white;border:none;border-radius:5px;font-size:14px;font-weight:bold;cursor:pointer;}
+    #crearBtn:hover{background:#219150;}#crearBtn:disabled{background:#95a5a6;cursor:not-allowed;}
+    .status{padding:12px;border-radius:5px;font-size:14px;margin-bottom:14px;}
+    .status.success{background:#eafaf1;color:#27ae60;}.status.error{background:#fdecea;color:#c0392b;}
+    table{border-collapse:collapse;width:100%;font-size:13px;}th,td{border:1px solid #ddd;padding:7px;text-align:left;}th{background:#3498db;color:white;}
+    .btn-small{padding:5px 9px;border:none;border-radius:4px;font-size:12px;cursor:pointer;margin-right:4px;}
+    .btn-condiciones{background:#3498db;color:white;}.btn-condiciones:hover{background:#2980b9;}
+    .btn-eliminar{background:#e74c3c;color:white;}.btn-eliminar:hover{background:#c0392b;}
 </style>
 </head>
 <body>
 <div class="container">
-    <div class="header">
-        <a href="#" class="btn-menu" id="btnMenu">← Menú</a>
-        <h1>👤 Administrar Usuarios</h1>
-    </div>
-
+    <div class="header"><a href="configuraciones.html" class="btn-menu">← Menú</a><h1>👤 Administrar Usuarios</h1></div>
     <div class="seccion">
         <h2>Crear usuario nuevo</h2>
         <div id="statusCrear"></div>
-
-        <div class="field">
-            <label>Usuario</label>
-            <input type="text" id="username" placeholder="ej. digitador1" autocomplete="off">
-        </div>
-        <div class="field">
-            <label>Contraseña</label>
-            <input type="text" id="password" placeholder="Escribe una contraseña" autocomplete="off">
-        </div>
-        <div class="field">
-            <label>Rol</label>
-            <select id="rol">
-                <option value="general">general (ve todo)</option>
-                <option value="vendedor">vendedor (ve solo lo suyo)</option>
-                <option value="captura">captura (solo digita ventas)</option>
-            </select>
+        <div class="field"><label>Usuario</label><input type="text" id="username" placeholder="ej. digitador1" autocomplete="off"></div>
+        <div class="field"><label>Contraseña</label><input type="text" id="password" placeholder="Escribe una contraseña" autocomplete="off"></div>
+        <div class="field"><label>Rol</label>
+            <select id="rol"><option value="general">general (ve todo)</option><option value="vendedor">vendedor (ve solo lo suyo)</option><option value="captura">captura (solo digita ventas)</option></select>
         </div>
         <div class="field" id="vendedorField" style="display:none;">
-            <label>Nombre del vendedor (tal como está en la tabla vendedores)</label>
+            <label>Nombre del vendedor</label>
             <input type="text" id="vendedorNombre" placeholder="ej. Yoyo" autocomplete="off" list="listaNombresVendedores">
             <datalist id="listaNombresVendedores"></datalist>
-            <div id="avisoVendedor" style="margin-top:6px; font-size:13px;"></div>
+            <div id="avisoVendedor" style="margin-top:6px;font-size:13px;"></div>
         </div>
-
         <div class="field" id="tipoNuevoVendedorField" style="display:none;">
-            <label>Ese vendedor no existe todavía — ¿qué tipo es?</label>
-            <select id="tipoNuevoVendedor">
-                <option value="lista">lista</option>
-                <option value="puesto">puesto</option>
-            </select>
+            <label>Ese vendedor no existe — ¿qué tipo es?</label>
+            <select id="tipoNuevoVendedor"><option value="lista">lista</option><option value="puesto">puesto</option></select>
         </div>
-
         <button id="crearBtn">Crear usuario</button>
     </div>
-
     <div class="seccion">
         <h2>Usuarios existentes</h2>
         <div id="statusLista"></div>
-        <table id="tablaUsuarios">
-            <thead><tr><th>Usuario</th><th>Rol</th><th>Vendedor</th><th>Activo</th><th></th></tr></thead>
-            <tbody id="tbodyUsuarios"></tbody>
-        </table>
+        <table><thead><tr><th>Usuario</th><th>Rol</th><th>Vendedor</th><th>Activo</th><th></th></tr></thead><tbody id="tbodyUsuarios"></tbody></table>
     </div>
 </div>
-
 <script>
-const WORKER_URL = 'https://frosty-base-53ff.watsonmraul.workers.dev';
-const APP_PASSWORD = new URLSearchParams(window.location.search).get('pw') || '';
-const APP_USER = new URLSearchParams(window.location.search).get('user') || '';
-document.getElementById('btnMenu').href = `index.html?pw=${encodeURIComponent(APP_PASSWORD)}&user=${encodeURIComponent(APP_USER)}`;
-
-function urlConAuth(base) {
-    const sep = base.indexOf('?') === -1 ? '?' : '&';
-    return base + sep + 'pw=' + encodeURIComponent(APP_PASSWORD) + '&user=' + encodeURIComponent(APP_USER);
-}
-
-const statusCrear = document.getElementById('statusCrear');
-const statusLista = document.getElementById('statusLista');
-const rolSelect = document.getElementById('rol');
-const vendedorField = document.getElementById('vendedorField');
-const crearBtn = document.getElementById('crearBtn');
-const tbody = document.getElementById('tbodyUsuarios');
-
-rolSelect.addEventListener('change', function() {
-    vendedorField.style.display = this.value === 'vendedor' ? 'block' : 'none';
-    document.getElementById('tipoNuevoVendedorField').style.display = 'none';
-});
-
-let listaVendedoresExistentes = [];
-async function cargarListaVendedoresExistentes() {
-    try {
-        const resp = await fetch(urlConAuth(`${WORKER_URL}/api/admin/vendedores`), { cache: 'no-store' });
-        if (resp.ok) {
-            listaVendedoresExistentes = await resp.json();
-            const datalist = document.getElementById('listaNombresVendedores');
-            datalist.innerHTML = '';
-            listaVendedoresExistentes.forEach(v => {
-                const opt = document.createElement('option');
-                opt.value = v.nombre;
-                datalist.appendChild(opt);
-            });
-        }
-    } catch (e) {}
+function getSession(){try{const s=sessionStorage.getItem('rt_session');return s?JSON.parse(s):null;}catch(e){return null;}}
+const _s=getSession();if(!_s||!_s.token){window.location.href='index.html';}
+const APP_TOKEN=_s.token;
+const WORKER_URL='https://frosty-base-53ff.watsonmraul.workers.dev';
+function urlConAuth(base){const sep=base.indexOf('?')===-1?'?':'&';return base+sep+'token='+encodeURIComponent(APP_TOKEN);}
+const statusCrear=document.getElementById('statusCrear');const statusLista=document.getElementById('statusLista');
+const rolSelect=document.getElementById('rol');const vendedorField=document.getElementById('vendedorField');const crearBtn=document.getElementById('crearBtn');const tbody=document.getElementById('tbodyUsuarios');
+rolSelect.addEventListener('change',function(){vendedorField.style.display=this.value==='vendedor'?'block':'none';document.getElementById('tipoNuevoVendedorField').style.display='none';});
+let listaVendedoresExistentes=[];
+async function cargarListaVendedoresExistentes(){
+    try{const resp=await fetch(urlConAuth(`${WORKER_URL}/api/admin/vendedores`),{cache:'no-store'});if(resp.ok){listaVendedoresExistentes=await resp.json();const datalist=document.getElementById('listaNombresVendedores');datalist.innerHTML='';listaVendedoresExistentes.forEach(v=>{const opt=document.createElement('option');opt.value=v.nombre;datalist.appendChild(opt);});}}catch(e){}
 }
 cargarListaVendedoresExistentes();
-
-const vendedorNombreInput = document.getElementById('vendedorNombre');
-const avisoVendedor = document.getElementById('avisoVendedor');
-const tipoNuevoVendedorField = document.getElementById('tipoNuevoVendedorField');
-
-vendedorNombreInput.addEventListener('input', function() {
-    const nombre = this.value.trim();
-    if (!nombre) {
-        avisoVendedor.innerHTML = '';
-        tipoNuevoVendedorField.style.display = 'none';
-        return;
-    }
-    const existe = listaVendedoresExistentes.some(v => v.nombre.toLowerCase() === nombre.toLowerCase());
-    if (existe) {
-        avisoVendedor.innerHTML = '<span style="color:#27ae60;">✅ Ya existe como vendedor</span>';
-        tipoNuevoVendedorField.style.display = 'none';
-    } else {
-        avisoVendedor.innerHTML = '<span style="color:#8a6d00;">⚠️ No existe todavía — se creará junto con el usuario</span>';
-        tipoNuevoVendedorField.style.display = 'block';
-    }
+const vendedorNombreInput=document.getElementById('vendedorNombre');const avisoVendedor=document.getElementById('avisoVendedor');const tipoNuevoVendedorField=document.getElementById('tipoNuevoVendedorField');
+vendedorNombreInput.addEventListener('input',function(){
+    const nombre=this.value.trim();if(!nombre){avisoVendedor.innerHTML='';tipoNuevoVendedorField.style.display='none';return;}
+    const existe=listaVendedoresExistentes.some(v=>v.nombre.toLowerCase()===nombre.toLowerCase());
+    if(existe){avisoVendedor.innerHTML='<span style="color:#27ae60;">✅ Ya existe como vendedor</span>';tipoNuevoVendedorField.style.display='none';}
+    else{avisoVendedor.innerHTML='<span style="color:#8a6d00;">⚠️ No existe todavía — se creará junto con el usuario</span>';tipoNuevoVendedorField.style.display='block';}
 });
-
-crearBtn.addEventListener('click', async function() {
-    const username = document.getElementById('username').value.trim();
-    const password = document.getElementById('password').value;
-    const rol = rolSelect.value;
-    const vendedorNombre = document.getElementById('vendedorNombre').value.trim();
-
-    statusCrear.innerHTML = '';
-
-    if (!username || !password) {
-        statusCrear.innerHTML = '<div class="status error">⚠️ Escribe usuario y contraseña</div>';
-        return;
-    }
-    if (rol === 'vendedor' && !vendedorNombre) {
-        statusCrear.innerHTML = '<div class="status error">⚠️ Escribe el nombre del vendedor</div>';
-        return;
-    }
-
-    crearBtn.disabled = true;
-    crearBtn.textContent = 'Creando...';
-
-    try {
-        // Si es vendedor y no existe todavía, lo creamos primero
-        if (rol === 'vendedor') {
-            const yaExiste = listaVendedoresExistentes.some(v => v.nombre.toLowerCase() === vendedorNombre.toLowerCase());
-            if (!yaExiste) {
-                const tipoNuevo = document.getElementById('tipoNuevoVendedor').value;
-                const respVendedor = await fetch(urlConAuth(`${WORKER_URL}/api/admin/vendedores`), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ pw: APP_PASSWORD, nombre: vendedorNombre, tipo: tipoNuevo, activo: true })
-                });
-                const resultVendedor = await respVendedor.json();
-                if (!respVendedor.ok || !resultVendedor.ok) throw new Error(resultVendedor.error || 'No se pudo crear el vendedor');
-                await cargarListaVendedoresExistentes();
-            }
+crearBtn.addEventListener('click',async function(){
+    const username=document.getElementById('username').value.trim();const password=document.getElementById('password').value;const rol=rolSelect.value;const vendedorNombre=document.getElementById('vendedorNombre').value.trim();
+    statusCrear.innerHTML='';
+    if(!username||!password){statusCrear.innerHTML='<div class="status error">⚠️ Escribe usuario y contraseña</div>';return;}
+    if(rol==='vendedor'&&!vendedorNombre){statusCrear.innerHTML='<div class="status error">⚠️ Escribe el nombre del vendedor</div>';return;}
+    crearBtn.disabled=true;crearBtn.textContent='Creando...';
+    try{
+        if(rol==='vendedor'){
+            const yaExiste=listaVendedoresExistentes.some(v=>v.nombre.toLowerCase()===vendedorNombre.toLowerCase());
+            if(!yaExiste){const tipoNuevo=document.getElementById('tipoNuevoVendedor').value;const respVendedor=await fetch(urlConAuth(`${WORKER_URL}/api/admin/vendedores`),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:APP_TOKEN,nombre:vendedorNombre,tipo:tipoNuevo,activo:true})});const resultVendedor=await respVendedor.json();if(!respVendedor.ok||!resultVendedor.ok)throw new Error(resultVendedor.error||'No se pudo crear el vendedor');await cargarListaVendedoresExistentes();}
         }
-
-        const response = await fetch(urlConAuth(`${WORKER_URL}/api/usuarios`), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                pw: APP_PASSWORD,
-                username: username,
-                password: password,
-                rol: rol,
-                vendedor_nombre: rol === 'vendedor' ? vendedorNombre : null
-            })
-        });
-        const result = await response.json();
-
-        if (response.ok && result.ok) {
-            statusCrear.innerHTML = `<div class="status success">✅ Usuario "${username}" creado correctamente</div>`;
-            document.getElementById('username').value = '';
-            document.getElementById('password').value = '';
-            document.getElementById('vendedorNombre').value = '';
-            avisoVendedor.innerHTML = '';
-            tipoNuevoVendedorField.style.display = 'none';
-            await cargarUsuarios();
-        } else {
-            throw new Error(result.error || 'No se pudo crear el usuario');
-        }
-    } catch (error) {
-        statusCrear.innerHTML = `<div class="status error">⚠️ ${error.message}</div>`;
-    } finally {
-        crearBtn.disabled = false;
-        crearBtn.textContent = 'Crear usuario';
-    }
+        const response=await fetch(urlConAuth(`${WORKER_URL}/api/usuarios`),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:APP_TOKEN,username,password,rol,vendedor_nombre:rol==='vendedor'?vendedorNombre:null})});
+        const result=await response.json();
+        if(response.ok&&result.ok){statusCrear.innerHTML=`<div class="status success">✅ Usuario "${username}" creado correctamente</div>`;document.getElementById('username').value='';document.getElementById('password').value='';document.getElementById('vendedorNombre').value='';avisoVendedor.innerHTML='';tipoNuevoVendedorField.style.display='none';await cargarUsuarios();}
+        else throw new Error(result.error||'No se pudo crear el usuario');
+    }catch(error){statusCrear.innerHTML=`<div class="status error">⚠️ ${error.message}</div>`;}
+    finally{crearBtn.disabled=false;crearBtn.textContent='Crear usuario';}
 });
-
-async function cargarUsuarios() {
-    try {
-        const resp = await fetch(urlConAuth(`${WORKER_URL}/api/usuarios`), { cache: 'no-store' });
-        if (!resp.ok) throw new Error('No se pudo cargar la lista de usuarios');
-        const usuarios = await resp.json();
-
-        tbody.innerHTML = '';
-        usuarios.forEach(u => {
-            const tr = document.createElement('tr');
-            if (!u.activo) tr.className = 'inactivo';
-
-            let botones = `<button class="btn-small btn-eliminar" data-id="${u.id}" data-username="${u.username}">Eliminar</button>`;
-            if (u.rol === 'vendedor' && u.vendedor_nombre) {
-                botones = `<button class="btn-small btn-condiciones" data-vendedor="${u.vendedor_nombre}">Condiciones</button>` + botones;
-            }
-
-            tr.innerHTML = `
-                <td>${u.username}</td>
-                <td>${u.rol}</td>
-                <td>${u.vendedor_nombre || '-'}</td>
-                <td>${u.activo ? 'Sí' : 'No'}</td>
-                <td>${botones}</td>
-            `;
+async function cargarUsuarios(){
+    try{
+        const resp=await fetch(urlConAuth(`${WORKER_URL}/api/usuarios`),{cache:'no-store'});if(!resp.ok)throw new Error('No se pudo cargar la lista de usuarios');
+        const usuarios=await resp.json();tbody.innerHTML='';
+        usuarios.forEach(u=>{
+            const tr=document.createElement('tr');
+            let botones=`<button class="btn-small btn-eliminar" data-id="${u.id}" data-username="${u.username}">Eliminar</button>`;
+            if(u.rol==='vendedor'&&u.vendedor_nombre)botones=`<button class="btn-small btn-condiciones" data-vendedor="${u.vendedor_nombre}">Condiciones</button>`+botones;
+            tr.innerHTML=`<td>${u.username}</td><td>${u.rol}</td><td>${u.vendedor_nombre||'-'}</td><td>${u.activo?'Sí':'No'}</td><td>${botones}</td>`;
             tbody.appendChild(tr);
         });
-
-        tbody.querySelectorAll('.btn-eliminar').forEach(btn => {
-            btn.addEventListener('click', () => eliminarUsuario(btn.dataset.id, btn.dataset.username));
-        });
-        tbody.querySelectorAll('.btn-condiciones').forEach(btn => {
-            btn.addEventListener('click', () => {
-                window.location.href = `admin_vendedor_sorteo.html?pw=${encodeURIComponent(APP_PASSWORD)}&user=${encodeURIComponent(APP_USER)}&preseleccionar=${encodeURIComponent(btn.dataset.vendedor)}`;
-            });
-        });
-
-        statusLista.innerHTML = '';
-    } catch (e) {
-        statusLista.innerHTML = `<div class="status error">⚠️ ${e.message}</div>`;
-    }
+        tbody.querySelectorAll('.btn-eliminar').forEach(btn=>btn.addEventListener('click',()=>eliminarUsuario(btn.dataset.id,btn.dataset.username)));
+        tbody.querySelectorAll('.btn-condiciones').forEach(btn=>btn.addEventListener('click',()=>{window.location.href=`admin_vendedor_sorteo.html?preseleccionar=${encodeURIComponent(btn.dataset.vendedor)}`;}));
+        statusLista.innerHTML='';
+    }catch(e){statusLista.innerHTML=`<div class="status error">⚠️ ${e.message}</div>`;}
 }
-
-async function eliminarUsuario(id, username) {
-    if (!confirm(`¿Seguro que quieres eliminar al usuario "${username}"? Esto no se puede deshacer.`)) return;
-
-    try {
-        const resp = await fetch(urlConAuth(`${WORKER_URL}/api/usuarios`), {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pw: APP_PASSWORD, id })
-        });
-        const result = await resp.json();
-        if (!resp.ok || !result.ok) throw new Error(result.error || 'Error al eliminar');
-        statusLista.innerHTML = `<div class="status success">✅ Usuario "${username}" eliminado</div>`;
-        await cargarUsuarios();
-    } catch (e) {
-        statusLista.innerHTML = `<div class="status error">⚠️ ${e.message}</div>`;
-    }
+async function eliminarUsuario(id,username){
+    if(!confirm(`¿Seguro que quieres eliminar al usuario "${username}"?`))return;
+    try{
+        const resp=await fetch(urlConAuth(`${WORKER_URL}/api/usuarios`),{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:APP_TOKEN,id})});
+        const result=await resp.json();if(!resp.ok||!result.ok)throw new Error(result.error||'Error al eliminar');
+        statusLista.innerHTML=`<div class="status success">✅ Usuario "${username}" eliminado</div>`;await cargarUsuarios();
+    }catch(e){statusLista.innerHTML=`<div class="status error">⚠️ ${e.message}</div>`;}
 }
-
 cargarUsuarios();
 </script>
 </body>
