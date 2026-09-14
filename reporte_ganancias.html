@@ -1,141 +1,304 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Reporte de Ganancias del Día</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reporte de Ganancias</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
-    *{margin:0;padding:0;box-sizing:border-box;}body{font-family:Arial,sans-serif;background:#f5f5f5;padding:15px;}
-    .container{max-width:850px;margin:0 auto;background:white;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.1);overflow:hidden;}
-    .header{background:#2c3e50;color:white;padding:15px 20px;text-align:center;position:relative;}
-    .header h1{font-size:1.4em;}
-    .btn-menu{position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.15);color:white;border:none;border-radius:5px;padding:8px 12px;font-size:13px;cursor:pointer;text-decoration:none;}
-    .btn-menu:hover{background:rgba(255,255,255,0.25);}
-    .controls{padding:15px 20px;background:#ecf0f1;display:flex;gap:15px;flex-wrap:wrap;align-items:flex-end;border-bottom:2px solid #bdc3c7;}
-    .field{display:flex;flex-direction:column;gap:5px;}
-    .field label{font-weight:bold;font-size:13px;color:#2c3e50;}
-    input[type=date]{padding:10px;border:2px solid #3498db;border-radius:5px;font-size:15px;}
-    .status{padding:10px 20px;font-size:14px;}
-    .status.success{background:#eafaf1;color:#27ae60;}.status.error{background:#fdecea;color:#c0392b;}.status.loading{background:#eaf2fa;color:#2980b9;}
-    .seccion{padding:15px 20px;border-bottom:2px solid #ecf0f1;}
-    .seccion h2{font-size:1em;color:#2c3e50;margin-bottom:12px;padding-bottom:5px;border-bottom:1px solid #ecf0f1;}
-    .seccion.ajustes{background:#fef9e7;}
-    .seccion.ajustes h2{color:#8a6d00;}
-    table{border-collapse:collapse;width:100%;font-size:13px;margin-bottom:10px;}th,td{border:1px solid #ddd;padding:7px 10px;text-align:right;}
-    th{background:#3498db;color:white;text-align:center;}td:first-child{text-align:left;}
-    tr.fila-totales{background:#f0f4f8;font-weight:bold;}
-    tr.resultado-final{background:#eafaf1;font-weight:bold;color:#27ae60;}
-    tr.resultado-negativo{background:#fdecea;font-weight:bold;color:#c0392b;}
-    .resumen-total{padding:15px 20px;background:#2c3e50;color:white;font-size:1.1em;font-weight:bold;display:flex;justify-content:space-between;align-items:center;}
-    .resumen-total .positivo{color:#2ecc71;}.resumen-total .negativo{color:#e74c3c;}
-    .placeholder{text-align:center;color:#7f8c8d;padding:40px;}
-    .superadmin-panel{padding:10px 20px;background:#fff3cd;border-bottom:2px solid #ffc107;font-size:13px;}
-    .superadmin-panel label{cursor:pointer;margin-right:15px;}
-    .superadmin-panel input[type=checkbox]{margin-right:5px;}
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: Arial, sans-serif; background:#f5f5f5; padding:15px; }
+    .container { max-width:950px; margin:0 auto; background:white; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.1); overflow:hidden; }
+    .header { background:#2c3e50; color:white; padding:15px 20px; text-align:center; position:relative; }
+    .btn-menu { position:absolute; left:12px; top:50%; transform:translateY(-50%); background:rgba(255,255,255,0.15); color:white; border:none; border-radius:5px; padding:8px 12px; font-size:13px; cursor:pointer; text-decoration:none; }
+    .btn-menu:hover { background:rgba(255,255,255,0.25); }
+    .header h1 { font-size:1.4em; }
+    .controls { padding:20px; background:#ecf0f1; display:flex; gap:15px; flex-wrap:wrap; align-items:flex-end; border-bottom:2px solid #bdc3c7; }
+    .field { display:flex; flex-direction:column; gap:5px; }
+    .field label { font-weight:bold; font-size:13px; color:#2c3e50; }
+    .field input { padding:10px; border:2px solid #3498db; border-radius:5px; font-size:15px; }
+    #saveBtn { padding:10px 20px; background:#27ae60; color:white; border:none; border-radius:5px; font-size:14px; cursor:pointer; font-weight:bold; }
+    #saveBtn:hover { background:#219150; }
+    #saveBtn:disabled { background:#95a5a6; cursor:not-allowed; }
+    #exportBtn { padding:10px 20px; background:#3498db; color:white; border:none; border-radius:5px; font-size:14px; cursor:pointer; font-weight:bold; }
+    #exportBtn:hover { background:#2980b9; }
+    #exportBtn:disabled { background:#95a5a6; cursor:not-allowed; }
+    .status { padding:10px 20px; font-size:14px; }
+    .status.success { background:#eafaf1; color:#27ae60; }
+    .status.error { background:#fdecea; color:#c0392b; }
+    .status.loading { background:#eaf2fa; color:#2980b9; }
+    .contenido { padding:20px; }
+    .placeholder { text-align:center; color:#7f8c8d; padding:40px; }
+    .seccion-titulo { background:#2c3e50; color:white; padding:8px 12px; font-weight:bold; font-size:14px; margin-bottom:0; border-radius:6px 6px 0 0; }
+    .seccion-titulo-dorado { background:#7f6000; color:white; padding:8px 12px; font-weight:bold; font-size:14px; margin-bottom:0; border-radius:6px 6px 0 0; }
+    table { border-collapse:collapse; width:100%; font-size:13px; margin-bottom:20px; }
+    th, td { border:1px solid #ddd; padding:8px; text-align:right; white-space:nowrap; }
+    th:first-child, td:first-child { text-align:left; }
+    th { background-color:#3498db; color:white; font-weight:bold; }
+    tr.fila-totales { background-color:#fdf6e3; font-weight:bold; }
+    td.negativo { color:#c0392b; }
+    td input[type=number] { width:100px; padding:4px 6px; border:1px solid #bdc3c7; border-radius:4px; text-align:right; font-size:13px; }
+    .gastos-linea { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:#fdf6e3; border:1px solid #ddd; margin-bottom:8px; border-radius:4px; }
+    .gastos-linea label { font-weight:bold; color:#2c3e50; font-size:14px; }
+    .ganancia-final { margin-top:20px; padding:18px; background:#2c3e50; color:white; border-radius:8px; text-align:center; font-size:1.3em; font-weight:bold; }
+    .ganancia-final.negativo { background:#c0392b; }
+    .superusuario-control { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:#fff3cd; border:1px solid #ffc107; border-radius:6px; margin-bottom:8px; font-size:13px; color:#856404; font-weight:bold; gap:10px; }
+    .superusuario-control input[type=checkbox] { width:18px; height:18px; cursor:pointer; flex-shrink:0; }
 </style>
 </head>
 <body>
 <div class="container">
-    <div class="header"><a href="index.html" class="btn-menu">← Menú</a><h1>💰 Reporte de Ganancias del Día</h1></div>
-    <div class="controls">
-        <div class="field"><label>Fecha</label><input type="date" id="fechaInput"></div>
+    <div class="header">
+        <a href="index.html" class="btn-menu">← Menú</a>
+        <h1>💰 Reporte de Ganancias del Día</h1>
     </div>
-    <div id="superadminPanel" class="superadmin-panel" style="display:none;">
-        🔑 <b>Superadmin:</b>
-        <label><input type="checkbox" id="chkOcultarNoPasadas"> Ocultar ventas no pasadas a banca</label>
-        <label><input type="checkbox" id="chkOcultarAjustes"> Ocultar ajustes</label>
-        <button id="btnGuardarConfig" style="padding:5px 12px;background:#f39c12;color:white;border:none;border-radius:4px;cursor:pointer;font-size:13px;">Guardar configuración</button>
+    <div class="controls">
+        <div class="field">
+            <label>Fecha</label>
+            <input type="date" id="fechaInput">
+        </div>
+        <button id="saveBtn">💾 Guardar gastos</button>
+        <button id="exportBtn" disabled>📷 Exportar imagen</button>
     </div>
     <div id="statusMsg"></div>
-    <div id="contenido"><div class="placeholder">👆 Elige una fecha para ver el reporte de ganancias</div></div>
-    <div id="resumenTotal" class="resumen-total" style="display:none;">
-        <span>RESULTADO TOTAL DEL DÍA:</span><span id="totalFinal" class="positivo">C$0.00</span>
+    <div id="contenido" class="contenido">
+        <div class="placeholder">👆 Elige una fecha para cargar el reporte</div>
     </div>
 </div>
+
 <script>
 function getSession(){try{const s=sessionStorage.getItem('rt_session');return s?JSON.parse(s):null;}catch(e){return null;}}
 const _s=getSession();if(!_s||!_s.token){window.location.href='index.html';}
 const APP_TOKEN=_s.token;
-const APP_ROLE=_s.role||'';
 const WORKER_URL='https://frosty-base-53ff.watsonmraul.workers.dev';
 function urlConAuth(base){const sep=base.indexOf('?')===-1?'?':'&';return base+sep+'token='+encodeURIComponent(APP_TOKEN);}
+
 const fechaInput=document.getElementById('fechaInput');
 const statusEl=document.getElementById('statusMsg');
 const contenidoEl=document.getElementById('contenido');
-const resumenTotalEl=document.getElementById('resumenTotal');
-const totalFinalEl=document.getElementById('totalFinal');
-const superadminPanel=document.getElementById('superadminPanel');
-const chkOcultarNoPasadas=document.getElementById('chkOcultarNoPasadas');
-const chkOcultarAjustes=document.getElementById('chkOcultarAjustes');
-const btnGuardarConfig=document.getElementById('btnGuardarConfig');
+const saveBtn=document.getElementById('saveBtn');
+const exportBtn=document.getElementById('exportBtn');
 
-const hoy=new Date();
-fechaInput.value=hoy.getFullYear()+'-'+String(hoy.getMonth()+1).padStart(2,'0')+'-'+String(hoy.getDate()).padStart(2,'0');
+fechaInput.value=new Date().toISOString().split('T')[0];
 
-if(APP_ROLE==='superadmin')superadminPanel.style.display='block';
+let listasData=[],puestosData=[],gastosExistentes=[];
+let noPasadasData=null,ajustesData=null,superadminData=null;
 
-function fmt(n){return(n||0).toLocaleString('es-CR',{minimumFractionDigits:2});}
-function fmtSigned(n){const v=n||0;return(v>=0?'+':'')+v.toLocaleString('es-CR',{minimumFractionDigits:2});}
-
-function buildTablaListas(listas){
-    if(!listas||listas.length===0)return'<p style="color:#7f8c8d;font-size:13px;">Sin ventas de listas este día.</p>';
-    const grupos={};listas.forEach(l=>{if(!grupos[l.grupo_banca])grupos[l.grupo_banca]={venta:0,comision_pagar:0,comision_recibir:0,premio_pagar:0,premio_recibir:0};const g=grupos[l.grupo_banca];g.venta+=l.venta||0;g.comision_pagar+=l.comision_pagar||0;g.comision_recibir+=l.comision_recibir||0;g.premio_pagar+=l.premio_pagar||0;g.premio_recibir+=l.premio_recibir||0;});
-    let totales={venta:0,comision_pagar:0,comision_recibir:0,premio_pagar:0,premio_recibir:0,neto:0};
-    let html='<table><thead><tr><th>Banca</th><th>Venta</th><th>Com. a pagar</th><th>Com. a recibir</th><th>Premio a pagar</th><th>Premio a recibir</th><th>Neto</th></tr></thead><tbody>';
-    Object.entries(grupos).forEach(([banca,g])=>{
-        const neto=(g.comision_recibir-g.comision_pagar)+(g.premio_recibir-g.premio_pagar);
-        totales.venta+=g.venta;totales.comision_pagar+=g.comision_pagar;totales.comision_recibir+=g.comision_recibir;totales.premio_pagar+=g.premio_pagar;totales.premio_recibir+=g.premio_recibir;totales.neto+=neto;
-        html+=`<tr><td>${banca}</td><td>${fmt(g.venta)}</td><td style="color:#c0392b;">-${fmt(g.comision_pagar)}</td><td style="color:#27ae60;">+${fmt(g.comision_recibir)}</td><td style="color:#c0392b;">-${fmt(g.premio_pagar)}</td><td style="color:#27ae60;">+${fmt(g.premio_recibir)}</td><td style="${neto>=0?'color:#27ae60':'color:#c0392b'}">${fmtSigned(neto)}</td></tr>`;
-    });
-    html+=`<tr class="fila-totales"><td>TOTALES</td><td>${fmt(totales.venta)}</td><td style="color:#c0392b;">-${fmt(totales.comision_pagar)}</td><td style="color:#27ae60;">+${fmt(totales.comision_recibir)}</td><td style="color:#c0392b;">-${fmt(totales.premio_pagar)}</td><td style="color:#27ae60;">+${fmt(totales.premio_recibir)}</td><td style="${totales.neto>=0?'color:#27ae60':'color:#c0392b'};font-size:1.1em;">${fmtSigned(totales.neto)}</td></tr>`;
-    html+='</tbody></table>';
-    return{html,neto:totales.neto};
-}
-
-function buildTablaPuestos(puestos){
-    if(!puestos||puestos.length===0)return{html:'<p style="color:#7f8c8d;font-size:13px;">Sin ventas de puestos este día.</p>',neto:0};
-    let totalNeto=0;
-    let html='<table><thead><tr><th>Vendedor</th><th>Venta</th><th>Com. a recibir</th><th>Premio a pagar</th><th>Premio a recibir</th><th>Neto</th></tr></thead><tbody>';
-    puestos.forEach(p=>{const neto=(p.comision_recibir||0)+(p.premio_recibir||0)-(p.premio_pagar||0);totalNeto+=neto;html+=`<tr><td>${p.nombre}</td><td>${fmt(p.venta)}</td><td style="color:#27ae60;">+${fmt(p.comision_recibir)}</td><td style="color:#c0392b;">-${fmt(p.premio_pagar)}</td><td style="color:#27ae60;">+${fmt(p.premio_recibir)}</td><td style="${neto>=0?'color:#27ae60':'color:#c0392b'}">${fmtSigned(neto)}</td></tr>`;});
-    html+='</tbody></table>';return{html,neto:totalNeto};
-}
+function num(n){return(n||0).toLocaleString('es-NI',{minimumFractionDigits:2});}
 
 async function cargarReporte(){
-    const fecha=fechaInput.value;if(!fecha){contenidoEl.innerHTML='<div class="placeholder">👆 Elige una fecha</div>';resumenTotalEl.style.display='none';return;}
-    statusEl.innerHTML='<div class="status loading">⏳ Cargando reporte...</div>';contenidoEl.innerHTML='';resumenTotalEl.style.display='none';
+    const fecha=fechaInput.value;if(!fecha)return;
+    statusEl.innerHTML='<div class="status loading">⏳ Cargando reporte...</div>';
+    saveBtn.disabled=true;exportBtn.disabled=true;
     try{
-        const resp=await fetch(urlConAuth(`${WORKER_URL}/api/reporte-ganancias?fecha=${fecha}`),{cache:'no-store'});
-        if(!resp.ok)throw new Error('No se pudo cargar el reporte');
-        const data=await resp.json();
-        statusEl.innerHTML='';
-        if(APP_ROLE==='superadmin'&&data.superadmin){chkOcultarNoPasadas.checked=!!data.superadmin.ocultarNoPasadas;chkOcultarAjustes.checked=!!data.superadmin.ocultarAjustes;}
-        let html='';let netoTotal=0;
-        const listaResult=buildTablaListas(data.listas);
-        if(typeof listaResult==='object'){html+=`<div class="seccion"><h2>📋 Listas (con banca)</h2>${listaResult.html}</div>`;netoTotal+=listaResult.neto;}
-        else{html+=`<div class="seccion"><h2>📋 Listas (con banca)</h2>${listaResult}</div>`;}
-        const puestoResult=buildTablaPuestos(data.puestos);
-        html+=`<div class="seccion"><h2>🏪 Puestos</h2>${puestoResult.html}</div>`;netoTotal+=puestoResult.neto;
-        if(data.noPasadas){
-            const np=data.noPasadas;const neto=(np.venta||0)-(np.comision_pagar||0)-(np.premio_pagar||0);netoTotal+=neto;
-            html+=`<div class="seccion"><h2>⚠️ Ventas NO pasadas a banca</h2><table><thead><tr><th>Venta</th><th>Comisión a pagar</th><th>Premio a pagar</th><th>Neto (queda acá)</th></tr></thead><tbody><tr><td>${fmt(np.venta)}</td><td style="color:#c0392b;">-${fmt(np.comision_pagar)}</td><td style="color:#c0392b;">-${fmt(np.premio_pagar)}</td><td style="${neto>=0?'color:#27ae60':'color:#c0392b'}">${fmtSigned(neto)}</td></tr></tbody></table></div>`;
-        }
-        if(data.ajustes){
-            const aj=data.ajustes;const neto=(aj.venta||0)-(aj.premio_pagar||0);netoTotal+=neto;
-            html+=`<div class="seccion ajustes"><h2>⚖️ AJUSTES</h2><table><thead><tr><th>Monto ajuste</th><th>Premio ajuste</th><th>Neto ajuste</th></tr></thead><tbody><tr><td>${fmt(aj.venta)}</td><td style="color:#c0392b;">-${fmt(aj.premio_pagar)}</td><td style="${neto>=0?'color:#27ae60':'color:#c0392b'}">${fmtSigned(neto)}</td></tr></tbody></table></div>`;
-        }
-        contenidoEl.innerHTML=html||'<div class="placeholder">No hay ventas registradas para esta fecha.</div>';
-        if(html){totalFinalEl.textContent=fmtSigned(netoTotal);totalFinalEl.className=netoTotal>=0?'positivo':'negativo';resumenTotalEl.style.display='flex';}
-    }catch(e){statusEl.innerHTML=`<div class="status error">⚠️ ${e.message}</div>`;}
+        const[respGanancias,respGastos]=await Promise.all([
+            fetch(urlConAuth(`${WORKER_URL}/api/reporte-ganancias?fecha=${fecha}`),{cache:'no-store'}),
+            fetch(urlConAuth(`${WORKER_URL}/api/gastos?fecha=${fecha}`),{cache:'no-store'})
+        ]);
+        if(!respGanancias.ok)throw new Error('No se pudo cargar el reporte de ganancias');
+        const g=await respGanancias.json();
+        listasData=g.listas||[];puestosData=g.puestos||[];
+        noPasadasData=g.noPasadas||null;ajustesData=g.ajustes||null;
+        superadminData=g.superadmin||null;
+        gastosExistentes=respGastos.ok?await respGastos.json():[];
+        renderizarReporte();
+        statusEl.innerHTML='';saveBtn.disabled=false;exportBtn.disabled=false;
+    }catch(error){
+        statusEl.innerHTML=`<div class="status error">⚠️ ${error.message}</div>`;
+        contenidoEl.innerHTML='';
+    }
 }
 
-btnGuardarConfig.addEventListener('click',async function(){
-    const fecha=fechaInput.value;if(!fecha)return;
-    this.disabled=true;this.textContent='Guardando...';
+function buscarGasto(categoria,vendedorId){
+    return gastosExistentes.find(g=>g.categoria===categoria&&(g.vendedor_id||null)===(vendedorId||null));
+}
+
+function renderizarReporte(){
+    if(listasData.length===0&&puestosData.length===0){
+        contenidoEl.innerHTML='<div class="placeholder">No hay ventas registradas ese día.</div>';return;
+    }
+
+    // LISTAS
+    let totL={venta:0,cp:0,cr:0,pp:0,pr:0,gan:0};
+    let htmlListas='<div class="seccion-titulo">LISTAS</div><table><thead><tr><th>Sorteo</th><th>Venta</th><th>Comisión Pagar</th><th>Comisión Recibir</th><th>Premio Pagar</th><th>Premio Recibir</th><th>Ganancia</th></tr></thead><tbody>';
+    listasData.forEach(r=>{
+        const gan=(r.comision_recibir-r.comision_pagar)+(r.premio_recibir-r.premio_pagar);
+        totL.venta+=r.venta;totL.cp+=r.comision_pagar;totL.cr+=r.comision_recibir;
+        totL.pp+=r.premio_pagar;totL.pr+=r.premio_recibir;totL.gan+=gan;
+        htmlListas+=`<tr><td>${r.grupo_banca}</td><td>${num(r.venta)}</td><td>${num(r.comision_pagar)}</td><td>${num(r.comision_recibir)}</td><td>${num(r.premio_pagar)}</td><td>${num(r.premio_recibir)}</td><td class="${gan<0?'negativo':''}">${num(gan)}</td></tr>`;
+    });
+    htmlListas+=`<tr class="fila-totales"><td>Totales</td><td>${num(totL.venta)}</td><td>${num(totL.cp)}</td><td>${num(totL.cr)}</td><td>${num(totL.pp)}</td><td>${num(totL.pr)}</td><td class="${totL.gan<0?'negativo':''}">${num(totL.gan)}</td></tr></tbody></table>`;
+
+    // LISTAS NO PASADAS
+    let htmlNoPasadas='';
+    if(noPasadasData){
+        const gan=noPasadasData.venta-noPasadasData.comision_pagar-noPasadasData.premio_pagar;
+        htmlNoPasadas=`<div class="seccion-titulo-dorado">LISTAS NO PASADAS A BANCA</div>
+        <table><thead><tr><th style="text-align:left">Venta</th><th>Comisión Pagar</th><th>Premio Pagar</th><th>Ganancia</th></tr></thead><tbody>
+        <tr><td style="text-align:left">${num(noPasadasData.venta)}</td><td>${num(noPasadasData.comision_pagar)}</td><td>${num(noPasadasData.premio_pagar)}</td><td class="${gan<0?'negativo':''}">${num(gan)}</td></tr>
+        </tbody></table>`;
+    }
+
+    // AJUSTES
+    let htmlAjustes='';
+    if(ajustesData){
+        const gan=(ajustesData.venta||0)-(ajustesData.premio_pagar||0);
+        htmlAjustes=`<div class="seccion-titulo-dorado">⚖️ AJUSTES</div>
+        <table><thead><tr><th style="text-align:left">Ajuste de Venta</th><th>Ajuste de Premio</th><th>Efecto en Ganancia</th></tr></thead><tbody>
+        <tr><td style="text-align:left" class="${(ajustesData.venta||0)<0?'negativo':''}">${num(ajustesData.venta)}</td><td class="${(ajustesData.premio_pagar||0)<0?'negativo':''}">${num(ajustesData.premio_pagar)}</td><td class="${gan<0?'negativo':''}">${num(gan)}</td></tr>
+        </tbody></table>`;
+    }
+
+    // CONTROLES SUPERUSUARIO (uno por sección, solo si hay datos)
+    let htmlControles='';
+    if(superadminData){
+        if(superadminData.hayNoPasadas){
+            htmlControles+=`<div class="superusuario-control">
+                <span>🔒 Ocultar "Listas no pasadas" para otros perfiles</span>
+                <input type="checkbox" id="checkNoPasadas" ${superadminData.ocultarNoPasadas?'checked':''}>
+            </div>`;
+        }
+        if(superadminData.hayAjustes){
+            htmlControles+=`<div class="superusuario-control">
+                <span>🔒 Ocultar "Ajustes" para otros perfiles</span>
+                <input type="checkbox" id="checkAjustes" ${superadminData.ocultarAjustes?'checked':''}>
+            </div>`;
+        }
+    }
+
+    // OFICINA
+    const gastoOficina=buscarGasto('oficina',null);
+    const oficinaVal=gastoOficina?gastoOficina.monto:(totL.venta>0?35000:0);
+    const oficinaId=gastoOficina?gastoOficina.id:'';
+    const htmlOficina=`<div class="gastos-linea"><label>Salarios de Oficina:</label>
+        <input type="number" id="oficinaInput" data-id="${oficinaId}" value="${oficinaVal}" min="0"></div>`;
+
+    // PUESTOS
+    let htmlPuestos='<div class="seccion-titulo">PUESTOS</div><table><thead><tr><th>Puesto</th><th>Venta</th><th>Comisión Recibir</th><th>Premio Pagar</th><th>Premio Recibir</th><th>Salario</th><th>Ganancia</th></tr></thead><tbody>';
+    puestosData.forEach(r=>{
+        const gs=buscarGasto('salario_puesto',r.vendedor_id);
+        const salVal=gs?gs.monto:(r.venta>0?15000:0);
+        const salId=gs?gs.id:'';
+        htmlPuestos+=`<tr>
+            <td>${r.nombre}</td><td>${num(r.venta)}</td><td>${num(r.comision_recibir)}</td>
+            <td>${num(r.premio_pagar)}</td><td>${num(r.premio_recibir)}</td>
+            <td><input type="number" class="salario-puesto" data-vendedor-id="${r.vendedor_id}" data-id="${salId}" data-nombre="${r.nombre}" data-comision="${r.comision_recibir}" data-premio-pagar="${r.premio_pagar}" data-premio-recibir="${r.premio_recibir}" value="${salVal}" min="0"></td>
+            <td class="ganancia-puesto"></td>
+        </tr>`;
+    });
+    htmlPuestos+=`<tr class="fila-totales"><td>Totales</td><td></td><td></td><td></td><td></td><td class="totales-salario"></td><td class="totales-ganancia-puestos"></td></tr></tbody></table>`;
+
+    contenidoEl.innerHTML=htmlListas+htmlNoPasadas+htmlAjustes+htmlControles+htmlOficina+htmlPuestos+'<div class="ganancia-final" id="gananciaFinal"></div>';
+
+    contenidoEl.dataset.gananciaListas=totL.gan;
+    contenidoEl.dataset.gananciaNoPasadas=noPasadasData?(noPasadasData.venta-noPasadasData.comision_pagar-noPasadasData.premio_pagar):0;
+    contenidoEl.dataset.gananciaAjustes=ajustesData?((ajustesData.venta||0)-(ajustesData.premio_pagar||0)):0;
+
+    document.getElementById('oficinaInput').addEventListener('input',recalcular);
+    document.querySelectorAll('.salario-puesto').forEach(i=>i.addEventListener('input',recalcular));
+
+    const chkNP=document.getElementById('checkNoPasadas');
+    const chkAJ=document.getElementById('checkAjustes');
+    if(chkNP)chkNP.addEventListener('change',()=>guardarConfig());
+    if(chkAJ)chkAJ.addEventListener('change',()=>guardarConfig());
+
+    recalcular();
+}
+
+async function guardarConfig(){
+    const chkNP=document.getElementById('checkNoPasadas');
+    const chkAJ=document.getElementById('checkAjustes');
     try{
-        const resp=await fetch(urlConAuth(`${WORKER_URL}/api/ganancias-config`),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:APP_TOKEN,fecha,ocultar_no_pasadas:chkOcultarNoPasadas.checked,ocultar_ajustes:chkOcultarAjustes.checked})});
-        const result=await resp.json();if(!resp.ok||!result.ok)throw new Error(result.error||'Error');
-        statusEl.innerHTML='<div class="status success">✅ Configuración guardada</div>';await cargarReporte();
+        await fetch(urlConAuth(`${WORKER_URL}/api/ganancias-config`),{
+            method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({
+                token:APP_TOKEN,fecha:fechaInput.value,
+                ocultar_no_pasadas:chkNP?chkNP.checked:(superadminData?superadminData.ocultarNoPasadas:false),
+                ocultar_ajustes:chkAJ?chkAJ.checked:(superadminData?superadminData.ocultarAjustes:false)
+            })
+        });
+    }catch(e){statusEl.innerHTML=`<div class="status error">⚠️ Error al guardar configuración</div>`;}
+}
+
+function recalcular(){
+    const ganL=parseFloat(contenidoEl.dataset.gananciaListas)||0;
+    const ganNP=parseFloat(contenidoEl.dataset.gananciaNoPasadas)||0;
+    const ganAJ=parseFloat(contenidoEl.dataset.gananciaAjustes)||0;
+    const oficina=parseFloat(document.getElementById('oficinaInput').value)||0;
+    let totalSalarios=0,gananciaPuestos=0;
+    document.querySelectorAll('.salario-puesto').forEach(input=>{
+        const salario=parseFloat(input.value)||0;
+        const comision=parseFloat(input.dataset.comision)||0;
+        const premioPagar=parseFloat(input.dataset.premioPagar)||0;
+        const premioRec=parseFloat(input.dataset.premioRecibir)||0;
+        const gan=(comision-salario)+(premioRec-premioPagar);
+        totalSalarios+=salario;gananciaPuestos+=gan;
+        const tdGan=input.closest('tr').querySelector('.ganancia-puesto');
+        tdGan.textContent=num(gan);
+        tdGan.className='ganancia-puesto'+(gan<0?' negativo':'');
+    });
+    document.querySelector('.totales-salario').textContent=num(totalSalarios);
+    const tdTotGan=document.querySelector('.totales-ganancia-puestos');
+    tdTotGan.textContent=num(gananciaPuestos);
+    tdTotGan.className='totales-ganancia-puestos'+(gananciaPuestos<0?' negativo':'');
+    const gananciaFinal=ganL+ganNP+ganAJ-oficina+gananciaPuestos;
+    const el=document.getElementById('gananciaFinal');
+    el.textContent=(gananciaFinal<0?'⚠️ Pérdida del día: ':'✅ Ganancia del día: ')+num(gananciaFinal);
+    el.className='ganancia-final'+(gananciaFinal<0?' negativo':'');
+}
+
+saveBtn.addEventListener('click',async function(){
+    const fecha=fechaInput.value;const registros=[];
+    const ofEl=document.getElementById('oficinaInput');
+    registros.push({id:ofEl.dataset.id?parseInt(ofEl.dataset.id):null,concepto:'Oficina',categoria:'oficina',vendedor_id:null,monto:parseFloat(ofEl.value)||0});
+    document.querySelectorAll('.salario-puesto').forEach(input=>{
+        registros.push({id:input.dataset.id?parseInt(input.dataset.id):null,concepto:`Salario ${input.dataset.nombre}`,categoria:'salario_puesto',vendedor_id:parseInt(input.dataset.vendedorId),monto:parseFloat(input.value)||0});
+    });
+    this.disabled=true;this.textContent='⏳ Guardando...';
+    try{
+        const r=await fetch(urlConAuth(`${WORKER_URL}/api/gastos`),{
+            method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({fecha,registros})
+        });
+        const res=await r.json();
+        if(r.ok&&res.ok){statusEl.innerHTML='<div class="status success">✅ Gastos guardados correctamente</div>';await cargarReporte();}
+        else throw new Error(res.error||'Error al guardar');
     }catch(e){statusEl.innerHTML=`<div class="status error">⚠️ ${e.message}</div>`;}
-    finally{this.disabled=false;this.textContent='Guardar configuración';}
+    finally{this.disabled=false;this.textContent='💾 Guardar gastos';}
+});
+
+exportBtn.addEventListener('click',async function(){
+    if(!contenidoEl.querySelector('table')){statusEl.innerHTML='<div class="status error">⚠️ No hay nada para exportar</div>';return;}
+    this.disabled=true;this.textContent='⏳ Generando imagen...';
+    try{
+        const clone=contenidoEl.cloneNode(true);
+        clone.querySelectorAll('.superusuario-control').forEach(el=>el.remove());
+        clone.querySelectorAll('input').forEach(input=>{
+            const div=document.createElement('div');
+            div.textContent=num(parseFloat(input.value)||0);
+            div.style.fontWeight='bold';div.style.textAlign='right';
+            input.replaceWith(div);
+        });
+        const wrapper=document.createElement('div');
+        wrapper.style.cssText='position:fixed;top:0;left:-100000px;background:#fff;padding:15px;width:700px;font-family:Arial,sans-serif;';
+        const title=document.createElement('div');
+        title.style.cssText='font-weight:bold;font-size:18px;color:#2c3e50;margin-bottom:12px;';
+        title.textContent=`Reporte de Ganancias — ${fechaInput.value}`;
+        wrapper.appendChild(title);wrapper.appendChild(clone);document.body.appendChild(wrapper);
+        await new Promise(r=>requestAnimationFrame(r));
+        const canvas=await html2canvas(wrapper,{backgroundColor:'#ffffff',scale:2});
+        document.body.removeChild(wrapper);
+        canvas.toBlob(async blob=>{
+            const fileName=`Ganancias ${fechaInput.value}.png`;
+            const files=[new File([blob],fileName,{type:'image/png'})];
+            if(navigator.canShare&&navigator.canShare({files})){try{await navigator.share({files,title:fileName});}catch(e){}}
+            else{const a=document.createElement('a');a.download=fileName;a.href=URL.createObjectURL(blob);a.click();}
+            this.disabled=false;this.textContent='📷 Exportar imagen';
+        },'image/png');
+    }catch(e){
+        statusEl.innerHTML=`<div class="status error">⚠️ Error: ${e.message}</div>`;
+        this.disabled=false;this.textContent='📷 Exportar imagen';
+    }
 });
 
 fechaInput.addEventListener('change',cargarReporte);
