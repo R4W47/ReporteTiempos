@@ -34,28 +34,40 @@
   margin-bottom: 12px;
 }
 
-/* Fuerza al texto y al input a ponerse lado a lado */
-.saldo-row .field {
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  gap: 8px !important; /* Espacio entre el texto y la caja */
+/* 1. La fila usa Grid con 2 columnas iguales */
+.saldo-row {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important; /* Mismo ancho para los 2 lados */
+  gap: 16px !important;                       /* Mismo espacio horizontal que abajo */
+  margin-bottom: 16px !important;
+  width: 100% !important;
 }
 
-/* Cancela el salto de línea del label */
+/* 2. Cada campo organiza su Texto + Input horizontalmente */
+.saldo-row .field {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important; /* Espacio pequeño entre el texto y la caja */
+  width: 100% !important;
+}
+
+/* 3. El texto no se corta ni salta de línea */
 .saldo-row .field label {
-  display: inline-block !important;
   white-space: nowrap !important;
   margin: 0 !important;
 }
 
-/* Controla el tamaño de la caja editable */
+/* 4. El input toma todo el espacio restante dentro de su columna */
 .saldo-row .field input {
-  width: 120px !important; /* Ajusta el ancho según prefieras */
-  padding: 6px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  text-align: right;
+  flex: 1 !important;        /* Hace que se estire hasta el borde exacto */
+  width: 100% !important;
+  min-width: 0 !important;   /* Previene desbordamiento en flexbox */
+  padding: 8px !important;
+  border: 1px solid #ccc !important;
+  border-radius: 4px !important;
+  font-size: 14px !important;
+  text-align: right !important;
+  background: #fff !important;
 }
     .botones-fila{display:flex;gap:10px;flex-wrap:wrap;}
     #saveBtn{padding:12px 25px;background:#27ae60;color:white;border:none;border-radius:5px;font-size:15px;font-weight:bold;cursor:pointer;}
