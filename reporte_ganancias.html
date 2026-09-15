@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Reporte de Ganancias del Día</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
     *{margin:0;padding:0;box-sizing:border-box;}body{font-family:Arial,sans-serif;background:#f5f5f5;padding:15px;}
     .container{max-width:850px;margin:0 auto;background:white;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.1);overflow:hidden;}
@@ -14,6 +15,11 @@
     .field{display:flex;flex-direction:column;gap:5px;}
     .field label{font-weight:bold;font-size:13px;color:#2c3e50;}
     input[type=date]{padding:10px;border:2px solid #3498db;border-radius:5px;font-size:15px;}
+    .botones-fila{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+    #saveBtn{padding:10px 20px;background:#27ae60;color:white;border:none;border-radius:5px;font-size:14px;font-weight:bold;cursor:pointer;}
+    #saveBtn:hover{background:#219150;}#saveBtn:disabled{background:#95a5a6;cursor:not-allowed;}
+    #exportBtn{padding:10px 20px;background:#3498db;color:white;border:none;border-radius:5px;font-size:14px;font-weight:bold;cursor:pointer;}
+    #exportBtn:hover{background:#2980b9;}#exportBtn:disabled{background:#95a5a6;cursor:not-allowed;}
     .status{padding:10px 20px;font-size:14px;}
     .status.success{background:#eafaf1;color:#27ae60;}.status.error{background:#fdecea;color:#c0392b;}.status.loading{background:#eaf2fa;color:#2980b9;}
     .seccion{padding:15px 20px;border-bottom:2px solid #ecf0f1;}
@@ -23,8 +29,9 @@
     table{border-collapse:collapse;width:100%;font-size:13px;margin-bottom:10px;}th,td{border:1px solid #ddd;padding:7px 10px;text-align:right;}
     th{background:#3498db;color:white;text-align:center;}td:first-child{text-align:left;}
     tr.fila-totales{background:#f0f4f8;font-weight:bold;}
-    tr.resultado-final{background:#eafaf1;font-weight:bold;color:#27ae60;}
-    tr.resultado-negativo{background:#fdecea;font-weight:bold;color:#c0392b;}
+    td input[type=number]{width:90px;padding:4px 6px;border:1px solid #bdc3c7;border-radius:4px;text-align:right;font-size:13px;}
+    .gasto-oficina-row{display:flex;align-items:center;gap:12px;padding:10px 0;font-size:14px;font-weight:bold;color:#2c3e50;}
+    .gasto-oficina-row input{padding:6px 8px;border:2px solid #bdc3c7;border-radius:4px;font-size:14px;text-align:right;width:140px;}
     .resumen-total{padding:15px 20px;background:#2c3e50;color:white;font-size:1.1em;font-weight:bold;display:flex;justify-content:space-between;align-items:center;}
     .resumen-total .positivo{color:#2ecc71;}.resumen-total .negativo{color:#e74c3c;}
     .placeholder{text-align:center;color:#7f8c8d;padding:40px;}
@@ -38,6 +45,10 @@
     <div class="header"><a href="index.html" class="btn-menu">← Menú</a><h1>💰 Reporte de Ganancias del Día</h1></div>
     <div class="controls">
         <div class="field"><label>Fecha</label><input type="date" id="fechaInput"></div>
+        <div class="botones-fila">
+            <button id="saveBtn" disabled>💾 Guardar salarios</button>
+            <button id="exportBtn" disabled>📷 Exportar imagen</button>
+        </div>
     </div>
     <div id="superadminPanel" class="superadmin-panel" style="display:none;">
         🔑 <b>Superadmin:</b>
@@ -67,14 +78,31 @@ const superadminPanel=document.getElementById('superadminPanel');
 const chkOcultarNoPasadas=document.getElementById('chkOcultarNoPasadas');
 const chkOcultarAjustes=document.getElementById('chkOcultarAjustes');
 const btnGuardarConfig=document.getElementById('btnGuardarConfig');
+const saveBtn=document.getElementById('saveBtn');
+const exportBtn=document.getElementById('exportBtn');
 
 const hoy=new Date();
 fechaInput.value=hoy.getFullYear()+'-'+String(hoy.getMonth()+1).padStart(2,'0')+'-'+String(hoy.getDate()).padStart(2,'0');
-
 if(APP_ROLE==='superadmin')superadminPanel.style.display='block';
 
 function fmt(n){return(n||0).toLocaleString('es-CR',{minimumFractionDigits:2});}
 function fmtSigned(n){const v=n||0;return(v>=0?'+':'')+v.toLocaleString('es-CR',{minimumFractionDigits:2});}
+
+let _gastosExistentes=[];
+let _netoListas=0,_netoNoPasadas=0,_netoAjustes=0;
+
+function buscarGasto(categoria,vendedor_id){
+    return _gastosExistentes.find(g=>g.categoria===categoria&&(g.vendedor_id||null)===(vendedor_id||null));
+}
+
+function recalcularTotal(){
+    const oficina=parseFloat(document.getElementById('inputOficina')?.value)||0;
+    let totalSalarios=oficina;
+    document.querySelectorAll('.input-salario-puesto').forEach(inp=>{totalSalarios+=parseFloat(inp.value)||0;});
+    const netoFinal=_netoListas+_netoNoPasadas+_netoAjustes-totalSalarios;
+    totalFinalEl.textContent=fmtSigned(netoFinal);
+    totalFinalEl.className=netoFinal>=0?'positivo':'negativo';
+}
 
 function buildTablaListas(listas){
     if(!listas||listas.length===0)return'<p style="color:#7f8c8d;font-size:13px;">Sin ventas de listas este día.</p>';
@@ -93,39 +121,144 @@ function buildTablaListas(listas){
 
 function buildTablaPuestos(puestos){
     if(!puestos||puestos.length===0)return{html:'<p style="color:#7f8c8d;font-size:13px;">Sin ventas de puestos este día.</p>',neto:0};
-    let totalNeto=0;
-    let html='<table><thead><tr><th>Vendedor</th><th>Venta</th><th>Com. a recibir</th><th>Premio a pagar</th><th>Premio a recibir</th><th>Neto</th></tr></thead><tbody>';
-    puestos.forEach(p=>{const neto=(p.comision_recibir||0)+(p.premio_recibir||0)-(p.premio_pagar||0);totalNeto+=neto;html+=`<tr><td>${p.nombre}</td><td>${fmt(p.venta)}</td><td style="color:#27ae60;">+${fmt(p.comision_recibir)}</td><td style="color:#c0392b;">-${fmt(p.premio_pagar)}</td><td style="color:#27ae60;">+${fmt(p.premio_recibir)}</td><td style="${neto>=0?'color:#27ae60':'color:#c0392b'}">${fmtSigned(neto)}</td></tr>`;});
-    html+='</tbody></table>';return{html,neto:totalNeto};
+    let html='<table><thead><tr><th>Vendedor</th><th>Venta</th><th>Com. a recibir</th><th>Premio a pagar</th><th>Premio a recibir</th><th>Salario</th><th>Neto</th></tr></thead><tbody>';
+    puestos.forEach(p=>{
+        const gs=buscarGasto('salario_puesto',p.vendedor_id);
+        const salVal=gs?gs.monto:15000;
+        const salId=gs?gs.id:'';
+        const neto=(p.comision_recibir||0)+(p.premio_recibir||0)-(p.premio_pagar||0)-salVal;
+        html+=`<tr>
+            <td>${p.nombre}</td><td>${fmt(p.venta)}</td>
+            <td style="color:#27ae60;">+${fmt(p.comision_recibir)}</td>
+            <td style="color:#c0392b;">-${fmt(p.premio_pagar)}</td>
+            <td style="color:#27ae60;">+${fmt(p.premio_recibir)}</td>
+            <td><input type="number" class="input-salario-puesto" data-vendedor-id="${p.vendedor_id}" data-id="${salId}" data-nombre="${p.nombre}" data-comision="${p.comision_recibir||0}" data-premio-pagar="${p.premio_pagar||0}" data-premio-recibir="${p.premio_recibir||0}" value="${salVal}" min="0" oninput="recalcularFila(this)"></td>
+            <td class="td-neto-puesto" style="${neto>=0?'color:#27ae60':'color:#c0392b'}">${fmtSigned(neto)}</td>
+        </tr>`;
+    });
+    html+='</tbody></table>';
+    return{html};
+}
+
+function recalcularFila(inp){
+    const sal=parseFloat(inp.value)||0;
+    const comision=parseFloat(inp.dataset.comision)||0;
+    const premioPagar=parseFloat(inp.dataset.premioPagar)||0;
+    const premioRec=parseFloat(inp.dataset.premioRecibir)||0;
+    const neto=comision+premioRec-premioPagar-sal;
+    const td=inp.closest('tr').querySelector('.td-neto-puesto');
+    td.textContent=fmtSigned(neto);
+    td.style.color=neto>=0?'#27ae60':'#c0392b';
+    recalcularTotal();
 }
 
 async function cargarReporte(){
-    const fecha=fechaInput.value;if(!fecha){contenidoEl.innerHTML='<div class="placeholder">👆 Elige una fecha</div>';resumenTotalEl.style.display='none';return;}
-    statusEl.innerHTML='<div class="status loading">⏳ Cargando reporte...</div>';contenidoEl.innerHTML='';resumenTotalEl.style.display='none';
+    const fecha=fechaInput.value;
+    if(!fecha){contenidoEl.innerHTML='<div class="placeholder">👆 Elige una fecha</div>';resumenTotalEl.style.display='none';return;}
+    statusEl.innerHTML='<div class="status loading">⏳ Cargando reporte...</div>';
+    contenidoEl.innerHTML='';resumenTotalEl.style.display='none';
+    saveBtn.disabled=true;exportBtn.disabled=true;
+    _netoListas=0;_netoNoPasadas=0;_netoAjustes=0;
     try{
-        const resp=await fetch(urlConAuth(`${WORKER_URL}/api/reporte-ganancias?fecha=${fecha}`),{cache:'no-store'});
-        if(!resp.ok)throw new Error('No se pudo cargar el reporte');
-        const data=await resp.json();
+        const[respG,respGastos]=await Promise.all([
+            fetch(urlConAuth(`${WORKER_URL}/api/reporte-ganancias?fecha=${fecha}`),{cache:'no-store'}),
+            fetch(urlConAuth(`${WORKER_URL}/api/gastos?fecha=${fecha}`),{cache:'no-store'})
+        ]);
+        if(!respG.ok)throw new Error('No se pudo cargar el reporte');
+        const data=await respG.json();
+        _gastosExistentes=respGastos.ok?await respGastos.json():[];
         statusEl.innerHTML='';
         if(APP_ROLE==='superadmin'&&data.superadmin){chkOcultarNoPasadas.checked=!!data.superadmin.ocultarNoPasadas;chkOcultarAjustes.checked=!!data.superadmin.ocultarAjustes;}
-        let html='';let netoTotal=0;
+        let html='';
+
+        // LISTAS
         const listaResult=buildTablaListas(data.listas);
-        if(typeof listaResult==='object'){html+=`<div class="seccion"><h2>📋 Listas (con banca)</h2>${listaResult.html}</div>`;netoTotal+=listaResult.neto;}
+        if(typeof listaResult==='object'){html+=`<div class="seccion"><h2>📋 Listas (con banca)</h2>${listaResult.html}</div>`;_netoListas=listaResult.neto;}
         else{html+=`<div class="seccion"><h2>📋 Listas (con banca)</h2>${listaResult}</div>`;}
+
+        // PUESTOS
         const puestoResult=buildTablaPuestos(data.puestos);
-        html+=`<div class="seccion"><h2>🏪 Puestos</h2>${puestoResult.html}</div>`;netoTotal+=puestoResult.neto;
+        html+=`<div class="seccion"><h2>🏪 Puestos</h2>${puestoResult.html}</div>`;
+
+        // NO PASADAS
         if(data.noPasadas){
-            const np=data.noPasadas;const neto=(np.venta||0)-(np.comision_pagar||0)-(np.premio_pagar||0);netoTotal+=neto;
+            const np=data.noPasadas;const neto=(np.venta||0)-(np.comision_pagar||0)-(np.premio_pagar||0);_netoNoPasadas=neto;
             html+=`<div class="seccion"><h2>⚠️ Ventas NO pasadas a banca</h2><table><thead><tr><th>Venta</th><th>Comisión a pagar</th><th>Premio a pagar</th><th>Neto (queda acá)</th></tr></thead><tbody><tr><td>${fmt(np.venta)}</td><td style="color:#c0392b;">-${fmt(np.comision_pagar)}</td><td style="color:#c0392b;">-${fmt(np.premio_pagar)}</td><td style="${neto>=0?'color:#27ae60':'color:#c0392b'}">${fmtSigned(neto)}</td></tr></tbody></table></div>`;
         }
+
+        // AJUSTES
         if(data.ajustes){
-            const aj=data.ajustes;const neto=(aj.venta||0)-(aj.premio_pagar||0);netoTotal+=neto;
+            const aj=data.ajustes;const neto=(aj.venta||0)-(aj.premio_pagar||0);_netoAjustes=neto;
             html+=`<div class="seccion ajustes"><h2>⚖️ AJUSTES</h2><table><thead><tr><th>Monto ajuste</th><th>Premio ajuste</th><th>Neto ajuste</th></tr></thead><tbody><tr><td>${fmt(aj.venta)}</td><td style="color:#c0392b;">-${fmt(aj.premio_pagar)}</td><td style="${neto>=0?'color:#27ae60':'color:#c0392b'}">${fmtSigned(neto)}</td></tr></tbody></table></div>`;
         }
+
+        // SALARIO OFICINA
+        const gsOficina=buscarGasto('oficina',null);
+        const oficinaVal=gsOficina?gsOficina.monto:35000;
+        const oficinaId=gsOficina?gsOficina.id:'';
+        html+=`<div class="seccion"><h2>🏢 Gastos de Oficina</h2>
+            <div class="gasto-oficina-row">
+                <label>Salario de oficina:</label>
+                <input type="number" id="inputOficina" data-id="${oficinaId}" value="${oficinaVal}" min="0" oninput="recalcularTotal()">
+            </div>
+        </div>`;
+
         contenidoEl.innerHTML=html||'<div class="placeholder">No hay ventas registradas para esta fecha.</div>';
-        if(html){totalFinalEl.textContent=fmtSigned(netoTotal);totalFinalEl.className=netoTotal>=0?'positivo':'negativo';resumenTotalEl.style.display='flex';}
+        if(html){resumenTotalEl.style.display='flex';recalcularTotal();saveBtn.disabled=false;exportBtn.disabled=false;}
     }catch(e){statusEl.innerHTML=`<div class="status error">⚠️ ${e.message}</div>`;}
 }
+
+saveBtn.addEventListener('click',async function(){
+    const fecha=fechaInput.value;if(!fecha)return;
+    const registros=[];
+    const ofEl=document.getElementById('inputOficina');
+    if(ofEl)registros.push({id:ofEl.dataset.id?parseInt(ofEl.dataset.id):null,concepto:'Oficina',categoria:'oficina',vendedor_id:null,monto:parseFloat(ofEl.value)||0});
+    document.querySelectorAll('.input-salario-puesto').forEach(inp=>{
+        registros.push({id:inp.dataset.id?parseInt(inp.dataset.id):null,concepto:`Salario ${inp.dataset.nombre}`,categoria:'salario_puesto',vendedor_id:parseInt(inp.dataset.vendedorId),monto:parseFloat(inp.value)||0});
+    });
+    this.disabled=true;this.textContent='⏳ Guardando...';
+    try{
+        const resp=await fetch(urlConAuth(`${WORKER_URL}/api/gastos`),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fecha,registros})});
+        const result=await resp.json();
+        if(resp.ok&&result.ok){statusEl.innerHTML='<div class="status success">✅ Salarios guardados</div>';await cargarReporte();}
+        else throw new Error(result.error||'Error al guardar');
+    }catch(e){statusEl.innerHTML=`<div class="status error">⚠️ ${e.message}</div>`;}
+    finally{this.disabled=false;this.textContent='💾 Guardar salarios';}
+});
+
+exportBtn.addEventListener('click',async function(){
+    this.disabled=true;this.textContent='⏳ Generando...';
+    try{
+        const clone=document.querySelector('.container').cloneNode(true);
+        clone.querySelector('.header').querySelectorAll('.btn-menu').forEach(b=>b.remove());
+        clone.querySelector('.controls')&&clone.querySelector('.controls').remove();
+        const sp=clone.querySelector('#superadminPanel');if(sp)sp.remove();
+        const sm=clone.querySelector('#statusMsg');if(sm)sm.remove();
+        clone.querySelectorAll('input').forEach(inp=>{
+            const div=document.createElement('div');
+            div.textContent=fmt(parseFloat(inp.value)||0);
+            div.style.cssText='font-weight:bold;text-align:right;display:inline-block;';
+            inp.replaceWith(div);
+        });
+        clone.querySelectorAll('button').forEach(b=>b.remove());
+        const wrapper=document.createElement('div');
+        wrapper.style.cssText='position:fixed;top:0;left:-100000px;background:#fff;width:800px;font-family:Arial,sans-serif;';
+        wrapper.appendChild(clone);document.body.appendChild(wrapper);
+        await new Promise(r=>requestAnimationFrame(r));
+        const canvas=await html2canvas(wrapper,{backgroundColor:'#ffffff',scale:2});
+        document.body.removeChild(wrapper);
+        canvas.toBlob(async blob=>{
+            const fileName=`Ganancias ${fechaInput.value}.png`;
+            const files=[new File([blob],fileName,{type:'image/png'})];
+            if(navigator.canShare&&navigator.canShare({files})){try{await navigator.share({files,title:fileName});}catch(e){}}
+            else{const a=document.createElement('a');a.download=fileName;a.href=URL.createObjectURL(blob);a.click();}
+            this.disabled=false;this.textContent='📷 Exportar imagen';
+        },'image/png');
+    }catch(e){
+        statusEl.innerHTML=`<div class="status error">⚠️ Error: ${e.message}</div>`;
+        this.disabled=false;this.textContent='📷 Exportar imagen';
+    }
+});
 
 btnGuardarConfig.addEventListener('click',async function(){
     const fecha=fechaInput.value;if(!fecha)return;
