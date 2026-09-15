@@ -90,6 +90,7 @@ function fmtSigned(n){const v=n||0;return(v>=0?'+':'')+v.toLocaleString('es-CR',
 
 let _gastosExistentes=[];
 let _netoListas=0,_netoNoPasadas=0,_netoAjustes=0;
+let _hayNoPasadas=false,_hayAjustes=false;
 
 function buscarGasto(categoria,vendedor_id){
     return _gastosExistentes.find(g=>g.categoria===categoria&&(g.vendedor_id||null)===(vendedor_id||null));
@@ -97,45 +98,71 @@ function buscarGasto(categoria,vendedor_id){
 
 function recalcularTotal(){
     const oficina=parseFloat(document.getElementById('inputOficina')?.value)||0;
-    let totalSalarios=oficina;
-    document.querySelectorAll('.input-salario-puesto').forEach(inp=>{totalSalarios+=parseFloat(inp.value)||0;});
-    const netoFinal=_netoListas+_netoNoPasadas+_netoAjustes-totalSalarios;
-    totalFinalEl.textContent=fmtSigned(netoFinal);
-    totalFinalEl.className=netoFinal>=0?'positivo':'negativo';
+
+    // Neto puestos = suma de netos de cada fila (ya llevan restado el salario)
+    let netoPuestos=0;
+    document.querySelectorAll('.td-neto-puesto').forEach(td=>{
+        const v=td.dataset.valor;netoPuestos+=parseFloat(v)||0;
+    });
+
+    // No pasadas y ajustes: solo si están visibles (no ocultos)
+    const incluirNoPasadas=_hayNoPasadas&&!(chkOcultarNoPasadas.checked);
+    const incluirAjustes=_hayAjustes&&!(chkOcultarAjustes.checked);
+
+    const total=_netoListas+netoPuestos-oficina
+        +(incluirNoPasadas?_netoNoPasadas:0)
+        +(incluirAjustes?_netoAjustes:0);
+
+    totalFinalEl.textContent=fmtSigned(total);
+    totalFinalEl.className=total>=0?'positivo':'negativo';
 }
 
 function buildTablaListas(listas){
     if(!listas||listas.length===0)return'<p style="color:#7f8c8d;font-size:13px;">Sin ventas de listas este día.</p>';
-    const grupos={};listas.forEach(l=>{if(!grupos[l.grupo_banca])grupos[l.grupo_banca]={venta:0,comision_pagar:0,comision_recibir:0,premio_pagar:0,premio_recibir:0};const g=grupos[l.grupo_banca];g.venta+=l.venta||0;g.comision_pagar+=l.comision_pagar||0;g.comision_recibir+=l.comision_recibir||0;g.premio_pagar+=l.premio_pagar||0;g.premio_recibir+=l.premio_recibir||0;});
-    let totales={venta:0,comision_pagar:0,comision_recibir:0,premio_pagar:0,premio_recibir:0,neto:0};
+    const grupos={};
+    listas.forEach(l=>{
+        if(!grupos[l.grupo_banca])grupos[l.grupo_banca]={venta:0,comision_pagar:0,comision_recibir:0,premio_pagar:0,premio_recibir:0};
+        const g=grupos[l.grupo_banca];
+        g.venta+=l.venta||0;g.comision_pagar+=l.comision_pagar||0;g.comision_recibir+=l.comision_recibir||0;g.premio_pagar+=l.premio_pagar||0;g.premio_recibir+=l.premio_recibir||0;
+    });
+    let tot={venta:0,cp:0,cr:0,pp:0,pr:0,neto:0};
     let html='<table><thead><tr><th>Banca</th><th>Venta</th><th>Com. a pagar</th><th>Com. a recibir</th><th>Premio a pagar</th><th>Premio a recibir</th><th>Neto</th></tr></thead><tbody>';
     Object.entries(grupos).forEach(([banca,g])=>{
         const neto=(g.comision_recibir-g.comision_pagar)+(g.premio_recibir-g.premio_pagar);
-        totales.venta+=g.venta;totales.comision_pagar+=g.comision_pagar;totales.comision_recibir+=g.comision_recibir;totales.premio_pagar+=g.premio_pagar;totales.premio_recibir+=g.premio_recibir;totales.neto+=neto;
+        tot.venta+=g.venta;tot.cp+=g.comision_pagar;tot.cr+=g.comision_recibir;tot.pp+=g.premio_pagar;tot.pr+=g.premio_recibir;tot.neto+=neto;
         html+=`<tr><td>${banca}</td><td>${fmt(g.venta)}</td><td style="color:#c0392b;">-${fmt(g.comision_pagar)}</td><td style="color:#27ae60;">+${fmt(g.comision_recibir)}</td><td style="color:#c0392b;">-${fmt(g.premio_pagar)}</td><td style="color:#27ae60;">+${fmt(g.premio_recibir)}</td><td style="${neto>=0?'color:#27ae60':'color:#c0392b'}">${fmtSigned(neto)}</td></tr>`;
     });
-    html+=`<tr class="fila-totales"><td>TOTALES</td><td>${fmt(totales.venta)}</td><td style="color:#c0392b;">-${fmt(totales.comision_pagar)}</td><td style="color:#27ae60;">+${fmt(totales.comision_recibir)}</td><td style="color:#c0392b;">-${fmt(totales.premio_pagar)}</td><td style="color:#27ae60;">+${fmt(totales.premio_recibir)}</td><td style="${totales.neto>=0?'color:#27ae60':'color:#c0392b'};font-size:1.1em;">${fmtSigned(totales.neto)}</td></tr>`;
+    html+=`<tr class="fila-totales"><td>TOTALES</td><td>${fmt(tot.venta)}</td><td style="color:#c0392b;">-${fmt(tot.cp)}</td><td style="color:#27ae60;">+${fmt(tot.cr)}</td><td style="color:#c0392b;">-${fmt(tot.pp)}</td><td style="color:#27ae60;">+${fmt(tot.pr)}</td><td style="${tot.neto>=0?'color:#27ae60':'color:#c0392b'};font-size:1.1em;">${fmtSigned(tot.neto)}</td></tr>`;
     html+='</tbody></table>';
-    return{html,neto:totales.neto};
+    return{html,neto:tot.neto};
 }
 
 function buildTablaPuestos(puestos){
-    if(!puestos||puestos.length===0)return{html:'<p style="color:#7f8c8d;font-size:13px;">Sin ventas de puestos este día.</p>',neto:0};
-    let html='<table><thead><tr><th>Vendedor</th><th>Venta</th><th>Com. a recibir</th><th>Premio a pagar</th><th>Premio a recibir</th><th>Salario</th><th>Neto</th></tr></thead><tbody>';
+    if(!puestos||puestos.length===0)return{html:'<p style="color:#7f8c8d;font-size:13px;">Sin ventas de puestos este día.</p>'};
+    let totVenta=0,totComision=0,totSalario=0,totNeto=0;
+    let html='<table><thead><tr><th>Vendedor</th><th>Venta</th><th>Com. a recibir</th><th>Salario</th><th>Neto</th></tr></thead><tbody>';
     puestos.forEach(p=>{
         const gs=buscarGasto('salario_puesto',p.vendedor_id);
         const salVal=gs?gs.monto:15000;
         const salId=gs?gs.id:'';
-        const neto=(p.comision_recibir||0)+(p.premio_recibir||0)-(p.premio_pagar||0)-salVal;
+        const comision=p.comision_recibir||0;
+        const neto=comision-salVal;
+        totVenta+=p.venta||0;totComision+=comision;totSalario+=salVal;totNeto+=neto;
         html+=`<tr>
-            <td>${p.nombre}</td><td>${fmt(p.venta)}</td>
-            <td style="color:#27ae60;">+${fmt(p.comision_recibir)}</td>
-            <td style="color:#c0392b;">-${fmt(p.premio_pagar)}</td>
-            <td style="color:#27ae60;">+${fmt(p.premio_recibir)}</td>
-            <td><input type="number" class="input-salario-puesto" data-vendedor-id="${p.vendedor_id}" data-id="${salId}" data-nombre="${p.nombre}" data-comision="${p.comision_recibir||0}" data-premio-pagar="${p.premio_pagar||0}" data-premio-recibir="${p.premio_recibir||0}" value="${salVal}" min="0" oninput="recalcularFila(this)"></td>
-            <td class="td-neto-puesto" style="${neto>=0?'color:#27ae60':'color:#c0392b'}">${fmtSigned(neto)}</td>
+            <td>${p.nombre}</td>
+            <td>${fmt(p.venta)}</td>
+            <td style="color:#27ae60;">+${fmt(comision)}</td>
+            <td><input type="number" class="input-salario-puesto" data-vendedor-id="${p.vendedor_id}" data-id="${salId}" data-nombre="${p.nombre}" data-comision="${comision}" value="${salVal}" min="0" oninput="recalcularFila(this)"></td>
+            <td class="td-neto-puesto" data-valor="${neto}" style="${neto>=0?'color:#27ae60':'color:#c0392b'}">${fmtSigned(neto)}</td>
         </tr>`;
     });
+    html+=`<tr class="fila-totales">
+        <td>TOTALES</td>
+        <td>${fmt(totVenta)}</td>
+        <td style="color:#27ae60;">+${fmt(totComision)}</td>
+        <td class="td-total-salario">${fmt(totSalario)}</td>
+        <td class="td-total-neto-puestos" style="${totNeto>=0?'color:#27ae60':'color:#c0392b'};font-size:1.1em;">${fmtSigned(totNeto)}</td>
+    </tr>`;
     html+='</tbody></table>';
     return{html};
 }
@@ -143,12 +170,18 @@ function buildTablaPuestos(puestos){
 function recalcularFila(inp){
     const sal=parseFloat(inp.value)||0;
     const comision=parseFloat(inp.dataset.comision)||0;
-    const premioPagar=parseFloat(inp.dataset.premioPagar)||0;
-    const premioRec=parseFloat(inp.dataset.premioRecibir)||0;
-    const neto=comision+premioRec-premioPagar-sal;
+    const neto=comision-sal;
     const td=inp.closest('tr').querySelector('.td-neto-puesto');
     td.textContent=fmtSigned(neto);
     td.style.color=neto>=0?'#27ae60':'#c0392b';
+    td.dataset.valor=neto;
+    // Recalcular fila totales
+    let totSal=0,totNeto=0;
+    document.querySelectorAll('.input-salario-puesto').forEach(i=>{totSal+=parseFloat(i.value)||0;});
+    document.querySelectorAll('.td-neto-puesto').forEach(t=>{totNeto+=parseFloat(t.dataset.valor)||0;});
+    const tdTS=document.querySelector('.td-total-salario');if(tdTS)tdTS.textContent=fmt(totSal);
+    const tdTN=document.querySelector('.td-total-neto-puestos');
+    if(tdTN){tdTN.textContent=fmtSigned(totNeto);tdTN.style.color=totNeto>=0?'#27ae60':'#c0392b';}
     recalcularTotal();
 }
 
@@ -158,7 +191,7 @@ async function cargarReporte(){
     statusEl.innerHTML='<div class="status loading">⏳ Cargando reporte...</div>';
     contenidoEl.innerHTML='';resumenTotalEl.style.display='none';
     saveBtn.disabled=true;exportBtn.disabled=true;
-    _netoListas=0;_netoNoPasadas=0;_netoAjustes=0;
+    _netoListas=0;_netoNoPasadas=0;_netoAjustes=0;_hayNoPasadas=false;_hayAjustes=false;
     try{
         const[respG,respGastos]=await Promise.all([
             fetch(urlConAuth(`${WORKER_URL}/api/reporte-ganancias?fecha=${fecha}`),{cache:'no-store'}),
@@ -168,7 +201,10 @@ async function cargarReporte(){
         const data=await respG.json();
         _gastosExistentes=respGastos.ok?await respGastos.json():[];
         statusEl.innerHTML='';
-        if(APP_ROLE==='superadmin'&&data.superadmin){chkOcultarNoPasadas.checked=!!data.superadmin.ocultarNoPasadas;chkOcultarAjustes.checked=!!data.superadmin.ocultarAjustes;}
+        if(APP_ROLE==='superadmin'&&data.superadmin){
+            chkOcultarNoPasadas.checked=!!data.superadmin.ocultarNoPasadas;
+            chkOcultarAjustes.checked=!!data.superadmin.ocultarAjustes;
+        }
         let html='';
 
         // LISTAS
@@ -182,12 +218,14 @@ async function cargarReporte(){
 
         // NO PASADAS
         if(data.noPasadas){
+            _hayNoPasadas=true;
             const np=data.noPasadas;const neto=(np.venta||0)-(np.comision_pagar||0)-(np.premio_pagar||0);_netoNoPasadas=neto;
             html+=`<div class="seccion"><h2>⚠️ Ventas NO pasadas a banca</h2><table><thead><tr><th>Venta</th><th>Comisión a pagar</th><th>Premio a pagar</th><th>Neto (queda acá)</th></tr></thead><tbody><tr><td>${fmt(np.venta)}</td><td style="color:#c0392b;">-${fmt(np.comision_pagar)}</td><td style="color:#c0392b;">-${fmt(np.premio_pagar)}</td><td style="${neto>=0?'color:#27ae60':'color:#c0392b'}">${fmtSigned(neto)}</td></tr></tbody></table></div>`;
         }
 
         // AJUSTES
         if(data.ajustes){
+            _hayAjustes=true;
             const aj=data.ajustes;const neto=(aj.venta||0)-(aj.premio_pagar||0);_netoAjustes=neto;
             html+=`<div class="seccion ajustes"><h2>⚖️ AJUSTES</h2><table><thead><tr><th>Monto ajuste</th><th>Premio ajuste</th><th>Neto ajuste</th></tr></thead><tbody><tr><td>${fmt(aj.venta)}</td><td style="color:#c0392b;">-${fmt(aj.premio_pagar)}</td><td style="${neto>=0?'color:#27ae60':'color:#c0392b'}">${fmtSigned(neto)}</td></tr></tbody></table></div>`;
         }
@@ -204,9 +242,17 @@ async function cargarReporte(){
         </div>`;
 
         contenidoEl.innerHTML=html||'<div class="placeholder">No hay ventas registradas para esta fecha.</div>';
-        if(html){resumenTotalEl.style.display='flex';recalcularTotal();saveBtn.disabled=false;exportBtn.disabled=false;}
+        if(html){
+            resumenTotalEl.style.display='flex';
+            recalcularTotal();
+            saveBtn.disabled=false;exportBtn.disabled=false;
+        }
     }catch(e){statusEl.innerHTML=`<div class="status error">⚠️ ${e.message}</div>`;}
 }
+
+// Cuando superadmin cambia checkboxes, recalcular total inmediatamente
+chkOcultarNoPasadas.addEventListener('change',recalcularTotal);
+chkOcultarAjustes.addEventListener('change',recalcularTotal);
 
 saveBtn.addEventListener('click',async function(){
     const fecha=fechaInput.value;if(!fecha)return;
@@ -230,10 +276,9 @@ exportBtn.addEventListener('click',async function(){
     this.disabled=true;this.textContent='⏳ Generando...';
     try{
         const clone=document.querySelector('.container').cloneNode(true);
-        clone.querySelector('.header').querySelectorAll('.btn-menu').forEach(b=>b.remove());
-        clone.querySelector('.controls')&&clone.querySelector('.controls').remove();
-        const sp=clone.querySelector('#superadminPanel');if(sp)sp.remove();
-        const sm=clone.querySelector('#statusMsg');if(sm)sm.remove();
+        clone.querySelector('.controls')?.remove();
+        clone.querySelector('#superadminPanel')?.remove();
+        clone.querySelector('#statusMsg')?.remove();
         clone.querySelectorAll('input').forEach(inp=>{
             const div=document.createElement('div');
             div.textContent=fmt(parseFloat(inp.value)||0);
