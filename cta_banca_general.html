@@ -26,42 +26,34 @@
     .banca-card{background:#ecf0f1;border-radius:6px;padding:12px;}
     .banca-card label{display:block;font-size:12px;font-weight:bold;color:#2c3e50;margin-bottom:5px;}
     .banca-card input{width:100%;padding:8px;border:2px solid #3498db;border-radius:4px;font-size:15px;text-align:right;}
-  .saldo-row {
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  gap: 20px !important;
-  margin-bottom: 12px;
-}
 
-/* 1. La fila usa Grid con 2 columnas iguales */
+   /* 1. La fila usa un grid de 4 columnas distribuidas proporcionalmente */
 .saldo-row {
   display: grid !important;
-  grid-template-columns: 1fr 1fr !important; /* Mismo ancho para los 2 lados */
-  gap: 16px !important;                       /* Mismo espacio horizontal que abajo */
-  margin-bottom: 16px !important;
-  width: 100% !important;
-}
-
-/* 2. Cada campo organiza su Texto + Input horizontalmente */
-.saldo-row .field {
-  display: flex !important;
+  /* El texto se ajusta a su contenido (max-content) y la caja toma el resto del espacio (1fr) */
+  grid-template-columns: max-content 1fr max-content 1fr !important;
   align-items: center !important;
-  gap: 8px !important; /* Espacio pequeño entre el texto y la caja */
+  gap: 8px 12px !important; /* Espaciado entre elementos */
   width: 100% !important;
+  margin-bottom: 16px !important;
 }
 
-/* 3. El texto no se corta ni salta de línea */
-.saldo-row .field label {
+/* 2. Eliminamos el flex del contenedor .field para que label e input sean hijos directos del Grid */
+.saldo-row .field {
+  display: contents !important; 
+}
+
+/* 3. Evita que los textos salten de línea */
+.saldo-row label {
   white-space: nowrap !important;
   margin: 0 !important;
+  font-weight: 500;
 }
 
-/* 4. El input toma todo el espacio restante dentro de su columna */
-.saldo-row .field input {
-  flex: 1 !important;        /* Hace que se estire hasta el borde exacto */
+/* 4. Los inputs ocupan el 100% de sus respectivas columnas (1fr) */
+.saldo-row input {
   width: 100% !important;
-  min-width: 0 !important;   /* Previene desbordamiento en flexbox */
+  min-width: 0 !important; /* Previene desbordamiento */
   padding: 8px !important;
   border: 1px solid #ccc !important;
   border-radius: 4px !important;
