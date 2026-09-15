@@ -26,36 +26,36 @@
     .banca-card{background:#ecf0f1;border-radius:6px;padding:12px;}
     .banca-card label{display:block;font-size:12px;font-weight:bold;color:#2c3e50;margin-bottom:5px;}
     .banca-card input{width:100%;padding:8px;border:2px solid #3498db;border-radius:4px;font-size:15px;text-align:right;}
-    /* Contenedor general */
-.saldo-row {
-  display: flex;
-  gap: 16px;
-  align-items: center;
+  .saldo-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 20px !important;
   margin-bottom: 12px;
-  flex-wrap: wrap;
 }
 
-/* Alinea Texto + Input horizontalmente */
+/* Fuerza al texto y al input a ponerse lado a lado */
 .saldo-row .field {
-  display: flex;
-  align-items: center;
-  gap: 6px; /* Espacio pequeño entre el texto y la caja de texto */
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 8px !important; /* Espacio entre el texto y la caja */
 }
 
-/* Evita que el texto de la etiqueta se corte o salte de línea */
+/* Cancela el salto de línea del label */
 .saldo-row .field label {
-  white-space: nowrap;
+  display: inline-block !important;
+  white-space: nowrap !important;
+  margin: 0 !important;
 }
 
-/* Estilo del Input corregido */
-.saldo-row input {
-  padding: 8px;
-  border: 2px solid #bdc3c7;
+/* Controla el tamaño de la caja editable */
+.saldo-row .field input {
+  width: 120px !important; /* Ajusta el ancho según prefieras */
+  padding: 6px;
+  border: 1px solid #ccc;
   border-radius: 4px;
-  font-size: 14px;
   text-align: right;
-  background: #fff;
-  width: 110px; /* Cambia a un ancho fijo apropiado para montos */
 }
     .botones-fila{display:flex;gap:10px;flex-wrap:wrap;}
     #saveBtn{padding:12px 25px;background:#27ae60;color:white;border:none;border-radius:5px;font-size:15px;font-weight:bold;cursor:pointer;}
