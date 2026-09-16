@@ -139,20 +139,24 @@ function buildTablaListas(listas){
 
 function buildTablaPuestos(puestos){
     if(!puestos||puestos.length===0)return{html:'<p style="color:#7f8c8d;font-size:13px;">Sin ventas de puestos este día.</p>'};
-    let totVenta=0,totComision=0,totSalario=0,totNeto=0;
-    let html='<table><thead><tr><th>Vendedor</th><th>Venta</th><th>Com. a recibir</th><th>Salario</th><th>Neto</th></tr></thead><tbody>';
+    let totVenta=0,totComision=0,totPremioPagar=0,totPremioRec=0,totSalario=0,totNeto=0;
+    let html='<table><thead><tr><th>Vendedor</th><th>Venta</th><th>Com. a recibir</th><th>Premio a pagar</th><th>Premio a recibir</th><th>Salario</th><th>Neto</th></tr></thead><tbody>';
     puestos.forEach(p=>{
         const gs=buscarGasto('salario_puesto',p.vendedor_id);
         const salVal=gs?gs.monto:15000;
         const salId=gs?gs.id:'';
         const comision=p.comision_recibir||0;
-        const neto=comision-salVal;
-        totVenta+=p.venta||0;totComision+=comision;totSalario+=salVal;totNeto+=neto;
+        const premioPagar=p.premio_pagar||0;
+        const premioRec=p.premio_recibir||0;
+        const neto=comision-salVal-premioPagar+premioRec;
+        totVenta+=p.venta||0;totComision+=comision;totPremioPagar+=premioPagar;totPremioRec+=premioRec;totSalario+=salVal;totNeto+=neto;
         html+=`<tr>
             <td>${p.nombre}</td>
             <td>${fmt(p.venta)}</td>
             <td style="color:#27ae60;">+${fmt(comision)}</td>
-            <td><input type="number" class="input-salario-puesto" data-vendedor-id="${p.vendedor_id}" data-id="${salId}" data-nombre="${p.nombre}" data-comision="${comision}" value="${salVal}" min="0" oninput="recalcularFila(this)"></td>
+            <td style="color:#c0392b;">-${fmt(premioPagar)}</td>
+            <td style="color:#27ae60;">+${fmt(premioRec)}</td>
+            <td><input type="number" class="input-salario-puesto" data-vendedor-id="${p.vendedor_id}" data-id="${salId}" data-nombre="${p.nombre}" data-comision="${comision}" data-premio-pagar="${premioPagar}" data-premio-recibir="${premioRec}" value="${salVal}" min="0" oninput="recalcularFila(this)"></td>
             <td class="td-neto-puesto" data-valor="${neto}" style="${neto>=0?'color:#27ae60':'color:#c0392b'}">${fmtSigned(neto)}</td>
         </tr>`;
     });
@@ -160,6 +164,8 @@ function buildTablaPuestos(puestos){
         <td>TOTALES</td>
         <td>${fmt(totVenta)}</td>
         <td style="color:#27ae60;">+${fmt(totComision)}</td>
+        <td style="color:#c0392b;">-${fmt(totPremioPagar)}</td>
+        <td style="color:#27ae60;">+${fmt(totPremioRec)}</td>
         <td class="td-total-salario">${fmt(totSalario)}</td>
         <td class="td-total-neto-puestos" style="${totNeto>=0?'color:#27ae60':'color:#c0392b'};font-size:1.1em;">${fmtSigned(totNeto)}</td>
     </tr>`;
@@ -170,7 +176,9 @@ function buildTablaPuestos(puestos){
 function recalcularFila(inp){
     const sal=parseFloat(inp.value)||0;
     const comision=parseFloat(inp.dataset.comision)||0;
-    const neto=comision-sal;
+    const premioPagar=parseFloat(inp.dataset.premioPagar)||0;
+    const premioRec=parseFloat(inp.dataset.premioRecibir)||0;
+    const neto=comision-sal-premioPagar+premioRec;
     const td=inp.closest('tr').querySelector('.td-neto-puesto');
     td.textContent=fmtSigned(neto);
     td.style.color=neto>=0?'#27ae60':'#c0392b';
