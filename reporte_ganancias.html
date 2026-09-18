@@ -234,8 +234,10 @@ async function cargarReporte(){
         // AJUSTES
         if(data.ajustes){
             _hayAjustes=true;
-            const aj=data.ajustes;const neto=(aj.venta||0)-(aj.premio_pagar||0);_netoAjustes=neto;
-            html+=`<div class="seccion ajustes"><h2>⚖️ AJUSTES</h2><table><thead><tr><th>Monto ajuste</th><th>Premio ajuste</th><th>Neto ajuste</th></tr></thead><tbody><tr><td>${fmt(aj.venta)}</td><td style="color:#c0392b;">-${fmt(aj.premio_pagar)}</td><td style="${neto>=0?'color:#27ae60':'color:#c0392b'}">${fmtSigned(neto)}</td></tr></tbody></table></div>`;
+            const aj=data.ajustes;
+            const neto=-(aj.venta||0)+(aj.comision_recibir||0)-(aj.premio_pagar||0);
+            _netoAjustes=neto;
+            html+=`<div class="seccion ajustes"><h2>⚖️ AJUSTES</h2><table><thead><tr><th>Monto ajuste</th><th>Comisión</th><th>Premio ajuste</th><th>Neto ajuste</th></tr></thead><tbody><tr><td>${fmt(aj.venta)}</td><td style="color:#27ae60;">+${fmt(aj.comision_recibir)}</td><td style="color:#c0392b;">-${fmt(aj.premio_pagar)}</td><td style="${neto>=0?'color:#27ae60':'color:#c0392b'}">${fmtSigned(neto)}</td></tr></tbody></table></div>`;
         }
 
         // SALARIO OFICINA
