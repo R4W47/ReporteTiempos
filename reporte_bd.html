@@ -171,7 +171,7 @@ function mostrarReporteRango(rows){
     const totGen={venta:0,comision:0,premio:0};
     // Cabecera con dos filas
     let html='<table><thead>';
-    html+='<tr><th rowspan="2">Fecha</th>';
+    html+='<tr><th rowspan="2" style="vertical-align:middle;text-align:center;">Fecha</th>';
     grupos.forEach(g=>{html+=`<th colspan="3" style="text-align:center">${g}</th>`;});
     html+='<th colspan="4" style="text-align:center">TOTALES</th></tr>';
     html+='<tr>';
