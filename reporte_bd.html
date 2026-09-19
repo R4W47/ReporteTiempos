@@ -124,7 +124,7 @@ async function cargarReporte(){
             if(!fechaInicioInput.value||!fechaFinInput.value){viewerEl.innerHTML='<div class="placeholder">👆 Elige las dos fechas</div>';statusEl.innerHTML='';exportBtn.disabled=true;return;}
             const response=await fetch(urlConAuth(`${WORKER_URL}/api/reporte-rango?vendedor_id=${vendedorSeleccionadoId}&fecha_inicio=${fechaInicioInput.value}&fecha_fin=${fechaFinInput.value}`),{cache:'no-store'});
             if(!response.ok)throw new Error('No se pudo cargar el reporte por rango');
-            data=await response.json();mostrarReporteMensual(data);
+            data=await response.json();mostrarReporteRango(data);
         }else{
             const response=await fetch(urlConAuth(`${WORKER_URL}/api/reporte-diario?vendedor_id=${vendedorSeleccionadoId}&fecha=${fechaInput.value}`),{cache:'no-store'});
             if(!response.ok)throw new Error('No se pudo cargar el reporte diario');
@@ -153,6 +153,54 @@ function mostrarReporteDiario(rowsOriginal){
     let html='<table><thead><tr><th>Sorteo</th><th>Número ganador</th><th>Venta</th><th>Comisión</th><th>Venta al ganador</th><th>Premio</th><th>Total</th></tr></thead><tbody>';
     rows.forEach(r=>{html+=`<tr><td>${r.sorteo_nombre}</td><td>${r.numero_ganador||'-'}</td><td>${formatoMoneda(r.venta)}</td><td>${formatoMoneda(r.comision)}</td><td>${formatoMoneda(r.venta_premio)}</td><td>${formatoMoneda(r.premio)}</td><td class="${r.total<0?'negativo':''}">${formatoMoneda(r.total)}</td></tr>`;});
     html+=`<tr class="fila-totales"><td>Totales</td><td></td><td>${formatoMoneda(totales.venta)}</td><td>${formatoMoneda(totales.comision)}</td><td>${formatoMoneda(totales.venta_premio)}</td><td>${formatoMoneda(totales.premio)}</td><td class="${totales.total<0?'negativo':''}">${formatoMoneda(totales.total)}</td></tr></tbody></table>`;
+    viewerEl.innerHTML=html;
+}
+
+function mostrarReporteRango(rows){
+    if(rows.length===0){viewerEl.innerHTML='<div class="placeholder">Este vendedor no tiene ventas registradas en ese rango.</div>';return;}
+    // Obtener grupos únicos en orden
+    const gruposSet=new Set();rows.forEach(r=>gruposSet.add(r.grupo_banca));
+    const grupos=[...gruposSet].sort();
+    // Agrupar por fecha
+    const porFecha={};const fechas=[];
+    rows.forEach(r=>{
+        if(!porFecha[r.fecha]){porFecha[r.fecha]={};fechas.push(r.fecha);}
+        porFecha[r.fecha][r.grupo_banca]={venta:r.venta||0,comision:r.comision||0,premio:r.premio||0};
+    });
+    const totPorGrupo={};grupos.forEach(g=>{totPorGrupo[g]={venta:0,comision:0,premio:0};});
+    const totGen={venta:0,comision:0,premio:0};
+    // Cabecera con dos filas
+    let html='<table><thead>';
+    html+='<tr><th rowspan="2">Fecha</th>';
+    grupos.forEach(g=>{html+=`<th colspan="3" style="text-align:center">${g}</th>`;});
+    html+='<th colspan="4" style="text-align:center">TOTALES</th></tr>';
+    html+='<tr>';
+    grupos.forEach(()=>{html+='<th>Venta</th><th>Comisión</th><th>Premio</th>';});
+    html+='<th>Venta</th><th>Comisión</th><th>Premio</th><th>Neto</th></tr>';
+    html+='</thead><tbody>';
+    fechas.forEach(fecha=>{
+        const dia=porFecha[fecha];
+        let tV=0,tC=0,tP=0;
+        html+=`<tr><td>${fecha}</td>`;
+        grupos.forEach(g=>{
+            const d=dia[g]||{venta:0,comision:0,premio:0};
+            html+=`<td>${formatoMoneda(d.venta)}</td><td>${formatoMoneda(d.comision)}</td><td>${formatoMoneda(d.premio)}</td>`;
+            tV+=d.venta;tC+=d.comision;tP+=d.premio;
+            totPorGrupo[g].venta+=d.venta;totPorGrupo[g].comision+=d.comision;totPorGrupo[g].premio+=d.premio;
+        });
+        const neto=tV-tC-tP;
+        totGen.venta+=tV;totGen.comision+=tC;totGen.premio+=tP;
+        html+=`<td>${formatoMoneda(tV)}</td><td>${formatoMoneda(tC)}</td><td>${formatoMoneda(tP)}</td><td class="${neto<0?'negativo':''}">${formatoMoneda(neto)}</td></tr>`;
+    });
+    // Fila de totales
+    const netoGen=totGen.venta-totGen.comision-totGen.premio;
+    html+='<tr class="fila-totales"><td>Totales</td>';
+    grupos.forEach(g=>{
+        const t=totPorGrupo[g];
+        html+=`<td>${formatoMoneda(t.venta)}</td><td>${formatoMoneda(t.comision)}</td><td>${formatoMoneda(t.premio)}</td>`;
+    });
+    html+=`<td>${formatoMoneda(totGen.venta)}</td><td>${formatoMoneda(totGen.comision)}</td><td>${formatoMoneda(totGen.premio)}</td><td class="${netoGen<0?'negativo':''}">${formatoMoneda(netoGen)}</td></tr>`;
+    html+='</tbody></table>';
     viewerEl.innerHTML=html;
 }
 
