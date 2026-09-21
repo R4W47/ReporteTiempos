@@ -84,19 +84,40 @@ async function cargarGrafico(){
     if(!vendedorSeleccionadoId||!fechaInicioInput.value||!fechaFinInput.value){canvas.style.display='none';placeholder.style.display='block';return;}
     statusEl.innerHTML='<div class="status loading">⏳ Cargando...</div>';
     try{
-        const agrupar=agruparSelect.value;
-        const url=urlConAuth(`${WORKER_URL}/api/reporte-rango?vendedor_id=${vendedorSeleccionadoId}&fecha_inicio=${fechaInicioInput.value}&fecha_fin=${fechaFinInput.value}&agrupar=${agrupar}`);
-        const resp=await fetch(url,{cache:'no-store'});
+        // Traer datos desglosados por fecha y grupo_banca
+        const resp=await fetch(urlConAuth(`${WORKER_URL}/api/reporte-rango?vendedor_id=${vendedorSeleccionadoId}&fecha_inicio=${fechaInicioInput.value}&fecha_fin=${fechaFinInput.value}`),{cache:'no-store'});
         if(!resp.ok)throw new Error('No se pudo cargar el reporte');
-        const data=await resp.json();
-        if(data.length===0){canvas.style.display='none';placeholder.style.display='block';placeholder.innerHTML='No hay ventas registradas en ese rango.';statusEl.innerHTML='';return;}
+        const rows=await resp.json();
+        if(rows.length===0){canvas.style.display='none';placeholder.style.display='block';placeholder.innerHTML='No hay ventas registradas en ese rango.';statusEl.innerHTML='';return;}
+
+        // Pivot: agrupar por fecha sumando todos los grupos
+        const agrupar=agruparSelect.value;
+        const porFecha={};
+        rows.forEach(r=>{
+            // Si es mensual, agrupar por YYYY-MM
+            const key=agrupar==='mensual'?r.fecha.substring(0,7):r.fecha;
+            if(!porFecha[key]){porFecha[key]={venta:0,comision:0,premio:0};}
+            porFecha[key].venta+=r.venta||0;
+            porFecha[key].comision+=r.comision||0;
+            porFecha[key].premio+=r.premio||0;
+        });
+        const fechas=Object.keys(porFecha).sort();
+        const totales=fechas.map(f=>porFecha[f]);
+
         if(chart)chart.destroy();
         canvas.style.display='block';placeholder.style.display='none';
-        chart=new Chart(canvas,{type:agrupar==='mensual'?'bar':'line',data:{labels:data.map(d=>d.fecha),datasets:[
-            {label:'Venta',data:data.map(d=>d.venta||0),borderColor:'#3498db',backgroundColor:'rgba(52,152,219,0.2)',tension:0.2},
-            {label:'Comisión',data:data.map(d=>d.comision||0),borderColor:'#27ae60',backgroundColor:'rgba(39,174,96,0.2)',tension:0.2},
-            {label:'Premio',data:data.map(d=>d.premio||0),borderColor:'#e74c3c',backgroundColor:'rgba(231,76,60,0.2)',tension:0.2}
-        ]},options:{responsive:true,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true}}}});
+        chart=new Chart(canvas,{
+            type:agrupar==='mensual'?'bar':'line',
+            data:{
+                labels:fechas,
+                datasets:[
+                    {label:'Venta',data:totales.map(d=>d.venta),borderColor:'#3498db',backgroundColor:'rgba(52,152,219,0.2)',tension:0.2},
+                    {label:'Comisión',data:totales.map(d=>d.comision),borderColor:'#27ae60',backgroundColor:'rgba(39,174,96,0.2)',tension:0.2},
+                    {label:'Premio',data:totales.map(d=>d.premio),borderColor:'#e74c3c',backgroundColor:'rgba(231,76,60,0.2)',tension:0.2}
+                ]
+            },
+            options:{responsive:true,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true}}}
+        });
         statusEl.innerHTML='';
     }catch(error){statusEl.innerHTML=`<div class="status error">⚠️ ${error.message}</div>`;}
 }

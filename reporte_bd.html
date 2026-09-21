@@ -27,12 +27,14 @@
     .viewer { padding:15px; overflow-x:auto; overflow-y:auto; max-height:65vh; }
     .placeholder { text-align:center; color:#7f8c8d; padding:40px; }
     table { border-collapse:collapse; width:100%; font-size:13px; }
-    th, td { border:1px solid #ddd; padding:8px; text-align:left; white-space:nowrap; }
+    th, td { border:1px solid #ddd; padding:8px; text-align:right; white-space:nowrap; }
+    th:first-child, td:first-child { text-align:left; }
     thead { position:sticky; top:0; z-index:10; }
     th { background-color:#3498db; color:white; font-weight:bold; }
     tr:nth-child(even) { background-color:#f9f9f9; }
     tr.fila-totales { background-color:#fdf6e3; font-weight:bold; }
     td.negativo { color:#c0392b; }
+    th.fecha-th { text-align:center; vertical-align:middle; }
 </style>
 </head>
 <body>
@@ -62,7 +64,7 @@ const TIPO=params.get('tipo')==='mensual'?'mensual':(params.get('tipo')==='rango
 const VENDEDOR_FORZADO=_s.vendedor||'';
 function urlConAuth(base){const sep=base.indexOf('?')===-1?'?':'&';return base+sep+'token='+encodeURIComponent(APP_TOKEN);}
 
-let vendedores=[],vendedorSeleccionadoId=null,ultimoReporteData=null;
+let vendedores=[],vendedorSeleccionadoId=null;
 const statusEl=document.getElementById('statusMsg');
 const viewerEl=document.getElementById('viewer');
 const vendedorField=document.getElementById('vendedorField');
@@ -117,20 +119,20 @@ async function cargarReporte(){
         let data;
         if(TIPO==='mensual'){
             const[anio,mes]=fechaInput.value.split('-');
-            const response=await fetch(urlConAuth(`${WORKER_URL}/api/reporte-mensual?vendedor_id=${vendedorSeleccionadoId}&anio=${anio}&mes=${mes}`),{cache:'no-store'});
+            const response=await fetch(urlConAuth(`${WORKER_URL}/api/reporte-rango?vendedor_id=${vendedorSeleccionadoId}&fecha_inicio=${anio}-${mes}-01&fecha_fin=${anio}-${mes}-31`),{cache:'no-store'});
             if(!response.ok)throw new Error('No se pudo cargar el reporte mensual');
-            data=await response.json();mostrarReporteMensual(data);
+            data=await response.json();mostrarTablaDesglosada(data,'mes');
         }else if(TIPO==='rango'){
             if(!fechaInicioInput.value||!fechaFinInput.value){viewerEl.innerHTML='<div class="placeholder">👆 Elige las dos fechas</div>';statusEl.innerHTML='';exportBtn.disabled=true;return;}
             const response=await fetch(urlConAuth(`${WORKER_URL}/api/reporte-rango?vendedor_id=${vendedorSeleccionadoId}&fecha_inicio=${fechaInicioInput.value}&fecha_fin=${fechaFinInput.value}`),{cache:'no-store'});
             if(!response.ok)throw new Error('No se pudo cargar el reporte por rango');
-            data=await response.json();mostrarReporteRango(data);
+            data=await response.json();mostrarTablaDesglosada(data,'rango');
         }else{
             const response=await fetch(urlConAuth(`${WORKER_URL}/api/reporte-diario?vendedor_id=${vendedorSeleccionadoId}&fecha=${fechaInput.value}`),{cache:'no-store'});
             if(!response.ok)throw new Error('No se pudo cargar el reporte diario');
             data=await response.json();mostrarReporteDiario(data);
         }
-        statusEl.innerHTML='';exportBtn.disabled=data.length===0;
+        statusEl.innerHTML='';exportBtn.disabled=(data.length===0);
     }catch(error){statusEl.innerHTML=`<div class="status error">⚠️ ${error.message}</div>`;viewerEl.innerHTML='';}
 }
 
@@ -156,12 +158,12 @@ function mostrarReporteDiario(rowsOriginal){
     viewerEl.innerHTML=html;
 }
 
-function mostrarReporteRango(rows){
-    if(rows.length===0){viewerEl.innerHTML='<div class="placeholder">Este vendedor no tiene ventas registradas en ese rango.</div>';return;}
-    // Obtener grupos únicos en orden
+function mostrarTablaDesglosada(rows, tipo){
+    if(rows.length===0){viewerEl.innerHTML=`<div class="placeholder">Este vendedor no tiene ventas registradas en ese ${tipo==='mes'?'mes':'período'}.</div>`;return;}
+    // Obtener grupos únicos ordenados
     const gruposSet=new Set();rows.forEach(r=>gruposSet.add(r.grupo_banca));
     const grupos=[...gruposSet].sort();
-    // Agrupar por fecha
+    // Pivot por fecha
     const porFecha={};const fechas=[];
     rows.forEach(r=>{
         if(!porFecha[r.fecha]){porFecha[r.fecha]={};fechas.push(r.fecha);}
@@ -169,15 +171,16 @@ function mostrarReporteRango(rows){
     });
     const totPorGrupo={};grupos.forEach(g=>{totPorGrupo[g]={venta:0,comision:0,premio:0};});
     const totGen={venta:0,comision:0,premio:0};
-    // Cabecera con dos filas
+    // Cabecera: fila 1 grupos, fila 2 sub-columnas
     let html='<table><thead>';
-    html+='<tr><th rowspan="2" style="vertical-align:middle;text-align:center;">Fecha</th>';
-    grupos.forEach(g=>{html+=`<th colspan="3" style="text-align:center">${g}</th>`;});
-    html+='<th colspan="4" style="text-align:center">TOTALES</th></tr>';
     html+='<tr>';
+    html+=`<th rowspan="2" class="fecha-th" style="background:#2c3e50;min-width:90px;">Fecha</th>`;
+    grupos.forEach(g=>{html+=`<th colspan="3" style="text-align:center;background:#2980b9;">${g}</th>`;});
+    html+='<th colspan="4" style="text-align:center;background:#1a6a3a;">TOTALES</th>';
+    html+='</tr><tr>';
     grupos.forEach(()=>{html+='<th>Venta</th><th>Comisión</th><th>Premio</th>';});
-    html+='<th>Venta</th><th>Comisión</th><th>Premio</th><th>Neto</th></tr>';
-    html+='</thead><tbody>';
+    html+='<th>Venta</th><th>Comisión</th><th>Premio</th><th style="background:#1a6a3a;">Neto</th>';
+    html+='</tr></thead><tbody>';
     fechas.forEach(fecha=>{
         const dia=porFecha[fecha];
         let tV=0,tC=0,tP=0;
@@ -192,7 +195,6 @@ function mostrarReporteRango(rows){
         totGen.venta+=tV;totGen.comision+=tC;totGen.premio+=tP;
         html+=`<td>${formatoMoneda(tV)}</td><td>${formatoMoneda(tC)}</td><td>${formatoMoneda(tP)}</td><td class="${neto<0?'negativo':''}">${formatoMoneda(neto)}</td></tr>`;
     });
-    // Fila de totales
     const netoGen=totGen.venta-totGen.comision-totGen.premio;
     html+='<tr class="fila-totales"><td>Totales</td>';
     grupos.forEach(g=>{
@@ -204,33 +206,30 @@ function mostrarReporteRango(rows){
     viewerEl.innerHTML=html;
 }
 
-function mostrarReporteMensual(rows){
-    if(rows.length===0){viewerEl.innerHTML='<div class="placeholder">Este vendedor no tiene ventas registradas ese mes.</div>';return;}
-    const totales=rows.reduce((acc,r)=>{const total=r.venta-r.comision-r.premio;acc.venta+=r.venta;acc.comision+=r.comision;acc.premio+=r.premio;acc.total+=total;return acc;},{venta:0,comision:0,premio:0,total:0});
-    let html='<table><thead><tr><th>Fecha</th><th>Venta</th><th>Comisión</th><th>Premio</th><th>Total</th></tr></thead><tbody>';
-    rows.forEach(r=>{const total=r.venta-r.comision-r.premio;html+=`<tr><td>${r.fecha}</td><td>${formatoMoneda(r.venta)}</td><td>${formatoMoneda(r.comision)}</td><td>${formatoMoneda(r.premio)}</td><td class="${total<0?'negativo':''}">${formatoMoneda(total)}</td></tr>`;});
-    html+=`<tr class="fila-totales"><td>Totales</td><td>${formatoMoneda(totales.venta)}</td><td>${formatoMoneda(totales.comision)}</td><td>${formatoMoneda(totales.premio)}</td><td class="${totales.total<0?'negativo':''}">${formatoMoneda(totales.total)}</td></tr></tbody></table>`;
-    viewerEl.innerHTML=html;
-}
-
 exportBtn.addEventListener('click',async function(){
     const table=viewerEl.querySelector('table');
     if(!table){statusEl.innerHTML='<div class="status error">⚠️ No hay ninguna tabla para exportar</div>';return;}
     this.disabled=true;this.textContent='⏳ Generando imagen...';
     try{
         const nombreVendedor=VENDEDOR_FORZADO||(vendedores.find(v=>v.id==vendedorSeleccionadoId)?.nombre)||'Vendedor';
-        const etiquetaFecha=TIPO==='rango'?`${fechaInicioInput.value} a ${fechaFinInput.value}`:fechaInput.value;
-        const clone=table.cloneNode(true);clone.querySelectorAll('th').forEach(th=>th.style.position='static');
-        const wrapper=document.createElement('div');wrapper.style.cssText='position:fixed;top:0;left:-100000px;background:#fff;padding:10px;display:inline-block;';
-        const titleEl=document.createElement('div');titleEl.style.cssText='font-family:Arial,sans-serif;font-weight:bold;font-size:18px;color:#2c3e50;margin-bottom:10px;white-space:nowrap;';
+        const etiquetaFecha=TIPO==='rango'?`${fechaInicioInput.value} a ${fechaFinInput.value}`:(TIPO==='mensual'?fechaInput.value:fechaInput.value);
+        const clone=table.cloneNode(true);
+        // Quitar sticky para que html2canvas lo capture bien
+        clone.querySelectorAll('th').forEach(th=>{th.style.position='static';});
+        const wrapper=document.createElement('div');
+        wrapper.style.cssText='position:fixed;top:0;left:-100000px;background:#fff;padding:10px;display:inline-block;font-family:Arial,sans-serif;';
+        const titleEl=document.createElement('div');
+        titleEl.style.cssText='font-weight:bold;font-size:16px;color:#2c3e50;margin-bottom:10px;white-space:nowrap;';
         titleEl.textContent=`${nombreVendedor} — ${etiquetaFecha} (${TIPO==='mensual'?'Mensual':(TIPO==='rango'?'Rango':'Diario')})`;
         wrapper.appendChild(titleEl);wrapper.appendChild(clone);document.body.appendChild(wrapper);
         await new Promise(resolve=>requestAnimationFrame(resolve));
         const MAX_DIMENSION=4000;const naturalWidth=wrapper.scrollWidth;const naturalHeight=wrapper.scrollHeight;
         let scale=2;if(Math.max(naturalWidth,naturalHeight)*scale>MAX_DIMENSION)scale=MAX_DIMENSION/Math.max(naturalWidth,naturalHeight);
-        const canvas=await html2canvas(wrapper,{backgroundColor:'#ffffff',scale});document.body.removeChild(wrapper);
+        const canvas=await html2canvas(wrapper,{backgroundColor:'#ffffff',scale});
+        document.body.removeChild(wrapper);
         canvas.toBlob(async(blob)=>{
-            const fileName=`Reporte ${nombreVendedor} ${etiquetaFecha}.png`;const filesArray=[new File([blob],fileName,{type:'image/png'})];
+            const fileName=`Reporte ${nombreVendedor} ${etiquetaFecha}.png`;
+            const filesArray=[new File([blob],fileName,{type:'image/png'})];
             if(navigator.canShare&&navigator.canShare({files:filesArray})){try{await navigator.share({files:filesArray,title:fileName});}catch(e){}}
             else{const link=document.createElement('a');link.download=fileName;link.href=URL.createObjectURL(blob);link.click();}
             this.disabled=false;this.textContent='📷 Exportar imagen';
