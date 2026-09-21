@@ -174,10 +174,11 @@ function mostrarTablaDesglosada(rows, tipo){
     // Cabecera: fila 1 grupos, fila 2 sub-columnas
     let html='<table><thead>';
     html+='<tr>';
-    html+=`<th rowspan="2" class="fecha-th" style="background:#2c3e50;min-width:90px;">Fecha</th>`;
+    html+=`<th style="background:#2c3e50;min-width:90px;"></th>`;
     grupos.forEach(g=>{html+=`<th colspan="3" style="text-align:center;background:#2980b9;">${g}</th>`;});
     html+='<th colspan="4" style="text-align:center;background:#1a6a3a;">TOTALES</th>';
     html+='</tr><tr>';
+    html+=`<th style="background:#2c3e50;text-align:center;">Fecha</th>`;
     grupos.forEach(()=>{html+='<th>Venta</th><th>Comisión</th><th>Premio</th>';});
     html+='<th>Venta</th><th>Comisión</th><th>Premio</th><th style="background:#1a6a3a;">Neto</th>';
     html+='</tr></thead><tbody>';
