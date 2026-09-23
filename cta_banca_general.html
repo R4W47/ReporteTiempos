@@ -96,9 +96,9 @@ async function cargarDatos(){
         let html='';
         html+=`<div class="seccion"><h2>📊 Nuestro cálculo (del sistema)</h2>`;
         if(dataNuestro.length>0){
-            html+='<table><thead><tr><th>Banca</th><th>Venta</th><th>Com. a recibir</th><th>Premio a pagar</th><th>Premio a recibir</th><th>Neto</th></tr></thead><tbody>';
+            html+='<table><thead><tr><th>Banca</th><th>Venta</th><th>Com. a recibir</th><th>Premio a pagar</th><th>Neto</th></tr></thead><tbody>';
             let totNeto=0;
-            dataNuestro.forEach(r=>{const neto=(r.comision||0)+(r.premio_recibir||0)-(r.premio||0);totNeto+=neto;html+=`<tr><td>${r.grupo_banca}</td><td>${fmt(r.venta)}</td><td style="color:#27ae60;">+${fmt(r.comision)}</td><td style="color:#c0392b;">-${fmt(r.premio)}</td><td style="color:#27ae60;">+${fmt(r.premio_recibir)}</td><td style="${neto>=0?'color:#27ae60':'color:#c0392b'}">${fmtSigned(neto)}</td></tr>`;});
+            dataNuestro.forEach(r=>{const neto=-(r.comision||0)-(r.premio||0);totNeto+=neto;html+=`<tr><td>${r.grupo_banca}</td><td>${fmt(r.venta)}</td><td style="color:#c0392b;">-${fmt(r.comision)}</td><td style="color:#c0392b;">-${fmt(r.premio)}</td><td style="${neto>=0?'color:#27ae60':'color:#c0392b'}">${fmtSigned(neto)}</td></tr>`;});
             html+=`<tr class="fila-totales"><td>TOTALES</td><td colspan="4"></td><td style="${totNeto>=0?'color:#27ae60':'color:#c0392b'}">${fmtSigned(totNeto)}</td></tr>`;
             html+='</tbody></table>';
         }else{html+='<p style="color:#7f8c8d;font-size:13px;">Sin ventas pasadas a banca este día.</p>';}
