@@ -143,24 +143,24 @@ async function cargarDatos(){
         html+='</div>';
         html+=`<div class="seccion"><h2>📥 Lo que reporta la banca</h2>
         <div class="saldo-row">
-            <div class="field"><label>Saldo anterior (C$)</label><input type="number" id="saldoAntes" value="${saldoAntes.toFixed(2)}" min="0" oninput="recalcular()"></div>
-            <div class="field"><label>Abonos recibidos (C$)</label><input type="number" id="abonos" value="${(reg.abonos||0).toFixed(2)}" min="0" oninput="recalcular()"></div>
+            <div class="field"><label>Saldo anterior (₡)</label><input type="number" id="saldoAntes" value="${saldoAntes.toFixed(2)}" min="0" oninput="recalcular()"></div>
+            <div class="field"><label>Abonos recibidos (₡)</label><input type="number" id="abonos" value="${(reg.abonos||0).toFixed(2)}" min="0" oninput="recalcular()"></div>
         </div>
         <div class="banca-grid">
-            <div class="banca-card"><label>Banca Tica (C$)</label><input type="number" id="bancaTica" value="${(reg.banca_tica||0).toFixed(2)}" min="0" oninput="recalcular()"></div>
-            <div class="banca-card"><label>Banca Nica (C$)</label><input type="number" id="bancaNica" value="${(reg.banca_nica||0).toFixed(2)}" min="0" oninput="recalcular()"></div>
-            <div class="banca-card"><label>Reventado (C$)</label><input type="number" id="bancaReventado" value="${(reg.banca_reventado||0).toFixed(2)}" min="0" oninput="recalcular()"></div>
-            <div class="banca-card"><label>Extranjeras (C$)</label><input type="number" id="bancaExtranjeras" value="${(reg.banca_extranjeras||0).toFixed(2)}" min="0" oninput="recalcular()"></div>
+            <div class="banca-card"><label>Banca Tica (₡)</label><input type="number" id="bancaTica" value="${(reg.banca_tica||0).toFixed(2)}" min="0" oninput="recalcular()"></div>
+            <div class="banca-card"><label>Banca Nica (₡)</label><input type="number" id="bancaNica" value="${(reg.banca_nica||0).toFixed(2)}" min="0" oninput="recalcular()"></div>
+            <div class="banca-card"><label>Reventado (₡)</label><input type="number" id="bancaReventado" value="${(reg.banca_reventado||0).toFixed(2)}" min="0" oninput="recalcular()"></div>
+            <div class="banca-card"><label>Extranjeras (₡)</label><input type="number" id="bancaExtranjeras" value="${(reg.banca_extranjeras||0).toFixed(2)}" min="0" oninput="recalcular()"></div>
         </div>
         <div class="botones-fila">
             <button id="saveBtn">💾 Guardar datos de banca</button>
             <button id="exportBtn">📷 Exportar imagen</button>
         </div></div>`;
         html+=`<div class="seccion"><h2>📊 Resultado</h2><div class="resultado-grid">
-            <div class="resultado-card"><div class="label">Cta Banca (delta)</div><div class="valor" id="resCtaBanca">C$0.00</div></div>
-            <div class="resultado-card"><div class="label">Nuestro cálculo (neto)</div><div class="valor" id="resTotalNuestro">C$0.00</div></div>
-            <div class="resultado-card"><div class="label">Saldo (Acá)</div><div class="valor" id="resSaldoAca">C$0.00</div></div>
-            <div class="resultado-card"><div class="label">Diferencia (Acá - Banca)</div><div class="valor" id="resDiff">C$0.00</div></div>
+            <div class="resultado-card"><div class="label">Cta Banca (delta)</div><div class="valor" id="resCtaBanca">₡0.00</div></div>
+            <div class="resultado-card"><div class="label">Nuestro cálculo (neto)</div><div class="valor" id="resTotalNuestro">₡0.00</div></div>
+            <div class="resultado-card"><div class="label">Saldo (Acá)</div><div class="valor" id="resSaldoAca">₡0.00</div></div>
+            <div class="resultado-card"><div class="label">Diferencia (Acá - Banca)</div><div class="valor" id="resDiff">₡0.00</div></div>
         </div></div>`;
         contenidoEl.innerHTML=html;
         document.getElementById('saveBtn').addEventListener('click',guardarDatos);
