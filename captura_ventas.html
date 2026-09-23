@@ -21,8 +21,9 @@
     #tableArea { padding:20px; }
     .placeholder { text-align:center; color:#7f8c8d; padding:40px; }
     .save-bar { padding:15px 20px; background:#ecf0f1; display:flex; justify-content:space-between; align-items:center; border-top:2px solid #bdc3c7; flex-wrap:wrap; gap:10px; }
-    .totales { font-size:14px; color:#2c3e50; }
+    .totales { font-size:14px; color:#2c3e50; display:flex; flex-wrap:wrap; gap:8px 16px; }
     .totales b { color:#27ae60; }
+    .totales .sep { color:#bdc3c7; }
     #saveBtn { padding:12px 25px; background:#27ae60; color:white; border:none; border-radius:5px; font-size:15px; font-weight:bold; cursor:pointer; }
     #saveBtn:hover { background:#219150; }
     #saveBtn:disabled { background:#95a5a6; cursor:not-allowed; }
@@ -59,7 +60,13 @@
     <div id="statusMsg"></div>
     <div id="tableArea"><div class="placeholder">👆 Elige un sorteo y una fecha para cargar la lista de vendedores</div></div>
     <div class="save-bar" id="saveBar" style="display:none;">
-        <div class="totales">Venta total: <b id="totalVenta">C$0</b> &nbsp;|&nbsp; Total premio a pagar: <b id="totalPremio">C$0</b></div>
+        <div class="totales">
+            Venta total: <b id="totalVenta">₡0</b>
+            <span class="sep">|</span>
+            Venta al ganador: <b id="totalVentaGanador">₡0</b>
+            <span class="sep">|</span>
+            Premio a pagar: <b id="totalPremio">₡0</b>
+        </div>
         <button id="saveBtn">💾 Guardar ventas del día</button>
     </div>
 </div>
@@ -85,6 +92,7 @@ var hoyLocal=new Date();
 fechaInput.value=hoyLocal.getFullYear()+'-'+String(hoyLocal.getMonth()+1).padStart(2,'0')+'-'+String(hoyLocal.getDate()).padStart(2,'0');
 
 function urlConAuth(base){const sep=base.indexOf('?')===-1?'?':'&';return base+sep+'token='+encodeURIComponent(APP_TOKEN);}
+function fmt(n){return'₡'+(n||0).toLocaleString('es-CR',{minimumFractionDigits:2});}
 
 function editorConFlechas(cell,onRendered,success,cancel){
     var input=document.createElement('input');input.type='number';input.min='0';
@@ -182,8 +190,8 @@ function cargarTabla(){
             rowFormatter:function(row){if(row.getData().es_ajuste)row.getElement().classList.add('fila-ajuste');},
             columns:[
                 {title:'Vendedor',field:'vendedor',headerSort:false,widthGrow:2},
-                {title:'Venta ($)',field:'venta',hozAlign:'right',widthGrow:1,cellEdited:recalcularTotales,editor:function(cell,onRendered,success,cancel){return cell.getRow().getData().es_ajuste?editorConFlechasNegativo(cell,onRendered,success,cancel):editorConFlechas(cell,onRendered,success,cancel);}},
-                {title:'Venta al ganador ($)',field:'venta_premio',hozAlign:'right',widthGrow:1,cellEdited:recalcularTotales,editor:function(cell,onRendered,success,cancel){return cell.getRow().getData().es_ajuste?editorConFlechasNegativo(cell,onRendered,success,cancel):editorConFlechas(cell,onRendered,success,cancel);}},
+                {title:'Venta (₡)',field:'venta',hozAlign:'right',widthGrow:1,cellEdited:recalcularTotales,editor:function(cell,onRendered,success,cancel){return cell.getRow().getData().es_ajuste?editorConFlechasNegativo(cell,onRendered,success,cancel):editorConFlechas(cell,onRendered,success,cancel);}},
+                {title:'Venta al ganador (₡)',field:'venta_premio',hozAlign:'right',widthGrow:1,cellEdited:recalcularTotales,editor:function(cell,onRendered,success,cancel){return cell.getRow().getData().es_ajuste?editorConFlechasNegativo(cell,onRendered,success,cancel):editorConFlechas(cell,onRendered,success,cancel);}},
                 {title:'Comisión %',field:'comision_pct',hozAlign:'right',widthGrow:1,headerSort:false,visible:false},
                 {title:'Multiplicador',field:'multiplicador',hozAlign:'right',widthGrow:1,headerSort:false,visible:false},
                 {title:'⚠️ No pasa a banca',field:'no_pasa_banca',hozAlign:'center',width:110,headerSort:false,
@@ -203,10 +211,15 @@ function cargarTabla(){
 function recalcularTotales(datosOverride){
     var data=datosOverride||(table?table.getData():[]);
     if(!data||data.length===0)return;
-    var totalVenta=0,totalPremio=0;
-    data.forEach(function(row){totalVenta+=parseFloat(row.venta)||0;totalPremio+=(parseFloat(row.venta_premio)||0)*row.multiplicador;});
-    document.getElementById('totalVenta').textContent='C$'+totalVenta.toLocaleString('es-CR',{minimumFractionDigits:2});
-    document.getElementById('totalPremio').textContent='C$'+totalPremio.toLocaleString('es-CR',{minimumFractionDigits:2});
+    var totalVenta=0,totalVentaGanador=0,totalPremio=0;
+    data.forEach(function(row){
+        totalVenta+=parseFloat(row.venta)||0;
+        totalVentaGanador+=parseFloat(row.venta_premio)||0;
+        totalPremio+=(parseFloat(row.venta_premio)||0)*(parseFloat(row.multiplicador)||1);
+    });
+    document.getElementById('totalVenta').textContent=fmt(totalVenta);
+    document.getElementById('totalVentaGanador').textContent=fmt(totalVentaGanador);
+    document.getElementById('totalPremio').textContent=fmt(totalPremio);
 }
 
 sorteoSelect.addEventListener('change',cargarTabla);
