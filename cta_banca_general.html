@@ -60,7 +60,7 @@ const hoy=new Date();
 fechaInput.value=hoy.getFullYear()+'-'+String(hoy.getMonth()+1).padStart(2,'0')+'-'+String(hoy.getDate()).padStart(2,'0');
 function fmt(n){return(n||0).toLocaleString('es-CR',{minimumFractionDigits:2});}
 function fmtSigned(n){const v=n||0;return(v>=0?'+':'')+v.toLocaleString('es-CR',{minimumFractionDigits:2});}
-let dataNuestro=[];
+let dataNuestro=[];let _totNetoTabla=0;
 
 function recalcular(){
     const saldoAntes=parseFloat(document.getElementById('saldoAntes').value)||0;
@@ -71,10 +71,7 @@ function recalcular(){
     const abonos=parseFloat(document.getElementById('abonos').value)||0;
     const totalBanca=bancaTica+bancaNica+bancaReventado+bancaExtranjeras;
     const ctaBanca=(totalBanca-saldoAntes)-abonos;
-    const totalNuestro=dataNuestro.reduce((acc,r)=>{
-        const neto=(r.comision||0)+(r.premio_recibir||0)-(r.premio||0);
-        return acc+neto;
-    },0);
+    const totalNuestro=_totNetoTabla;
     const saldoAca=saldoAntes+abonos+totalNuestro;
     const diffSaldo=saldoAca-totalBanca;
     document.getElementById('resCtaBanca').textContent=fmtSigned(ctaBanca);document.getElementById('resCtaBanca').className='valor '+(ctaBanca>=0?'positivo':'negativo');
@@ -96,30 +93,30 @@ async function cargarDatos(){
         let html='';
         html+=`<div class="seccion"><h2>📊 Nuestro cálculo (del sistema)</h2>`;
         if(dataNuestro.length>0){
-            html+='<table><thead><tr><th>Banca</th><th>Venta</th><th>Com. a recibir</th><th>Premio a pagar</th><th>Neto</th></tr></thead><tbody>';
+            html+='<table><thead><tr><th>Banca</th><th>Venta</th><th>Com. a recibir</th><th>Premio a pagar</th><th>Premio a recibir</th><th>Neto</th></tr></thead><tbody>';
             let totNeto=0;
-            dataNuestro.forEach(r=>{const neto=(r.venta||0)-(r.comision||0)-(r.premio||0);totNeto+=neto;html+=`<tr><td>${r.grupo_banca}</td><td style="color:#27ae60;">${fmt(r.venta)}</td><td style="color:#c0392b;">-${fmt(r.comision)}</td><td style="color:#c0392b;">-${fmt(r.premio)}</td><td style="${neto>=0?'color:#27ae60':'color:#c0392b'}">${fmtSigned(neto)}</td></tr>`;});
-            html+=`<tr class="fila-totales"><td>TOTALES</td><td colspan="3"></td><td style="${totNeto>=0?'color:#27ae60':'color:#c0392b'}">${fmtSigned(totNeto)}</td></tr>`;
-            html+='</tbody></table>';
+            dataNuestro.forEach(r=>{const neto=(r.comision||0)+(r.premio_recibir||0)-(r.premio||0);totNeto+=neto;html+=`<tr><td>${r.grupo_banca}</td><td>${fmt(r.venta)}</td><td style="color:#27ae60;">+${fmt(r.comision)}</td><td style="color:#c0392b;">-${fmt(r.premio)}</td><td style="color:#27ae60;">+${fmt(r.premio_recibir)}</td><td style="${neto>=0?'color:#27ae60':'color:#c0392b'}">${fmtSigned(neto)}</td></tr>`;});
+            html+=`<tr class="fila-totales"><td>TOTALES</td><td colspan="4"></td><td style="${totNeto>=0?'color:#27ae60':'color:#c0392b'}">${fmtSigned(totNeto)}</td></tr>`;
+            _totNetoTabla=totNeto;html+='</tbody></table>';
         }else{html+='<p style="color:#7f8c8d;font-size:13px;">Sin ventas pasadas a banca este día.</p>';}
         html+='</div>';
         html+=`<div class="seccion"><h2>📥 Lo que reporta la banca</h2>
         <div class="saldo-row">
-            <div class="field"><label>Saldo anterior (₡)</label><input type="number" id="saldoAntes" value="${saldoAntes.toFixed(2)}" min="0" oninput="recalcular()"></div>
-            <div class="field"><label>Abonos recibidos (₡)</label><input type="number" id="abonos" value="${(reg.abonos||0).toFixed(2)}" min="0" oninput="recalcular()"></div>
+            <div class="field"><label>Saldo anterior (C$)</label><input type="number" id="saldoAntes" value="${saldoAntes.toFixed(2)}" min="0" oninput="recalcular()"></div>
+            <div class="field"><label>Abonos recibidos (C$)</label><input type="number" id="abonos" value="${(reg.abonos||0).toFixed(2)}" min="0" oninput="recalcular()"></div>
         </div>
         <div class="banca-grid">
-            <div class="banca-card"><label>Banca Tica (₡)</label><input type="number" id="bancaTica" value="${(reg.banca_tica||0).toFixed(2)}" min="0" oninput="recalcular()"></div>
-            <div class="banca-card"><label>Banca Nica (₡)</label><input type="number" id="bancaNica" value="${(reg.banca_nica||0).toFixed(2)}" min="0" oninput="recalcular()"></div>
-            <div class="banca-card"><label>Reventado (₡)</label><input type="number" id="bancaReventado" value="${(reg.banca_reventado||0).toFixed(2)}" min="0" oninput="recalcular()"></div>
-            <div class="banca-card"><label>Extranjeras (₡)</label><input type="number" id="bancaExtranjeras" value="${(reg.banca_extranjeras||0).toFixed(2)}" min="0" oninput="recalcular()"></div>
+            <div class="banca-card"><label>Banca Tica (C$)</label><input type="number" id="bancaTica" value="${(reg.banca_tica||0).toFixed(2)}" min="0" oninput="recalcular()"></div>
+            <div class="banca-card"><label>Banca Nica (C$)</label><input type="number" id="bancaNica" value="${(reg.banca_nica||0).toFixed(2)}" min="0" oninput="recalcular()"></div>
+            <div class="banca-card"><label>Reventado (C$)</label><input type="number" id="bancaReventado" value="${(reg.banca_reventado||0).toFixed(2)}" min="0" oninput="recalcular()"></div>
+            <div class="banca-card"><label>Extranjeras (C$)</label><input type="number" id="bancaExtranjeras" value="${(reg.banca_extranjeras||0).toFixed(2)}" min="0" oninput="recalcular()"></div>
         </div>
         <button id="saveBtn">💾 Guardar datos de banca</button></div>`;
         html+=`<div class="seccion"><h2>📊 Resultado</h2><div class="resultado-grid">
-            <div class="resultado-card"><div class="label">Cta Banca (delta)</div><div class="valor" id="resCtaBanca">₡0.00</div></div>
-            <div class="resultado-card"><div class="label">Nuestro cálculo (neto)</div><div class="valor" id="resTotalNuestro">₡0.00</div></div>
-            <div class="resultado-card"><div class="label">Saldo (Acá)</div><div class="valor" id="resSaldoAca">₡0.00</div></div>
-            <div class="resultado-card"><div class="label">Diferencia (Acá - Banca)</div><div class="valor" id="resDiff">₡0.00</div></div>
+            <div class="resultado-card"><div class="label">Cta Banca (delta)</div><div class="valor" id="resCtaBanca">C$0.00</div></div>
+            <div class="resultado-card"><div class="label">Nuestro cálculo (neto)</div><div class="valor" id="resTotalNuestro">C$0.00</div></div>
+            <div class="resultado-card"><div class="label">Saldo (Acá)</div><div class="valor" id="resSaldoAca">C$0.00</div></div>
+            <div class="resultado-card"><div class="label">Diferencia (Acá - Banca)</div><div class="valor" id="resDiff">C$0.00</div></div>
         </div></div>`;
         contenidoEl.innerHTML=html;
         document.getElementById('saveBtn').addEventListener('click',guardarDatos);
