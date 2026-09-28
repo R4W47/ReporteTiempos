@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Condiciones con la Banca</title>
+<style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:Arial,sans-serif;background:#f5f5f5;padding:15px;}
+    .container{max-width:750px;margin:0 auto;background:white;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.1);overflow:hidden;}
+    .header{background:#2c3e50;color:white;padding:15px 20px;text-align:center;position:relative;}
+    .header h1{font-size:1.4em;}
+    .btn-menu{position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.15);color:white;border:none;border-radius:5px;padding:8px 12px;font-size:13px;cursor:pointer;text-decoration:none;}
+    .btn-menu:hover{background:rgba(255,255,255,0.25);}
+    .status{padding:10px 20px;font-size:14px;}
+    .status.success{background:#eafaf1;color:#27ae60;}
+    .status.error{background:#fdecea;color:#c0392b;}
+    .status.loading{background:#eaf2fa;color:#2980b9;}
+    .contenido{padding:20px;}
+    .grupo-titulo{background:#34495e;color:white;padding:8px 12px;font-weight:bold;font-size:14px;border-radius:5px;margin:20px 0 8px;}
+    table{border-collapse:collapse;width:100%;font-size:14px;margin-bottom:10px;}
+    th,td{border:1px solid #ddd;padding:9px 12px;text-align:left;}
+    th{background:#3498db;color:white;font-weight:bold;}
+    tr:nth-child(even){background:#f9f9f9;}
+    td input[type=number]{width:100%;padding:5px 8px;border:1px solid #bdc3c7;border-radius:4px;font-size:14px;text-align:right;}
+    td input[type=number]:focus{border-color:#3498db;outline:none;}
+    .save-bar{padding:15px 20px;background:#ecf0f1;border-top:2px solid #bdc3c7;display:flex;justify-content:flex-end;}
+    #saveBtn{padding:12px 30px;background:#27ae60;color:white;border:none;border-radius:5px;font-size:15px;font-weight:bold;cursor:pointer;}
+    #saveBtn:hover{background:#219150;}
+    #saveBtn:disabled{background:#95a5a6;cursor:not-allowed;}
+    .placeholder{text-align:center;color:#7f8c8d;padding:40px;}
+    .inactivo{color:#95a5a6;font-style:italic;}
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <a href="configuraciones.html" class="btn-menu">← Volver</a>
+        <h1>🏦 Condiciones con la Banca</h1>
+    </div>
+    <div id="statusMsg"></div>
+    <div id="contenido" class="contenido">
+        <div class="placeholder">⏳ Cargando sorteos...</div>
+    </div>
+    <div class="save-bar">
+        <button id="saveBtn" disabled>💾 Guardar cambios</button>
+    </div>
+</div>
+<script>
+function getSession(){try{const s=sessionStorage.getItem('rt_session');return s?JSON.parse(s):null;}catch(e){return null;}}
+const _s=getSession();if(!_s||!_s.token){window.location.href='index.html';}
+const APP_TOKEN=_s.token;
+const WORKER_URL='https://frosty-base-53ff.watsonmraul.workers.dev';
+function urlConAuth(base){const sep=base.indexOf('?')===-1?'?':'&';return base+sep+'token='+encodeURIComponent(APP_TOKEN);}
+
+const statusEl=document.getElementById('statusMsg');
+const contenidoEl=document.getElementById('contenido');
+const saveBtn=document.getElementById('saveBtn');
+let sorteos=[];
+
+async function cargar(){
+    try{
+        const resp=await fetch(urlConAuth(`${WORKER_URL}/api/admin/banca-sorteo`),{cache:'no-store'});
+        if(!resp.ok)throw new Error('No se pudo cargar');
+        sorteos=await resp.json();
+        renderizar();
+        saveBtn.disabled=false;
+    }catch(e){
+        statusEl.innerHTML=`<div class="status error">⚠️ ${e.message}</div>`;
+        contenidoEl.innerHTML='';
+    }
+}
+
+function renderizar(){
+    // Agrupar por grupo_banca
+    const grupos={};
+    sorteos.forEach(s=>{
+        if(!grupos[s.grupo_banca])grupos[s.grupo_banca]=[];
+        grupos[s.grupo_banca].push(s);
+    });
+
+    let html='';
+    Object.keys(grupos).sort().forEach(grupo=>{
+        html+=`<div class="grupo-titulo">📋 ${grupo}</div>`;
+        html+='<table><thead><tr><th>Sorteo</th><th>Comisión %</th><th>Multiplicador premio</th></tr></thead><tbody>';
+        grupos[grupo].forEach(s=>{
+            const comision=s.comision_pct!=null?s.comision_pct:0;
+            const multi=s.multiplicador_premio!=null?s.multiplicador_premio:0;
+            html+=`<tr${!s.activo?' class="inactivo"':''}>
+                <td>${s.sorteo_nombre}${!s.activo?' (inactivo)':''}</td>
+                <td><input type="number" class="input-comision" data-sorteo-id="${s.sorteo_id}" value="${comision}" min="0" max="100" step="0.01"></td>
+                <td><input type="number" class="input-multi" data-sorteo-id="${s.sorteo_id}" value="${multi}" min="0" step="0.01"></td>
+            </tr>`;
+        });
+        html+='</tbody></table>';
+    });
+    contenidoEl.innerHTML=html||'<div class="placeholder">No hay sorteos configurados.</div>';
+}
+
+saveBtn.addEventListener('click',async function(){
+    const registros=[];
+    document.querySelectorAll('.input-comision').forEach(inp=>{
+        const sorteoId=parseInt(inp.dataset.sorteoId);
+        const multiInp=document.querySelector(`.input-multi[data-sorteo-id="${sorteoId}"]`);
+        registros.push({
+            sorteo_id:sorteoId,
+            comision_pct:parseFloat(inp.value)||0,
+            multiplicador_premio:parseFloat(multiInp.value)||0
+        });
+    });
+    this.disabled=true;this.textContent='⏳ Guardando...';
+    try{
+        const resp=await fetch(urlConAuth(`${WORKER_URL}/api/admin/banca-sorteo`),{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({registros})
+        });
+        const result=await resp.json();
+        if(resp.ok&&result.ok){
+            statusEl.innerHTML='<div class="status success">✅ Cambios guardados correctamente</div>';
+            setTimeout(()=>statusEl.innerHTML='',3000);
+        }else throw new Error(result.error||'Error al guardar');
+    }catch(e){
+        statusEl.innerHTML=`<div class="status error">⚠️ ${e.message}</div>`;
+    }finally{
+        this.disabled=false;this.textContent='💾 Guardar cambios';
+    }
+});
+
+cargar();
+</script>
+</body>
+</html>
