@@ -54,7 +54,7 @@
     <div class="controls">
         <div class="field"><label>Sorteo</label><select id="sorteoSelect"><option value="">-- Elige un sorteo --</option></select></div>
         <div class="field"><label>Fecha</label><input type="date" id="fechaInput"></div>
-        <div class="field"><label>Número ganador</label><input type="text" id="numeroGanador" placeholder="ej. 35"></div>
+        <div class="field"><label>Número ganador</label><input type="text" id="numeroGanador" placeholder="ej. 35"><small id="ganadorNota" style="display:none;font-size:12px;margin-top:3px;"></small></div>
         <div class="field" id="bolitaField" style="display:none;"><label>Bolita (Reventado)</label><select id="bolitaSelect"></select></div>
     </div>
     <div id="statusMsg"></div>
@@ -144,7 +144,36 @@ function cargarSorteos(){
     }).catch(function(error){statusEl.innerHTML='<div class="status error">⚠️ '+error.message+'</div>';});
 }
 
+// Reventado: trae el número ganador del sorteo al que está ligado, para la misma fecha
+function mostrarNotaGanador(texto,color){
+    var nota=document.getElementById('ganadorNota');
+    if(!texto){nota.style.display='none';nota.textContent='';return;}
+    nota.textContent=texto;nota.style.color=color;nota.style.display='block';
+}
+function cargarGanadorLigado(sorteoInfo,fecha,numeroGuardado){
+    mostrarNotaGanador('');
+    if(!sorteoInfo||sorteoInfo.grupo_banca!=='Reventado')return;
+    if(!sorteoInfo.sorteo_ligado_id){mostrarNotaGanador('⚠️ Este Reventado no está ligado a ningún sorteo. Lígalo en Administrar Sorteos.','#d35400');return;}
+    var ligado=SORTEOS.find(function(x){return x.id==sorteoInfo.sorteo_ligado_id;});
+    var nombreLigado=ligado?ligado.nombre:'el sorteo ligado';
+    var sorteoPedido=sorteoSelect.value;
+    fetch(urlConAuth(WORKER_URL+'/api/ventas?sorteo_id='+sorteoInfo.sorteo_ligado_id+'&fecha='+fecha),{cache:'no-store'})
+    .then(function(r){return r.ok?r.json():[];})
+    .then(function(ventasLigado){
+        if(sorteoSelect.value!==sorteoPedido||fechaInput.value!==fecha)return; // el usuario ya cambió de sorteo o fecha
+        var numeroLigado=null;
+        for(var i=0;i<ventasLigado.length;i++){if(ventasLigado[i].numero_ganador){numeroLigado=ventasLigado[i].numero_ganador;break;}}
+        var inp=document.getElementById('numeroGanador');
+        if(!numeroLigado){mostrarNotaGanador('⏳ '+nombreLigado+' aún no tiene número ganador en esta fecha. Puedes escribirlo a mano.','#7f8c8d');return;}
+        if(!numeroGuardado){inp.value=numeroLigado;mostrarNotaGanador('🔗 Tomado de '+nombreLigado,'#27ae60');return;}
+        if(String(numeroGuardado).trim()!==String(numeroLigado).trim()){
+            mostrarNotaGanador('⚠️ '+nombreLigado+' tiene el '+numeroLigado+'. Revisa y guarda para corregirlo.','#c0392b');
+        }else{mostrarNotaGanador('🔗 Coincide con '+nombreLigado,'#27ae60');}
+    }).catch(function(){mostrarNotaGanador('⚠️ No se pudo consultar el número de '+nombreLigado,'#d35400');});
+}
+
 function cargarTabla(){
+    mostrarNotaGanador('');
     var sorteoId=sorteoSelect.value;
     var saveBar=document.getElementById('saveBar');
     var tableArea=document.getElementById('tableArea');
@@ -186,6 +215,7 @@ function cargarTabla(){
         var numeroGanadorEncontrado=null;
         for(var i=0;i<ventasExistentes.length;i++){if(ventasExistentes[i].numero_ganador){numeroGanadorEncontrado=ventasExistentes[i].numero_ganador;break;}}
         document.getElementById('numeroGanador').value=numeroGanadorEncontrado||'';
+        cargarGanadorLigado(sorteoInfo,fechaInput.value,numeroGanadorEncontrado);
         table=new Tabulator('#grid',{data:rows,layout:'fitColumns',
             rowFormatter:function(row){if(row.getData().es_ajuste)row.getElement().classList.add('fila-ajuste');},
             columns:[

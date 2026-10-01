@@ -75,11 +75,18 @@ async function cargar(){
     }
 }
 
-// Agrupa los sorteos por tipo de sorteo (campo grupo_banca en la base de datos)
+// Grupo de condiciones de un sorteo: su tipo (campo grupo_banca en la base de datos).
+// Los Reventados se separan según el tipo del sorteo al que están ligados.
+function grupoCondiciones(s){
+    const t=(s.grupo_banca||'').trim()||'(Sin tipo)';
+    if(t!=='Reventado')return t;
+    return 'Reventado – '+(s.ligado_tipo?s.ligado_tipo.trim():'sin ligar');
+}
+
 function agruparPorTipo(){
     const tipos={};
     sorteos.forEach(s=>{
-        const t=(s.grupo_banca||'').trim()||'(Sin tipo)';
+        const t=grupoCondiciones(s);
         if(!tipos[t])tipos[t]=[];
         tipos[t].push(s);
     });
@@ -109,9 +116,13 @@ function renderizar(){
         const com=valorComun(lista,'comision_pct');
         const mul=valorComun(lista,'multiplicador_premio');
         const todosInactivos=lista.every(s=>!s.activo);
-        const detalle=lista.map(s=>escapar(s.sorteo_nombre)+(s.activo?'':' (inactivo)')).join(', ');
-        const aviso=(com.distintos||mul.distintos)
-            ?'<span class="aviso-diferencia">⚠️ Estos sorteos tenían condiciones distintas. Revisa los valores y guarda para igualarlos.</span>':'';
+        const detalle=lista.map(s=>escapar(s.sorteo_nombre)
+            +(s.grupo_banca==='Reventado'&&s.ligado_nombre?' → '+escapar(s.ligado_nombre):'')
+            +(s.activo?'':' (inactivo)')).join(', ');
+        const avisoSinLigar=tipo==='Reventado – sin ligar'
+            ?'<span class="aviso-diferencia">⚠️ Liga estos Reventados a su sorteo en "Administrar Sorteos".</span>':'';
+        const aviso=avisoSinLigar+((com.distintos||mul.distintos)
+            ?'<span class="aviso-diferencia">⚠️ Estos sorteos tenían condiciones distintas. Revisa los valores y guarda para igualarlos.</span>':'');
         html+=`<tr${todosInactivos?' class="inactivo"':''}>
             <td><span class="tipo-nombre">${escapar(tipo)}</span>
                 <span class="tipo-sorteos">${lista.length} ${lista.length===1?'sorteo':'sorteos'}: ${detalle}</span>${aviso}</td>
@@ -134,8 +145,7 @@ saveBtn.addEventListener('click',async function(){
     });
     // Aplicar a cada sorteo según su tipo
     const registros=sorteos.map(s=>{
-        const t=(s.grupo_banca||'').trim()||'(Sin tipo)';
-        const c=porTipo[t];
+        const c=porTipo[grupoCondiciones(s)];
         return {sorteo_id:s.sorteo_id,comision_pct:c.comision_pct,multiplicador_premio:c.multiplicador_premio};
     });
     this.disabled=true;this.textContent='⏳ Guardando...';
