@@ -30,6 +30,10 @@
     #saveBtn:disabled{background:#95a5a6;cursor:not-allowed;}
     .placeholder{text-align:center;color:#7f8c8d;padding:40px;}
     .inactivo{color:#95a5a6;font-style:italic;}
+    .tipo-nombre{font-weight:bold;color:#2c3e50;}
+    .tipo-sorteos{display:block;font-size:12px;color:#7f8c8d;margin-top:3px;font-weight:normal;}
+    .aviso-diferencia{display:block;font-size:12px;color:#d35400;margin-top:4px;font-weight:normal;}
+    .nota{font-size:13px;color:#7f8c8d;margin-bottom:12px;}
 </style>
 </head>
 <body>
@@ -40,7 +44,7 @@
     </div>
     <div id="statusMsg"></div>
     <div id="contenido" class="contenido">
-        <div class="placeholder">⏳ Cargando sorteos...</div>
+        <div class="placeholder">⏳ Cargando tipos de sorteo...</div>
     </div>
     <div class="save-bar">
         <button id="saveBtn" disabled>💾 Guardar cambios</button>
@@ -71,42 +75,68 @@ async function cargar(){
     }
 }
 
-function renderizar(){
-    // Agrupar por grupo_banca
-    const grupos={};
+// Agrupa los sorteos por tipo de sorteo (campo grupo_banca en la base de datos)
+function agruparPorTipo(){
+    const tipos={};
     sorteos.forEach(s=>{
-        if(!grupos[s.grupo_banca])grupos[s.grupo_banca]=[];
-        grupos[s.grupo_banca].push(s);
+        const t=(s.grupo_banca||'').trim()||'(Sin tipo)';
+        if(!tipos[t])tipos[t]=[];
+        tipos[t].push(s);
     });
+    return tipos;
+}
 
-    let html='';
-    Object.keys(grupos).sort().forEach(grupo=>{
-        html+=`<div class="grupo-titulo">📋 ${grupo}</div>`;
-        html+='<table><thead><tr><th>Sorteo</th><th>Comisión %</th><th>Multiplicador premio</th></tr></thead><tbody>';
-        grupos[grupo].forEach(s=>{
-            const comision=s.comision_pct!=null?s.comision_pct:0;
-            const multi=s.multiplicador_premio!=null?s.multiplicador_premio:0;
-            html+=`<tr${!s.activo?' class="inactivo"':''}>
-                <td>${s.sorteo_nombre}${!s.activo?' (inactivo)':''}</td>
-                <td><input type="number" class="input-comision" data-sorteo-id="${s.sorteo_id}" value="${comision}" min="0" max="100" step="0.01"></td>
-                <td><input type="number" class="input-multi" data-sorteo-id="${s.sorteo_id}" value="${multi}" min="0" step="0.01"></td>
-            </tr>`;
-        });
-        html+='</tbody></table>';
+// Valor más repetido dentro del tipo (si todos coinciden, es ese valor)
+function valorComun(lista,campo){
+    const conteo={};
+    lista.forEach(s=>{const v=s[campo]!=null?Number(s[campo]):0;conteo[v]=(conteo[v]||0)+1;});
+    let mejor=0,max=-1;
+    Object.keys(conteo).forEach(v=>{if(conteo[v]>max){max=conteo[v];mejor=Number(v);}});
+    return {valor:mejor,distintos:Object.keys(conteo).length>1};
+}
+
+function escapar(t){return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function renderizar(){
+    const tipos=agruparPorTipo();
+    const nombres=Object.keys(tipos).sort((a,b)=>a.localeCompare(b,'es'));
+    if(!nombres.length){contenidoEl.innerHTML='<div class="placeholder">No hay sorteos configurados.</div>';return;}
+
+    let html='<p class="nota">Las condiciones se negocian por tipo de sorteo y se aplican a todos los sorteos de ese tipo.</p>';
+    html+='<table><thead><tr><th>Tipo de sorteo</th><th>Comisión %</th><th>Multiplicador premio</th></tr></thead><tbody>';
+    nombres.forEach(tipo=>{
+        const lista=tipos[tipo];
+        const com=valorComun(lista,'comision_pct');
+        const mul=valorComun(lista,'multiplicador_premio');
+        const todosInactivos=lista.every(s=>!s.activo);
+        const detalle=lista.map(s=>escapar(s.sorteo_nombre)+(s.activo?'':' (inactivo)')).join(', ');
+        const aviso=(com.distintos||mul.distintos)
+            ?'<span class="aviso-diferencia">⚠️ Estos sorteos tenían condiciones distintas. Revisa los valores y guarda para igualarlos.</span>':'';
+        html+=`<tr${todosInactivos?' class="inactivo"':''}>
+            <td><span class="tipo-nombre">${escapar(tipo)}</span>
+                <span class="tipo-sorteos">${lista.length} ${lista.length===1?'sorteo':'sorteos'}: ${detalle}</span>${aviso}</td>
+            <td><input type="number" class="input-comision" data-tipo="${escapar(tipo)}" value="${com.valor}" min="0" max="100" step="0.01"></td>
+            <td><input type="number" class="input-multi" data-tipo="${escapar(tipo)}" value="${mul.valor}" min="0" step="0.01"></td>
+        </tr>`;
     });
-    contenidoEl.innerHTML=html||'<div class="placeholder">No hay sorteos configurados.</div>';
+    html+='</tbody></table>';
+    contenidoEl.innerHTML=html;
 }
 
 saveBtn.addEventListener('click',async function(){
-    const registros=[];
+    // Leer valores por tipo
+    const porTipo={};
     document.querySelectorAll('.input-comision').forEach(inp=>{
-        const sorteoId=parseInt(inp.dataset.sorteoId);
-        const multiInp=document.querySelector(`.input-multi[data-sorteo-id="${sorteoId}"]`);
-        registros.push({
-            sorteo_id:sorteoId,
-            comision_pct:parseFloat(inp.value)||0,
-            multiplicador_premio:parseFloat(multiInp.value)||0
-        });
+        porTipo[inp.dataset.tipo]={comision_pct:parseFloat(inp.value)||0};
+    });
+    document.querySelectorAll('.input-multi').forEach(inp=>{
+        porTipo[inp.dataset.tipo].multiplicador_premio=parseFloat(inp.value)||0;
+    });
+    // Aplicar a cada sorteo según su tipo
+    const registros=sorteos.map(s=>{
+        const t=(s.grupo_banca||'').trim()||'(Sin tipo)';
+        const c=porTipo[t];
+        return {sorteo_id:s.sorteo_id,comision_pct:c.comision_pct,multiplicador_premio:c.multiplicador_premio};
     });
     this.disabled=true;this.textContent='⏳ Guardando...';
     try{
@@ -117,7 +147,10 @@ saveBtn.addEventListener('click',async function(){
         });
         const result=await resp.json();
         if(resp.ok&&result.ok){
-            statusEl.innerHTML='<div class="status success">✅ Cambios guardados correctamente</div>';
+            // Reflejar los valores guardados y quitar avisos
+            sorteos.forEach((s,i)=>{s.comision_pct=registros[i].comision_pct;s.multiplicador_premio=registros[i].multiplicador_premio;});
+            renderizar();
+            statusEl.innerHTML='<div class="status success">✅ Condiciones guardadas para todos los sorteos de cada tipo</div>';
             setTimeout(()=>statusEl.innerHTML='',3000);
         }else throw new Error(result.error||'Error al guardar');
     }catch(e){

@@ -30,16 +30,17 @@
     <div class="nueva-fila">
         <div class="field"><label>Nombre nuevo sorteo</label><input type="text" id="nuevoNombre" placeholder="ej. Dominicana 4pm"></div>
         <div class="field"><label>Hora</label><input type="time" id="nuevaHora"></div>
-        <div class="field"><label>Grupo de banca</label><input type="text" id="nuevoGrupo" placeholder="ej. Dominicana"></div>
+        <div class="field"><label>Tipo de sorteo</label><input type="text" id="nuevoGrupo" list="listaTipos" placeholder="ej. Dominicana"></div>
         <button class="guardar" id="crearBtn">+ Crear</button>
     </div>
     <div class="tabla-wrap">
         <table id="tablaSorteos">
-            <thead><tr><th>Nombre</th><th>Hora</th><th>Grupo Banca</th><th>Activo</th><th></th></tr></thead>
+            <thead><tr><th>Nombre</th><th>Hora</th><th>Tipo de sorteo</th><th>Activo</th><th></th></tr></thead>
             <tbody id="tbodySorteos"></tbody>
         </table>
     </div>
 </div>
+<datalist id="listaTipos"></datalist>
 <script>
 function getSession(){try{const s=sessionStorage.getItem('rt_session');return s?JSON.parse(s):null;}catch(e){return null;}}
 const _s=getSession();if(!_s||!_s.token){window.location.href='index.html';}
@@ -59,6 +60,8 @@ async function cargar(){
 }
 
 function render(){
+    const tipos=[...new Set(sorteos.map(x=>(x.grupo_banca||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
+    document.getElementById('listaTipos').innerHTML=tipos.map(t=>`<option value="${t.replace(/"/g,'&quot;')}">`).join('');
     tbody.innerHTML='';
     sorteos.forEach(s=>{
         const tr=document.createElement('tr');
@@ -66,13 +69,35 @@ function render(){
         tr.innerHTML=`
             <td><input type="text" value="${s.nombre}" data-field="nombre"></td>
             <td><input type="time" value="${s.hora||''}" data-field="hora"></td>
-            <td><input type="text" value="${s.grupo_banca}" data-field="grupo_banca"></td>
+            <td><input type="text" value="${s.grupo_banca}" data-field="grupo_banca" list="listaTipos"></td>
             <td style="text-align:center;"><input type="checkbox" data-field="activo" ${s.activo?'checked':''}></td>
             <td><button class="guardar" data-id="${s.id}">Guardar</button></td>
         `;
         tr.querySelector('button').addEventListener('click',()=>guardarFila(s.id,tr));
         tbody.appendChild(tr);
     });
+}
+
+// Copia al sorteo indicado las condiciones con la banca que ya tiene su tipo.
+// "esElSorteo" identifica el sorteo nuevo o editado dentro de la lista de condiciones.
+async function heredarCondicionesDelTipo(tipo,esElSorteo){
+    try{
+        const resp=await fetch(urlConAuth(`${WORKER_URL}/api/admin/banca-sorteo`),{cache:'no-store'});
+        if(!resp.ok)return false;
+        const lista=await resp.json();
+        const objetivo=lista.find(esElSorteo);
+        if(!objetivo)return false;
+        const hermanos=lista.filter(x=>x!==objetivo&&(x.grupo_banca||'').trim()===tipo);
+        if(!hermanos.length)return false;
+        const ref=hermanos[0];
+        const registros=lista.map(x=>{
+            const base=x===objetivo?ref:x;
+            return {sorteo_id:x.sorteo_id,comision_pct:base.comision_pct!=null?base.comision_pct:0,multiplicador_premio:base.multiplicador_premio!=null?base.multiplicador_premio:0};
+        });
+        const r2=await fetch(urlConAuth(`${WORKER_URL}/api/admin/banca-sorteo`),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({registros})});
+        const res=await r2.json();
+        return r2.ok&&res.ok;
+    }catch(e){return false;}
 }
 
 async function guardarFila(id,tr){
@@ -84,7 +109,14 @@ async function guardarFila(id,tr){
         const resp=await fetch(urlConAuth(`${WORKER_URL}/api/admin/sorteos`),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:APP_TOKEN,id,nombre,hora,grupo_banca,activo})});
         const result=await resp.json();
         if(!resp.ok||!result.ok)throw new Error(result.error||'Error al guardar');
-        statusEl.innerHTML='<div class="status success">✅ Guardado</div>';await cargar();
+        const anterior=sorteos.find(x=>x.id===id);
+        let msg='✅ Guardado';
+        if(anterior&&(anterior.grupo_banca||'').trim()!==grupo_banca){
+            const ok=await heredarCondicionesDelTipo(grupo_banca,x=>x.sorteo_id===id);
+            msg=ok?`✅ Guardado. Se le aplicaron las condiciones con la banca del tipo "${grupo_banca}".`
+                  :`✅ Guardado. Revisa sus condiciones en "Condiciones con la Banca".`;
+        }
+        statusEl.innerHTML=`<div class="status success">${msg}</div>`;await cargar();
     }catch(e){statusEl.innerHTML=`<div class="status error">⚠️ ${e.message}</div>`;}
 }
 
@@ -92,12 +124,15 @@ document.getElementById('crearBtn').addEventListener('click',async function(){
     const nombre=document.getElementById('nuevoNombre').value.trim();
     const hora=document.getElementById('nuevaHora').value;
     const grupo_banca=document.getElementById('nuevoGrupo').value.trim();
-    if(!nombre||!grupo_banca){statusEl.innerHTML='<div class="status error">⚠️ Escribe al menos nombre y grupo de banca</div>';return;}
+    if(!nombre||!grupo_banca){statusEl.innerHTML='<div class="status error">⚠️ Escribe al menos el nombre y el tipo de sorteo</div>';return;}
     try{
         const resp=await fetch(urlConAuth(`${WORKER_URL}/api/admin/sorteos`),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:APP_TOKEN,nombre,hora,grupo_banca,activo:true})});
         const result=await resp.json();
         if(!resp.ok||!result.ok)throw new Error(result.error||'Error al crear');
-        statusEl.innerHTML=`<div class="status success">✅ "${nombre}" creado</div>`;
+        const ok=await heredarCondicionesDelTipo(grupo_banca,x=>x.sorteo_nombre===nombre&&(x.grupo_banca||'').trim()===grupo_banca);
+        statusEl.innerHTML=ok
+            ?`<div class="status success">✅ "${nombre}" creado con las condiciones con la banca del tipo "${grupo_banca}"</div>`
+            :`<div class="status success">✅ "${nombre}" creado. Revisa sus condiciones en "Condiciones con la Banca".</div>`;
         document.getElementById('nuevoNombre').value='';document.getElementById('nuevoGrupo').value='';
         await cargar();
     }catch(e){statusEl.innerHTML=`<div class="status error">⚠️ ${e.message}</div>`;}
