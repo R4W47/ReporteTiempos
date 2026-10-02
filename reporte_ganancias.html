@@ -68,6 +68,7 @@ const _s=getSession();if(!_s||!_s.token){window.location.href='index.html';}
 const APP_TOKEN=_s.token;
 const APP_ROLE=_s.role||'';
 const WORKER_URL='https://frosty-base-53ff.watsonmraul.workers.dev';
+const AJUSTE_VENDEDOR_ID=15;
 function urlConAuth(base){const sep=base.indexOf('?')===-1?'?':'&';return base+sep+'token='+encodeURIComponent(APP_TOKEN);}
 const fechaInput=document.getElementById('fechaInput');
 const statusEl=document.getElementById('statusMsg');
@@ -201,13 +202,22 @@ async function cargarReporte(){
     saveBtn.disabled=true;exportBtn.disabled=true;
     _netoListas=0;_netoNoPasadas=0;_netoAjustes=0;_hayNoPasadas=false;_hayAjustes=false;
     try{
-        const[respG,respGastos]=await Promise.all([
+        const[respG,respGastos,respAjuste]=await Promise.all([
             fetch(urlConAuth(`${WORKER_URL}/api/reporte-ganancias?fecha=${fecha}`),{cache:'no-store'}),
-            fetch(urlConAuth(`${WORKER_URL}/api/gastos?fecha=${fecha}`),{cache:'no-store'})
+            fetch(urlConAuth(`${WORKER_URL}/api/gastos?fecha=${fecha}`),{cache:'no-store'}),
+            // Detalle del vendedor "Ajuste" para tomar el PREMIO real (venta al ganador × multiplicador)
+            fetch(urlConAuth(`${WORKER_URL}/api/reporte-diario?vendedor_id=${AJUSTE_VENDEDOR_ID}&fecha=${fecha}`),{cache:'no-store'}).catch(()=>null)
         ]);
         if(!respG.ok)throw new Error('No se pudo cargar el reporte');
         const data=await respG.json();
         _gastosExistentes=respGastos.ok?await respGastos.json():[];
+        let premioAjusteReal=null;
+        try{
+            if(respAjuste&&respAjuste.ok){
+                const filasAj=await respAjuste.json();
+                if(Array.isArray(filasAj))premioAjusteReal=filasAj.reduce((a,r)=>a+(parseFloat(r.premio)||0),0);
+            }
+        }catch(e){premioAjusteReal=null;}
         statusEl.innerHTML='';
         if(APP_ROLE==='superadmin'&&data.superadmin){
             chkOcultarNoPasadas.checked=!!data.superadmin.ocultarNoPasadas;
@@ -235,6 +245,8 @@ async function cargarReporte(){
         if(data.ajustes){
             _hayAjustes=true;
             const aj=data.ajustes;
+            // El premio del ajuste es el premio a pagar (venta al ganador × multiplicador), no el monto de la venta
+            if(premioAjusteReal!==null)aj.premio_pagar=premioAjusteReal;
             const neto=-(aj.venta||0)+(aj.comision_recibir||0)-(aj.premio_pagar||0);
             _netoAjustes=neto;
             html+=`<div class="seccion ajustes"><h2>⚖️ AJUSTES</h2><table><thead><tr><th>Monto ajuste</th><th>Comisión</th><th>Premio ajuste</th><th>Neto ajuste</th></tr></thead><tbody><tr><td>${fmt(aj.venta)}</td><td style="color:#27ae60;">+${fmt(aj.comision_recibir)}</td><td style="color:#c0392b;">-${fmt(aj.premio_pagar)}</td><td style="${neto>=0?'color:#27ae60':'color:#c0392b'}">${fmtSigned(neto)}</td></tr></tbody></table></div>`;
