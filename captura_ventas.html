@@ -238,14 +238,25 @@ function cargarTabla(){
     }).catch(function(error){statusEl.innerHTML='<div class="status error">⚠️ '+error.message+'</div>';saveBar.style.display='none';});
 }
 
+// Multiplicador del premio de una fila. En Reventado se usa el multiplicador de la bolita elegida.
+function multiplicadorFila(row){
+    if(esReventadoActual&&!row.es_ajuste){
+        var bolita=BOLITAS.find(function(b){return b.id==bolitaSeleccionadaId;});
+        if(bolita)return parseFloat(bolita.multiplicador_vendedor)||0;
+    }
+    var m=parseFloat(row.multiplicador);
+    return isNaN(m)?1:m;
+}
+
 function recalcularTotales(datosOverride){
-    var data=datosOverride||(table?table.getData():[]);
+    // Tabulator pasa la celda editada como parámetro; solo se usan los datos si vienen como lista
+    var data=Array.isArray(datosOverride)?datosOverride:(table?table.getData():[]);
     if(!data||data.length===0)return;
     var totalVenta=0,totalVentaGanador=0,totalPremio=0;
     data.forEach(function(row){
         totalVenta+=parseFloat(row.venta)||0;
         totalVentaGanador+=parseFloat(row.venta_premio)||0;
-        totalPremio+=(parseFloat(row.venta_premio)||0)*(parseFloat(row.multiplicador)||1);
+        totalPremio+=(parseFloat(row.venta_premio)||0)*multiplicadorFila(row);
     });
     document.getElementById('totalVenta').textContent=fmt(totalVenta);
     document.getElementById('totalVentaGanador').textContent=fmt(totalVentaGanador);
