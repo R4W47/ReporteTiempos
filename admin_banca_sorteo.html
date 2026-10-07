@@ -17,7 +17,6 @@
     .status.error{background:#fdecea;color:#c0392b;}
     .status.loading{background:#eaf2fa;color:#2980b9;}
     .contenido{padding:20px;}
-    .grupo-titulo{background:#34495e;color:white;padding:8px 12px;font-weight:bold;font-size:14px;border-radius:5px;margin:20px 0 8px;}
     table{border-collapse:collapse;width:100%;font-size:14px;margin-bottom:10px;}
     th,td{border:1px solid #ddd;padding:9px 12px;text-align:left;}
     th{background:#3498db;color:white;font-weight:bold;}
@@ -34,6 +33,13 @@
     .tipo-sorteos{display:block;font-size:12px;color:#7f8c8d;margin-top:3px;font-weight:normal;}
     .aviso-diferencia{display:block;font-size:12px;color:#d35400;margin-top:4px;font-weight:normal;}
     .nota{font-size:13px;color:#7f8c8d;margin-bottom:12px;}
+    .nuevo-tipo{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;background:#ecf0f1;padding:12px;border-radius:6px;margin-bottom:15px;}
+    .nuevo-tipo .field{display:flex;flex-direction:column;gap:4px;flex:1;min-width:140px;}
+    .nuevo-tipo label{font-size:12px;font-weight:bold;color:#2c3e50;}
+    .nuevo-tipo input{padding:7px;border:1px solid #bdc3c7;border-radius:4px;font-size:14px;}
+    .btn-crear{padding:8px 14px;background:#2980b9;color:white;border:none;border-radius:4px;cursor:pointer;font-size:13px;}
+    .btn-crear:hover{background:#21618c;}
+    .btn-borrar{background:none;border:none;color:#c0392b;cursor:pointer;font-size:12px;margin-top:4px;padding:0;text-decoration:underline;}
 </style>
 </head>
 <body>
@@ -43,8 +49,12 @@
         <h1>🏦 Condiciones con la Banca</h1>
     </div>
     <div id="statusMsg"></div>
-    <div id="contenido" class="contenido">
-        <div class="placeholder">⏳ Cargando tipos de sorteo...</div>
+    <div class="contenido">
+        <div class="nuevo-tipo">
+            <div class="field"><label>Nuevo tipo de sorteo</label><input type="text" id="nuevoTipoNombre" placeholder="ej. Dominicana, Panamá"></div>
+            <button class="btn-crear" id="crearTipoBtn">+ Crear tipo</button>
+        </div>
+        <div id="contenido"><div class="placeholder">⏳ Cargando tipos de sorteo...</div></div>
     </div>
     <div class="save-bar">
         <button id="saveBtn" disabled>💾 Guardar cambios</button>
@@ -60,17 +70,33 @@ function urlConAuth(base){const sep=base.indexOf('?')===-1?'?':'&';return base+s
 const statusEl=document.getElementById('statusMsg');
 const contenidoEl=document.getElementById('contenido');
 const saveBtn=document.getElementById('saveBtn');
+const REVENTADO='Reventado';
 let sorteos=[];
+let tiposGuardados=[];   // tipos registrados aparte (pueden no tener sorteos todavía)
+let tiposApiOk=false;    // el Worker ya tiene /api/admin/tipos-sorteo
+
+function escapar(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function mostrar(tipo,msg){statusEl.innerHTML=`<div class="status ${tipo}">${msg}</div>`;}
+
+async function cargarTipos(){
+    try{
+        const r=await fetch(urlConAuth(`${WORKER_URL}/api/admin/tipos-sorteo`),{cache:'no-store'});
+        if(!r.ok)throw new Error();
+        const data=await r.json();
+        if(!Array.isArray(data))throw new Error();
+        tiposGuardados=data;tiposApiOk=true;
+    }catch(e){tiposGuardados=[];tiposApiOk=false;}
+}
 
 async function cargar(){
     try{
-        const resp=await fetch(urlConAuth(`${WORKER_URL}/api/admin/banca-sorteo`),{cache:'no-store'});
+        const [resp]=await Promise.all([fetch(urlConAuth(`${WORKER_URL}/api/admin/banca-sorteo`),{cache:'no-store'}),cargarTipos()]);
         if(!resp.ok)throw new Error('No se pudo cargar');
         sorteos=await resp.json();
         renderizar();
         saveBtn.disabled=false;
     }catch(e){
-        statusEl.innerHTML=`<div class="status error">⚠️ ${e.message}</div>`;
+        mostrar('error','⚠️ '+escapar(e.message));
         contenidoEl.innerHTML='';
     }
 }
@@ -79,10 +105,12 @@ async function cargar(){
 // Los Reventados se separan según el tipo del sorteo al que están ligados.
 function grupoCondiciones(s){
     const t=(s.grupo_banca||'').trim()||'(Sin tipo)';
-    if(t!=='Reventado')return t;
+    if(t!==REVENTADO)return t;
     return 'Reventado – '+(s.ligado_tipo?s.ligado_tipo.trim():'sin ligar');
 }
+function esGrupoReventado(t){return t.indexOf(REVENTADO)===0;}
 
+// Agrupa los sorteos por tipo y agrega los tipos guardados que aún no tienen sorteos
 function agruparPorTipo(){
     const tipos={};
     sorteos.forEach(s=>{
@@ -90,11 +118,19 @@ function agruparPorTipo(){
         if(!tipos[t])tipos[t]=[];
         tipos[t].push(s);
     });
+    tiposGuardados.forEach(t=>{
+        const n=(t.nombre||'').trim();
+        if(!n)return;
+        const existe=Object.keys(tipos).some(k=>k.toLowerCase()===n.toLowerCase());
+        if(!existe)tipos[n]=[];
+    });
     return tipos;
 }
+function tipoGuardado(nombre){return tiposGuardados.find(t=>(t.nombre||'').trim().toLowerCase()===nombre.toLowerCase());}
 
 // Valor más repetido dentro del tipo (si todos coinciden, es ese valor)
-function valorComun(lista,campo){
+function valorComun(lista,campo,respaldo){
+    if(!lista.length)return {valor:respaldo!=null?Number(respaldo):0,distintos:false};
     const conteo={};
     lista.forEach(s=>{const v=s[campo]!=null?Number(s[campo]):0;conteo[v]=(conteo[v]||0)+1;});
     let mejor=0,max=-1;
@@ -102,69 +138,141 @@ function valorComun(lista,campo){
     return {valor:mejor,distintos:Object.keys(conteo).length>1};
 }
 
-function escapar(t){return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+// Lo que el usuario ya escribió en pantalla (para no perderlo al volver a dibujar)
+function leerPantalla(){
+    const porTipo={};
+    document.querySelectorAll('.input-comision').forEach(inp=>{porTipo[inp.dataset.tipo]={comision_pct:parseFloat(inp.value)||0};});
+    document.querySelectorAll('.input-multi').forEach(inp=>{
+        if(!porTipo[inp.dataset.tipo])porTipo[inp.dataset.tipo]={};
+        porTipo[inp.dataset.tipo].multiplicador_premio=parseFloat(inp.value)||0;
+    });
+    return porTipo;
+}
 
-function renderizar(){
+function renderizar(conservar){
     const tipos=agruparPorTipo();
-    const nombres=Object.keys(tipos).sort((a,b)=>a.localeCompare(b,'es'));
-    if(!nombres.length){contenidoEl.innerHTML='<div class="placeholder">No hay sorteos configurados.</div>';return;}
+    const nombres=Object.keys(tipos).sort((a,b)=>{
+        const ra=esGrupoReventado(a),rb=esGrupoReventado(b);
+        return ra!==rb?(ra?1:-1):a.localeCompare(b,'es');
+    });
+    if(!nombres.length){contenidoEl.innerHTML='<div class="placeholder">No hay tipos de sorteo todavía. Crea el primero arriba.</div>';return;}
 
-    let html='<p class="nota">Las condiciones se negocian por tipo de sorteo y se aplican a todos los sorteos de ese tipo.</p>';
+    let html='<p class="nota">Las condiciones se negocian por tipo de sorteo y se aplican a todos los sorteos de ese tipo. Los tipos sin sorteos guardan sus condiciones para cuando les asignes sorteos en "Administrar Sorteos".</p>';
     html+='<table><thead><tr><th>Tipo de sorteo</th><th>Comisión %</th><th>Multiplicador premio</th></tr></thead><tbody>';
     nombres.forEach(tipo=>{
         const lista=tipos[tipo];
-        const com=valorComun(lista,'comision_pct');
-        const mul=valorComun(lista,'multiplicador_premio');
-        const todosInactivos=lista.every(s=>!s.activo);
-        const detalle=lista.map(s=>escapar(s.sorteo_nombre)
-            +(s.grupo_banca==='Reventado'&&s.ligado_nombre?' → '+escapar(s.ligado_nombre):'')
-            +(s.activo?'':' (inactivo)')).join(', ');
+        const guardado=tipoGuardado(tipo);
+        let com=valorComun(lista,'comision_pct',guardado&&guardado.comision_pct);
+        let mul=valorComun(lista,'multiplicador_premio',guardado&&guardado.multiplicador_premio);
+        if(conservar&&conservar[tipo]){
+            com={valor:conservar[tipo].comision_pct,distintos:com.distintos};
+            mul={valor:conservar[tipo].multiplicador_premio,distintos:mul.distintos};
+        }
+        const todosInactivos=lista.length>0&&lista.every(s=>!s.activo);
+        let detalle;
+        if(lista.length){
+            detalle=`${lista.length} ${lista.length===1?'sorteo':'sorteos'}: `+lista.map(s=>escapar(s.sorteo_nombre)
+                +(s.grupo_banca===REVENTADO&&s.ligado_nombre?' → '+escapar(s.ligado_nombre):'')
+                +(s.activo?'':' (inactivo)')).join(', ');
+        }else{
+            detalle='Sin sorteos todavía — asígnale sorteos en "Administrar Sorteos".';
+        }
         const avisoSinLigar=tipo==='Reventado – sin ligar'
             ?'<span class="aviso-diferencia">⚠️ Liga estos Reventados a su sorteo en "Administrar Sorteos".</span>':'';
         const aviso=avisoSinLigar+((com.distintos||mul.distintos)
             ?'<span class="aviso-diferencia">⚠️ Estos sorteos tenían condiciones distintas. Revisa los valores y guarda para igualarlos.</span>':'');
+        const borrar=(!lista.length&&guardado&&guardado.id!=null)
+            ?`<button class="btn-borrar" data-borrar="${escapar(guardado.id)}" data-nombre="${escapar(tipo)}">Eliminar tipo</button>`:'';
         html+=`<tr${todosInactivos?' class="inactivo"':''}>
             <td><span class="tipo-nombre">${escapar(tipo)}</span>
-                <span class="tipo-sorteos">${lista.length} ${lista.length===1?'sorteo':'sorteos'}: ${detalle}</span>${aviso}</td>
+                <span class="tipo-sorteos">${detalle}</span>${aviso}${borrar}</td>
             <td><input type="number" class="input-comision" data-tipo="${escapar(tipo)}" value="${com.valor}" min="0" max="100" step="0.01"></td>
             <td><input type="number" class="input-multi" data-tipo="${escapar(tipo)}" value="${mul.valor}" min="0" step="0.01"></td>
         </tr>`;
     });
     html+='</tbody></table>';
     contenidoEl.innerHTML=html;
+    contenidoEl.querySelectorAll('.btn-borrar').forEach(b=>b.addEventListener('click',()=>borrarTipo(b.dataset.borrar,b.dataset.nombre)));
+}
+
+async function postTipos(cuerpo){
+    const r=await fetch(urlConAuth(`${WORKER_URL}/api/admin/tipos-sorteo`),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cuerpo)});
+    let res={};try{res=await r.json();}catch(e){}
+    if(!r.ok||!res.ok)throw new Error(res.error||'No se pudo guardar el tipo de sorteo');
+    return res;
+}
+
+const nuevoTipoInp=document.getElementById('nuevoTipoNombre');
+document.getElementById('crearTipoBtn').addEventListener('click',async function(){
+    let nombre=nuevoTipoInp.value.trim();
+    if(!nombre){mostrar('error','⚠️ Escribe el nombre del tipo de sorteo');return;}
+    if(nombre.toLowerCase()===REVENTADO.toLowerCase()||esGrupoReventado(nombre)){
+        mostrar('error','⚠️ Los Reventados no se crean aquí: se agrupan solos según el sorteo al que están ligados.');return;
+    }
+    const existente=Object.keys(agruparPorTipo()).find(k=>k.toLowerCase()===nombre.toLowerCase());
+    if(existente){mostrar('error',`⚠️ Ya existe el tipo "${escapar(existente)}"`);return;}
+    if(!tiposApiOk){
+        mostrar('error','⚠️ Para crear tipos sin sorteos falta actualizar el Worker (archivo tipos_sorteo_worker.js). Mientras tanto puedes crearlo desde "Administrar Sorteos" → Tipo de sorteo → "➕ Nuevo tipo…".');
+        return;
+    }
+    const pantalla=leerPantalla();
+    this.disabled=true;
+    try{
+        const res=await postTipos({accion:'crear',nombre});
+        tiposGuardados.push({id:res.id,nombre,comision_pct:null,multiplicador_premio:null});
+        nuevoTipoInp.value='';
+        renderizar(pantalla);
+        mostrar('success',`✅ Tipo "${escapar(nombre)}" creado. Pon su comisión y multiplicador y dale Guardar cambios.`);
+    }catch(e){mostrar('error','⚠️ '+escapar(e.message));}
+    finally{this.disabled=false;}
+});
+
+async function borrarTipo(id,nombre){
+    if(!confirm(`¿Eliminar el tipo "${nombre}"? No tiene sorteos asignados.`))return;
+    const pantalla=leerPantalla();
+    try{
+        await postTipos({accion:'borrar',id});
+        tiposGuardados=tiposGuardados.filter(t=>String(t.id)!==String(id));
+        renderizar(pantalla);
+        mostrar('success',`✅ Tipo "${escapar(nombre)}" eliminado`);
+    }catch(e){mostrar('error','⚠️ '+escapar(e.message));}
 }
 
 saveBtn.addEventListener('click',async function(){
-    // Leer valores por tipo
-    const porTipo={};
-    document.querySelectorAll('.input-comision').forEach(inp=>{
-        porTipo[inp.dataset.tipo]={comision_pct:parseFloat(inp.value)||0};
-    });
-    document.querySelectorAll('.input-multi').forEach(inp=>{
-        porTipo[inp.dataset.tipo].multiplicador_premio=parseFloat(inp.value)||0;
-    });
+    const porTipo=leerPantalla();
     // Aplicar a cada sorteo según su tipo
     const registros=sorteos.map(s=>{
         const c=porTipo[grupoCondiciones(s)];
         return {sorteo_id:s.sorteo_id,comision_pct:c.comision_pct,multiplicador_premio:c.multiplicador_premio};
     });
+    // Guardar también en el tipo (sirve para los sorteos que se le asignen después)
+    const tiposCond=Object.keys(porTipo).filter(t=>!esGrupoReventado(t)&&t!=='(Sin tipo)')
+        .map(t=>({nombre:t,comision_pct:porTipo[t].comision_pct,multiplicador_premio:porTipo[t].multiplicador_premio}));
     this.disabled=true;this.textContent='⏳ Guardando...';
     try{
-        const resp=await fetch(urlConAuth(`${WORKER_URL}/api/admin/banca-sorteo`),{
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({registros})
-        });
-        const result=await resp.json();
-        if(resp.ok&&result.ok){
-            // Reflejar los valores guardados y quitar avisos
+        if(registros.length){
+            const resp=await fetch(urlConAuth(`${WORKER_URL}/api/admin/banca-sorteo`),{
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({registros})
+            });
+            const result=await resp.json();
+            if(!resp.ok||!result.ok)throw new Error(result.error||'Error al guardar');
             sorteos.forEach((s,i)=>{s.comision_pct=registros[i].comision_pct;s.multiplicador_premio=registros[i].multiplicador_premio;});
-            renderizar();
-            statusEl.innerHTML='<div class="status success">✅ Condiciones guardadas para todos los sorteos de cada tipo</div>';
-            setTimeout(()=>statusEl.innerHTML='',3000);
-        }else throw new Error(result.error||'Error al guardar');
+        }
+        if(tiposApiOk&&tiposCond.length){
+            await postTipos({accion:'condiciones',tipos:tiposCond});
+            tiposCond.forEach(tc=>{
+                const g=tipoGuardado(tc.nombre);
+                if(g){g.comision_pct=tc.comision_pct;g.multiplicador_premio=tc.multiplicador_premio;}
+                else tiposGuardados.push(Object.assign({},tc));
+            });
+        }
+        renderizar();
+        mostrar('success','✅ Condiciones guardadas para todos los sorteos de cada tipo');
+        setTimeout(()=>statusEl.innerHTML='',3000);
     }catch(e){
-        statusEl.innerHTML=`<div class="status error">⚠️ ${e.message}</div>`;
+        mostrar('error','⚠️ '+escapar(e.message));
     }finally{
         this.disabled=false;this.textContent='💾 Guardar cambios';
     }

@@ -21,7 +21,7 @@
     button.guardar{padding:8px 14px;background:#27ae60;color:white;border:none;border-radius:4px;cursor:pointer;font-size:13px;}
     button.guardar:hover{background:#219150;}
     .tabla-wrap{padding:15px;overflow-x:auto;}
-    select{padding:6px;border:1px solid #bdc3c7;border-radius:4px;width:100%;background:white;font-size:13px;}
+    select{padding:6px;border:1px solid #bdc3c7;border-radius:4px;width:100%;background:white;font-size:13px;min-width:110px;}
     select:disabled{background:#f2f2f2;color:#aaa;}
     .nota{font-size:12px;color:#7f8c8d;padding:0 15px 10px;}
 </style>
@@ -33,11 +33,11 @@
     <div class="nueva-fila">
         <div class="field"><label>Nombre nuevo sorteo</label><input type="text" id="nuevoNombre" placeholder="ej. Dominicana 4pm"></div>
         <div class="field"><label>Hora</label><input type="time" id="nuevaHora"></div>
-        <div class="field"><label>Tipo de sorteo</label><input type="text" id="nuevoGrupo" list="listaTipos" placeholder="ej. Dominicana"></div>
+        <div class="field"><label>Tipo de sorteo</label><select id="nuevoGrupo" class="sel-tipo"></select></div>
         <div class="field" id="campoNuevoLigado" style="display:none;"><label>Ligado a</label><select id="nuevoLigado"></select></div>
         <button class="guardar" id="crearBtn">+ Crear</button>
     </div>
-    <p class="nota">Los sorteos de tipo Reventado se ligan al sorteo del que toman el número ganador. Sus condiciones con la banca se agrupan según el tipo de ese sorteo.</p>
+    <p class="nota">Elige el tipo de la lista o usa "➕ Nuevo tipo…" para crear uno. Los sorteos de tipo Reventado se ligan al sorteo del que toman el número ganador; sus condiciones con la banca se agrupan según el tipo de ese sorteo.</p>
     <div class="tabla-wrap">
         <table id="tablaSorteos">
             <thead><tr><th>Nombre</th><th>Hora</th><th>Tipo de sorteo</th><th>Ligado a</th><th>Activo</th><th></th></tr></thead>
@@ -45,7 +45,6 @@
         </table>
     </div>
 </div>
-<datalist id="listaTipos"></datalist>
 <script>
 function getSession(){try{const s=sessionStorage.getItem('rt_session');return s?JSON.parse(s):null;}catch(e){return null;}}
 const _s=getSession();if(!_s||!_s.token){window.location.href='index.html';}
@@ -55,12 +54,68 @@ function urlConAuth(base){const sep=base.indexOf('?')===-1?'?':'&';return base+s
 const statusEl=document.getElementById('statusMsg');
 const tbody=document.getElementById('tbodySorteos');
 const REVENTADO='Reventado';
+const NUEVO='__nuevo__';
 let sorteos=[];
+let tiposGuardados=[];   // tipos creados en "Condiciones con la Banca" (aunque aún no tengan sorteos)
+let tiposApiOk=false;    // el Worker ya tiene /api/admin/tipos-sorteo
+let tiposLocales=[];     // tipos creados aquí que todavía no tienen sorteo guardado
 
 function escapar(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 // Acepta "reventado" escrito de cualquier forma y lo guarda como "Reventado" (la captura de ventas usa ese nombre exacto)
 function normalizarTipo(t){t=(t||'').trim();return t.toLowerCase()===REVENTADO.toLowerCase()?REVENTADO:t;}
 function esReventado(t){return normalizarTipo(t)===REVENTADO;}
+
+// Lista completa de tipos: los guardados + los que ya usan los sorteos + los creados aquí. Reventado siempre al final.
+function listaTipos(){
+    const mapa=new Map();
+    const agregar=t=>{t=normalizarTipo(t);if(t&&t!==REVENTADO&&!mapa.has(t.toLowerCase()))mapa.set(t.toLowerCase(),t);};
+    tiposGuardados.forEach(t=>agregar(t.nombre));
+    sorteos.forEach(x=>agregar(x.grupo_banca));
+    tiposLocales.forEach(agregar);
+    return [...mapa.values()].sort((a,b)=>a.localeCompare(b,'es')).concat([REVENTADO]);
+}
+function buscarTipo(nombre){const n=normalizarTipo(nombre).toLowerCase();return listaTipos().find(t=>t.toLowerCase()===n);}
+
+function opcionesTipo(seleccionado){
+    seleccionado=normalizarTipo(seleccionado);
+    const tipos=listaTipos();
+    let html=seleccionado?'':'<option value="">— Elige el tipo —</option>';
+    if(seleccionado&&!tipos.includes(seleccionado))tipos.unshift(seleccionado);
+    tipos.forEach(t=>{html+=`<option value="${escapar(t)}"${t===seleccionado?' selected':''}>${escapar(t)}</option>`;});
+    html+=`<option value="${NUEVO}">➕ Nuevo tipo…</option>`;
+    return html;
+}
+// Reconstruye todos los selectores de tipo conservando lo que tiene elegido cada uno
+function refrescarSelectsTipo(){
+    document.querySelectorAll('select.sel-tipo').forEach(sel=>{
+        const actual=sel.value===NUEVO?(sel.dataset.prev||''):sel.value;
+        sel.innerHTML=opcionesTipo(actual);sel.dataset.prev=actual;
+    });
+}
+
+// Crea un tipo nuevo desde el selector (lo guarda en el Worker si ya tiene la función)
+async function pedirNuevoTipo(sel){
+    const nombre=normalizarTipo(prompt('Nombre del nuevo tipo de sorteo (ej. Dominicana, Panamá):')||'');
+    if(!nombre){sel.value=sel.dataset.prev||'';return false;}
+    const existente=buscarTipo(nombre);
+    if(!existente){
+        if(tiposApiOk){
+            try{
+                const r=await fetch(urlConAuth(`${WORKER_URL}/api/admin/tipos-sorteo`),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accion:'crear',nombre})});
+                const res=await r.json();
+                if(!r.ok||!res.ok)throw new Error(res.error||'No se pudo crear el tipo');
+                tiposGuardados.push({nombre,comision_pct:null,multiplicador_premio:null});
+            }catch(e){statusEl.innerHTML=`<div class="status error">⚠️ ${escapar(e.message)}</div>`;sel.value=sel.dataset.prev||'';return false;}
+        }else tiposLocales.push(nombre);
+    }
+    const elegido=existente||nombre;
+    sel.dataset.prev=elegido;
+    refrescarSelectsTipo();
+    sel.value=elegido;sel.dataset.prev=elegido;
+    statusEl.innerHTML=existente?`<div class="status success">Ya existía el tipo "${escapar(existente)}", quedó seleccionado.</div>`
+        :`<div class="status success">✅ Tipo "${escapar(nombre)}" creado. ${sel.id==='nuevoGrupo'?'Termina de llenar el sorteo y dale Crear.':'Dale Guardar a la fila para aplicarlo.'}</div>`;
+    return true;
+}
 
 // Opciones de "Ligado a": todos los sorteos que no son Reventado
 function opcionesLigado(seleccionado,excluirId){
@@ -73,37 +128,54 @@ function opcionesLigado(seleccionado,excluirId){
     return html;
 }
 
+async function cargarTipos(){
+    try{
+        const r=await fetch(urlConAuth(`${WORKER_URL}/api/admin/tipos-sorteo`),{cache:'no-store'});
+        if(!r.ok)throw new Error();
+        const data=await r.json();
+        if(!Array.isArray(data))throw new Error();
+        tiposGuardados=data;tiposApiOk=true;
+    }catch(e){tiposGuardados=[];tiposApiOk=false;}
+}
+
 async function cargar(){
     try{
-        const resp=await fetch(urlConAuth(`${WORKER_URL}/api/admin/sorteos`),{cache:'no-store'});
+        const [resp]=await Promise.all([fetch(urlConAuth(`${WORKER_URL}/api/admin/sorteos`),{cache:'no-store'}),cargarTipos()]);
         if(!resp.ok)throw new Error('No se pudo cargar (¿tienes permiso de admin?)');
         sorteos=await resp.json();render();
     }catch(e){statusEl.innerHTML=`<div class="status error">⚠️ ${e.message}</div>`;}
 }
 
 function render(){
-    const tipos=[...new Set(sorteos.map(x=>(x.grupo_banca||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
-    document.getElementById('listaTipos').innerHTML=tipos.map(t=>`<option value="${escapar(t)}">`).join('');
+    const nuevoSel=document.getElementById('nuevoGrupo');
+    const elegidoNuevo=nuevoSel.value===NUEVO?'':nuevoSel.value;
+    nuevoSel.innerHTML=opcionesTipo(elegidoNuevo);nuevoSel.dataset.prev=elegidoNuevo;
     document.getElementById('nuevoLigado').innerHTML=opcionesLigado(null,null);
     tbody.innerHTML='';
     sorteos.forEach(s=>{
         const tr=document.createElement('tr');
         if(!s.activo)tr.className='inactivo';
-        const rev=esReventado(s.grupo_banca);
+        const tipo=normalizarTipo(s.grupo_banca);
+        const rev=esReventado(tipo);
         tr.innerHTML=`
             <td><input type="text" value="${escapar(s.nombre)}" data-field="nombre"></td>
             <td><input type="time" value="${s.hora||''}" data-field="hora"></td>
-            <td><input type="text" value="${escapar(s.grupo_banca)}" data-field="grupo_banca" list="listaTipos"></td>
+            <td><select class="sel-tipo" data-field="grupo_banca" data-prev="${escapar(tipo)}">${opcionesTipo(tipo)}</select></td>
             <td><select data-field="ligado"${rev?'':' disabled'}>${rev?opcionesLigado(s.sorteo_ligado_id,s.id):'<option value="">—</option>'}</select></td>
             <td style="text-align:center;"><input type="checkbox" data-field="activo" ${s.activo?'checked':''}></td>
             <td><button class="guardar" data-id="${s.id}">Guardar</button></td>
         `;
         // Activar "Ligado a" solo cuando el tipo es Reventado
-        const inpTipo=tr.querySelector('[data-field="grupo_banca"]');
+        const selTipo=tr.querySelector('[data-field="grupo_banca"]');
         const sel=tr.querySelector('[data-field="ligado"]');
-        inpTipo.addEventListener('input',()=>{
-            if(esReventado(inpTipo.value)){if(sel.disabled){sel.innerHTML=opcionesLigado(s.sorteo_ligado_id,s.id);sel.disabled=false;}}
+        const actualizarLigado=()=>{
+            if(esReventado(selTipo.value)){if(sel.disabled){sel.innerHTML=opcionesLigado(s.sorteo_ligado_id,s.id);sel.disabled=false;}}
             else{sel.innerHTML='<option value="">—</option>';sel.disabled=true;}
+        };
+        selTipo.addEventListener('change',async()=>{
+            if(selTipo.value===NUEVO)await pedirNuevoTipo(selTipo);
+            else selTipo.dataset.prev=selTipo.value;
+            actualizarLigado();
         });
         tr.querySelector('button').addEventListener('click',()=>guardarFila(s.id,tr));
         tbody.appendChild(tr);
@@ -117,7 +189,8 @@ function grupoCondiciones(x){
     return 'Reventado – '+(x.ligado_tipo?x.ligado_tipo.trim():'sin ligar');
 }
 
-// Copia al sorteo indicado las condiciones con la banca que ya tiene su grupo.
+// Copia al sorteo indicado las condiciones con la banca que ya tiene su grupo
+// (de otro sorteo del mismo tipo o, si es el primero, de las guardadas para el tipo).
 async function heredarCondiciones(esElSorteo){
     try{
         const resp=await fetch(urlConAuth(`${WORKER_URL}/api/admin/banca-sorteo`),{cache:'no-store'});
@@ -126,7 +199,8 @@ async function heredarCondiciones(esElSorteo){
         const objetivo=lista.find(esElSorteo);
         if(!objetivo)return false;
         const grupo=grupoCondiciones(objetivo);
-        const ref=lista.find(x=>x!==objetivo&&grupoCondiciones(x)===grupo&&x.comision_pct!=null);
+        let ref=lista.find(x=>x!==objetivo&&grupoCondiciones(x)===grupo&&x.comision_pct!=null);
+        if(!ref)ref=tiposGuardados.find(t=>(t.nombre||'').trim().toLowerCase()===grupo.toLowerCase()&&t.comision_pct!=null);
         if(!ref)return false;
         const registros=[{sorteo_id:objetivo.sorteo_id,comision_pct:ref.comision_pct||0,multiplicador_premio:ref.multiplicador_premio||0}];
         const r2=await fetch(urlConAuth(`${WORKER_URL}/api/admin/banca-sorteo`),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({registros})});
@@ -147,6 +221,7 @@ async function guardarFila(id,tr){
     const activo=tr.querySelector('[data-field="activo"]').checked;
     const ligadoVal=tr.querySelector('[data-field="ligado"]').value;
     const sorteo_ligado_id=esReventado(grupo_banca)&&ligadoVal?parseInt(ligadoVal):null;
+    if(!grupo_banca||grupo_banca===NUEVO){statusEl.innerHTML='<div class="status error">⚠️ Elige el tipo de sorteo</div>';return;}
     if(esReventado(grupo_banca)&&!sorteo_ligado_id){statusEl.innerHTML='<div class="status error">⚠️ Elige a qué sorteo va ligado este Reventado</div>';return;}
     try{
         const resp=await fetch(urlConAuth(`${WORKER_URL}/api/admin/sorteos`),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:APP_TOKEN,id,nombre,hora,grupo_banca,activo,sorteo_ligado_id})});
@@ -163,18 +238,20 @@ async function guardarFila(id,tr){
     }catch(e){statusEl.innerHTML=`<div class="status error">⚠️ ${e.message}</div>`;}
 }
 
-const nuevoGrupoInp=document.getElementById('nuevoGrupo');
-nuevoGrupoInp.addEventListener('input',()=>{
-    document.getElementById('campoNuevoLigado').style.display=esReventado(nuevoGrupoInp.value)?'flex':'none';
+const nuevoGrupoSel=document.getElementById('nuevoGrupo');
+nuevoGrupoSel.addEventListener('change',async()=>{
+    if(nuevoGrupoSel.value===NUEVO)await pedirNuevoTipo(nuevoGrupoSel);
+    else nuevoGrupoSel.dataset.prev=nuevoGrupoSel.value;
+    document.getElementById('campoNuevoLigado').style.display=esReventado(nuevoGrupoSel.value)?'flex':'none';
 });
 
 document.getElementById('crearBtn').addEventListener('click',async function(){
     const nombre=document.getElementById('nuevoNombre').value.trim();
     const hora=document.getElementById('nuevaHora').value;
-    const grupo_banca=normalizarTipo(nuevoGrupoInp.value);
+    const grupo_banca=normalizarTipo(nuevoGrupoSel.value===NUEVO?'':nuevoGrupoSel.value);
     const ligadoVal=document.getElementById('nuevoLigado').value;
     const sorteo_ligado_id=esReventado(grupo_banca)&&ligadoVal?parseInt(ligadoVal):null;
-    if(!nombre||!grupo_banca){statusEl.innerHTML='<div class="status error">⚠️ Escribe al menos el nombre y el tipo de sorteo</div>';return;}
+    if(!nombre||!grupo_banca){statusEl.innerHTML='<div class="status error">⚠️ Escribe el nombre y elige el tipo de sorteo</div>';return;}
     if(esReventado(grupo_banca)&&!sorteo_ligado_id){statusEl.innerHTML='<div class="status error">⚠️ Elige a qué sorteo va ligado este Reventado</div>';return;}
     try{
         const resp=await fetch(urlConAuth(`${WORKER_URL}/api/admin/sorteos`),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:APP_TOKEN,nombre,hora,grupo_banca,activo:true,sorteo_ligado_id})});
@@ -182,7 +259,7 @@ document.getElementById('crearBtn').addEventListener('click',async function(){
         if(!resp.ok||!result.ok)throw new Error(result.error||'Error al crear');
         const grupo=await heredarCondiciones(x=>x.sorteo_nombre===nombre&&(x.grupo_banca||'').trim()===grupo_banca&&x.comision_pct==null);
         statusEl.innerHTML=`<div class="status success">${mensajeHerencia(`✅ "${escapar(nombre)}" creado.`,grupo)}</div>`;
-        document.getElementById('nuevoNombre').value='';nuevoGrupoInp.value='';
+        document.getElementById('nuevoNombre').value='';nuevoGrupoSel.value='';nuevoGrupoSel.dataset.prev='';
         document.getElementById('campoNuevoLigado').style.display='none';
         await cargar();
     }catch(e){statusEl.innerHTML=`<div class="status error">⚠️ ${e.message}</div>`;}
