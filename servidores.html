@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>Servidores</title>
+<style>
+    *{margin:0;padding:0;box-sizing:border-box;}body{font-family:Arial,sans-serif;background:#f5f5f5;padding:15px;}
+    .container{max-width:900px;margin:0 auto;background:white;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.1);overflow:hidden;}
+    .header{background:#2c3e50;color:white;padding:15px 20px;text-align:center;position:relative;}
+    .header h1{font-size:1.4em;}
+    .btn-menu{position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.15);color:white;border:none;border-radius:5px;padding:8px 12px;font-size:13px;cursor:pointer;text-decoration:none;}
+    .btn-menu:hover{background:rgba(255,255,255,0.25);}
+    .seccion{padding:20px;border-bottom:2px solid #ecf0f1;}
+    .seccion h2{font-size:1em;color:#2c3e50;margin-bottom:15px;}
+    .actual{padding:10px 20px;background:#eaf2fb;border-bottom:2px solid #d6e6f5;font-size:13px;color:#2c3e50;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px;}
+    @media (max-width:560px){.grid{grid-template-columns:1fr;}}
+    .field{margin-bottom:14px;}
+    .field label{display:block;font-weight:bold;color:#2c3e50;margin-bottom:5px;font-size:13px;}
+    .field input{width:100%;padding:10px;border:2px solid #3498db;border-radius:5px;font-size:14px;}
+    .ayuda{font-size:12px;color:#7f8c8d;margin-top:4px;}
+    #crearBtn{width:100%;padding:12px;background:#27ae60;color:white;border:none;border-radius:5px;font-size:14px;font-weight:bold;cursor:pointer;}
+    #crearBtn:hover{background:#219150;}#crearBtn:disabled{background:#95a5a6;cursor:not-allowed;}
+    .status{padding:12px;border-radius:5px;font-size:14px;margin-bottom:14px;}
+    .status.success{background:#eafaf1;color:#27ae60;}.status.error{background:#fdecea;color:#c0392b;}
+    .tabla-wrap{overflow-x:auto;}
+    table{border-collapse:collapse;width:100%;font-size:13px;}th,td{border:1px solid #ddd;padding:7px;text-align:left;white-space:nowrap;}th{background:#3498db;color:white;}
+    td.num{text-align:right;font-variant-numeric:tabular-nums;}
+    .barra{height:6px;background:#ecf0f1;border-radius:3px;margin-top:4px;min-width:80px;}
+    .barra span{display:block;height:100%;background:#3498db;border-radius:3px;}
+    .estado{font-weight:bold;}.estado.on{color:#27ae60;}.estado.off{color:#c0392b;}
+    .btn-small{padding:5px 9px;border:none;border-radius:4px;font-size:12px;cursor:pointer;margin-right:4px;}
+    .btn-entrar{background:#3498db;color:white;}.btn-entrar:hover{background:#2980b9;}
+    .btn-suspender{background:#e74c3c;color:white;}.btn-suspender:hover{background:#c0392b;}
+    .btn-activar{background:#27ae60;color:white;}.btn-activar:hover{background:#219150;}
+    .btn-salir-servidor{background:none;border:2px solid #2c3e50;color:#2c3e50;border-radius:5px;padding:5px 10px;font-size:12px;cursor:pointer;font-weight:bold;}
+    .total{font-size:13px;color:#2c3e50;margin-bottom:12px;}
+    .nota{font-size:12px;color:#7f8c8d;margin-top:10px;}
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header"><a href="index.html" class="btn-menu">← Menú</a><h1>🖥️ Servidores</h1></div>
+    <div class="actual" id="barraActual"></div>
+
+    <div class="seccion">
+        <h2>Crear servidor nuevo</h2>
+        <div id="statusCrear"></div>
+        <div class="grid">
+            <div class="field"><label>Código del servidor</label><input type="text" id="codigo" placeholder="ej. 117" inputmode="numeric" maxlength="10" autocomplete="off"><div class="ayuda">Solo números (2 a 10 dígitos). Es lo que el cliente digita para entrar.</div></div>
+            <div class="field"><label>Nombre (para ti)</label><input type="text" id="nombre" placeholder="ej. Cliente Liberia" autocomplete="off"></div>
+            <div class="field"><label>Usuario administrador</label><input type="text" id="adminUser" placeholder="ej. admin" autocomplete="off"></div>
+            <div class="field"><label>Contraseña del administrador</label><input type="text" id="adminPass" placeholder="Escribe una contraseña" autocomplete="off"></div>
+        </div>
+        <button id="crearBtn">Crear servidor</button>
+        <div class="nota">El servidor nuevo arranca vacío, con una banca por defecto y las bolitas del Reventado copiadas del 041. Su administrador crea los sorteos, vendedores, usuarios y condiciones.</div>
+    </div>
+
+    <div class="seccion">
+        <h2>Servidores existentes</h2>
+        <div id="statusLista"></div>
+        <div class="total" id="totalBd"></div>
+        <div class="tabla-wrap">
+        <table><thead><tr><th>Código</th><th>Nombre</th><th>Estado</th><th>Usuarios</th><th>Ventas</th><th>Última venta</th><th>Peso aprox.</th><th></th></tr></thead><tbody id="tbody"></tbody></table>
+        </div>
+        <div class="nota">El peso es un cálculo aproximado del espacio que ocupan los datos de cada servidor dentro de la base de datos; sirve para comparar entre servidores y ver cómo crecen.</div>
+    </div>
+</div>
+<script>
+function getSession(){try{const s=sessionStorage.getItem('rt_session');return s?JSON.parse(s):null;}catch(e){return null;}}
+function setSession(d){sessionStorage.setItem('rt_session',JSON.stringify(d));}
+const _s=getSession();
+if(!_s||!_s.token||_s.role!=='superadmin'){window.location.href='index.html';}
+const APP_TOKEN=_s.token;
+const WORKER_URL='https://frosty-base-53ff.watsonmraul.workers.dev';
+function urlConAuth(base){const sep=base.indexOf('?')===-1?'?':'&';return base+sep+'token='+encodeURIComponent(APP_TOKEN);}
+function esc(t){return String(t==null?'':t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function formatoBytes(b){if(!b)return '0 KB';if(b<1024*1024)return (b/1024).toFixed(1)+' KB';if(b<1024*1024*1024)return (b/1024/1024).toFixed(2)+' MB';return (b/1024/1024/1024).toFixed(2)+' GB';}
+function formatoNum(n){return Number(n||0).toLocaleString('es-CR');}
+
+const statusCrear=document.getElementById('statusCrear');const statusLista=document.getElementById('statusLista');
+const tbody=document.getElementById('tbody');const crearBtn=document.getElementById('crearBtn');
+
+// Barra que indica en qué servidor está parado el superusuario
+const barra=document.getElementById('barraActual');
+if(_s.servidor){barra.innerHTML=`<span>Estás dentro del servidor <b>${esc(_s.servidor)}</b></span><button class="btn-salir-servidor" id="btnSalirServidor">Salir del servidor</button>`;
+    document.getElementById('btnSalirServidor').addEventListener('click',()=>entrar(null));}
+else{barra.innerHTML='<span>No estás dentro de ningún servidor. Usa <b>Entrar</b> para trabajar en uno.</span>';}
+
+async function cargar(){
+    try{
+        const resp=await fetch(urlConAuth(`${WORKER_URL}/api/superadmin/servidores`),{cache:'no-store'});
+        if(resp.status===401){window.location.href='index.html';return;}
+        const data=await resp.json();if(!resp.ok)throw new Error(data.error||'No se pudo cargar la lista');
+        const lista=data.servidores||[];
+        const maxBytes=Math.max(1,...lista.map(s=>s.bytes_aprox||0));
+        const sumaBytes=lista.reduce((a,s)=>a+(s.bytes_aprox||0),0);
+        document.getElementById('totalBd').innerHTML=data.tamano_total_bd
+            ?`Tamaño total de la base de datos: <b>${formatoBytes(data.tamano_total_bd)}</b> · Datos de servidores (aprox.): <b>${formatoBytes(sumaBytes)}</b>`
+            :`Datos de servidores (aprox.): <b>${formatoBytes(sumaBytes)}</b>`;
+        tbody.innerHTML='';
+        lista.forEach(s=>{
+            const tr=document.createElement('tr');
+            const activo=s.activo===1;
+            const pct=Math.round((s.bytes_aprox||0)/maxBytes*100);
+            tr.innerHTML=`<td><b>${esc(s.codigo)}</b></td><td>${esc(s.nombre)}</td>
+                <td><span class="estado ${activo?'on':'off'}">${activo?'Activo':'Suspendido'}</span></td>
+                <td class="num">${formatoNum(s.usuarios)}</td><td class="num">${formatoNum(s.ventas)}</td>
+                <td>${s.ultima_venta?esc(s.ultima_venta):'-'}</td>
+                <td class="num">${formatoBytes(s.bytes_aprox)}<div class="barra"><span style="width:${pct}%"></span></div></td>
+                <td><button class="btn-small btn-entrar" data-codigo="${esc(s.codigo)}">Entrar</button>
+                    <button class="btn-small ${activo?'btn-suspender':'btn-activar'}" data-codigo="${esc(s.codigo)}" data-activo="${activo?0:1}">${activo?'Suspender':'Activar'}</button></td>`;
+            tbody.appendChild(tr);
+        });
+        tbody.querySelectorAll('.btn-entrar').forEach(b=>b.addEventListener('click',()=>entrar(b.dataset.codigo)));
+        tbody.querySelectorAll('.btn-suspender,.btn-activar').forEach(b=>b.addEventListener('click',()=>cambiarEstado(b.dataset.codigo,b.dataset.activo==='1')));
+        statusLista.innerHTML='';
+    }catch(e){statusLista.innerHTML=`<div class="status error">⚠️ ${esc(e.message)}</div>`;}
+}
+
+crearBtn.addEventListener('click',async()=>{
+    const codigo=document.getElementById('codigo').value.trim();const nombre=document.getElementById('nombre').value.trim();
+    const adminUser=document.getElementById('adminUser').value.trim();const adminPass=document.getElementById('adminPass').value;
+    statusCrear.innerHTML='';
+    if(!/^\d{2,10}$/.test(codigo)){statusCrear.innerHTML='<div class="status error">⚠️ El código debe tener entre 2 y 10 dígitos</div>';return;}
+    if(!adminUser||!adminPass){statusCrear.innerHTML='<div class="status error">⚠️ Escribe el usuario y la contraseña del administrador</div>';return;}
+    crearBtn.disabled=true;crearBtn.textContent='Creando...';
+    try{
+        const resp=await fetch(urlConAuth(`${WORKER_URL}/api/superadmin/servidores`),{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({token:APP_TOKEN,codigo,nombre,admin_username:adminUser,admin_password:adminPass})});
+        const r=await resp.json();if(!resp.ok||!r.ok)throw new Error(r.error||'No se pudo crear el servidor');
+        statusCrear.innerHTML=`<div class="status success">✅ Servidor ${esc(codigo)} creado. El cliente entra con servidor <b>${esc(codigo)}</b>, usuario <b>${esc(adminUser)}</b> y la contraseña que pusiste.</div>`;
+        ['codigo','nombre','adminUser','adminPass'].forEach(id=>document.getElementById(id).value='');
+        await cargar();
+    }catch(e){statusCrear.innerHTML=`<div class="status error">⚠️ ${esc(e.message)}</div>`;}
+    finally{crearBtn.disabled=false;crearBtn.textContent='Crear servidor';}
+});
+
+async function cambiarEstado(codigo,activar){
+    const msg=activar?`¿Activar el servidor ${codigo}?`:`¿Suspender el servidor ${codigo}? Sus usuarios no podrán entrar y se cerrarán las sesiones abiertas. Los datos NO se borran.`;
+    if(!confirm(msg))return;
+    try{
+        const resp=await fetch(urlConAuth(`${WORKER_URL}/api/superadmin/servidores/estado`),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:APP_TOKEN,codigo,activo:activar})});
+        const r=await resp.json();if(!resp.ok||!r.ok)throw new Error(r.error||'No se pudo cambiar el estado');
+        await cargar();
+    }catch(e){statusLista.innerHTML=`<div class="status error">⚠️ ${esc(e.message)}</div>`;}
+}
+
+// Cambia de servidor sin volver a digitar la contraseña (codigo null = salir de todos)
+async function entrar(codigo){
+    try{
+        const resp=await fetch(urlConAuth(`${WORKER_URL}/api/superadmin/entrar`),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:APP_TOKEN,codigo})});
+        const r=await resp.json();if(!resp.ok||!r.ok)throw new Error(r.error||'No se pudo entrar al servidor');
+        setSession({token:r.token,role:r.role,vendedor:r.vendedor,username:r.username,servidor:r.servidor||null});
+        window.location.href='index.html';
+    }catch(e){statusLista.innerHTML=`<div class="status error">⚠️ ${esc(e.message)}</div>`;}
+}
+
+cargar();
+</script>
+</body>
+</html>
