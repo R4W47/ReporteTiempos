@@ -304,7 +304,7 @@ modalAbonoGuardar.addEventListener('click',async function(){
     if(isNaN(monto)){alert('Escribe un número válido');return;}
     this.disabled=true;this.textContent='Guardando...';
     try{
-        const resp=await fetch(urlConAuth(`${WORKER_URL}/api/abonos`),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:APP_TOKEN,vendedor_id:Number(vendedorSeleccionadoId),fecha:fechaEditando,monto:Math.round(monto*100)/100})});
+        const resp=await fetch(urlConAuth(`${WORKER_URL}/api/abonos`),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:APP_TOKEN,vendedor_id:Number(vendedorSeleccionadoId),fecha:fechaEditando,monto:Math.round(monto*100)/100})});
         const res=await resp.json().catch(()=>({}));
         if(!resp.ok||res.ok===false)throw new Error(res.error||'No se pudo guardar');
         modalAbono.style.display='none';
