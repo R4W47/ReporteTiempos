@@ -35,6 +35,24 @@
     tr.fila-totales { background-color:#fdf6e3; font-weight:bold; }
     td.negativo { color:#c0392b; }
     th.fecha-th { text-align:center; vertical-align:middle; }
+    tr.fila-saldo { background-color:#eef3f8; font-weight:bold; }
+    td.col-abono { background-color:#fffbea; }
+    td.col-total { font-weight:bold; }
+    td.editable { cursor:pointer; text-decoration:underline dotted #b9770e; }
+    td.editable:hover { background-color:#fdebd0; }
+    #historialBtn { padding:10px 16px; background:#8e44ad; color:white; border:none; border-radius:5px; font-size:14px; cursor:pointer; white-space:nowrap; display:none; }
+    .modal-fondo { position:fixed; inset:0; background:rgba(0,0,0,0.45); display:none; align-items:center; justify-content:center; z-index:100; padding:16px; }
+    .modal { background:white; border-radius:8px; padding:20px; width:100%; max-width:380px; max-height:85vh; overflow:auto; }
+    .modal.ancho { max-width:640px; }
+    .modal h2 { font-size:1.1em; color:#2c3e50; margin-bottom:6px; }
+    .modal p.ayuda { font-size:13px; color:#7f8c8d; margin-bottom:12px; }
+    .modal input { width:100%; padding:12px; border:2px solid #3498db; border-radius:5px; font-size:18px; text-align:right; }
+    .modal .botones { display:flex; gap:8px; justify-content:flex-end; margin-top:14px; }
+    .modal button { padding:10px 16px; border:none; border-radius:5px; font-size:14px; cursor:pointer; }
+    .btn-guardar { background:#27ae60; color:white; }
+    .btn-cancelar { background:#bdc3c7; color:#2c3e50; }
+    .modal table td, .modal table th { text-align:left; font-size:12px; padding:6px; }
+    .modal table td.num { text-align:right; }
 </style>
 </head>
 <body>
@@ -50,9 +68,26 @@
         </div>
         <div class="field" id="fechaField"></div>
         <button id="exportBtn" disabled>📷 Exportar imagen</button>
+        <button id="historialBtn">🕓 Historial de abonos</button>
     </div>
     <div id="statusMsg"></div>
     <div id="viewer" class="viewer"><div class="placeholder">👆 Elige un vendedor y una fecha</div></div>
+</div>
+<div class="modal-fondo" id="modalAbono">
+    <div class="modal">
+        <h2 id="modalAbonoTitulo">+Saldos / −Abonos</h2>
+        <p class="ayuda">Positivo: dinero que le entregas. Negativo: abono que te hace. Si hubo varios movimientos, escribe la suma. Deja 0 para borrarlo.</p>
+        <input type="number" step="0.01" inputmode="decimal" id="modalAbonoInput">
+        <div class="botones"><button class="btn-cancelar" id="modalAbonoCancelar">Cancelar</button><button class="btn-guardar" id="modalAbonoGuardar">Guardar</button></div>
+    </div>
+</div>
+<div class="modal-fondo" id="modalHistorial">
+    <div class="modal ancho">
+        <h2>🕓 Historial de abonos</h2>
+        <p class="ayuda" id="historialSub"></p>
+        <div id="historialContenido"></div>
+        <div class="botones"><button class="btn-cancelar" id="modalHistorialCerrar">Cerrar</button></div>
+    </div>
 </div>
 <script>
 function getSession(){try{const s=sessionStorage.getItem('rt_session');return s?JSON.parse(s):null;}catch(e){return null;}}
@@ -91,6 +126,15 @@ if(TIPO==='mensual'){
 const fechaInput=TIPO==='rango'?null:document.getElementById('fechaInput');
 const fechaInicioInput=TIPO==='rango'?document.getElementById('fechaInicioInput'):null;
 const fechaFinInput=TIPO==='rango'?document.getElementById('fechaFinInput'):null;
+const historialBtn=document.getElementById('historialBtn');
+let estadoReporte=null;
+
+function fechaISO(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function diaAnterior(fechaStr){const d=new Date(fechaStr+'T00:00:00');d.setDate(d.getDate()-1);return fechaISO(d);}
+function rangoActual(){
+    if(TIPO==='mensual'){const[anio,mes]=fechaInput.value.split('-').map(Number);return{inicio:fechaISO(new Date(anio,mes-1,1)),fin:fechaISO(new Date(anio,mes,0))};}
+    return{inicio:fechaInicioInput.value,fin:fechaFinInput.value};
+}
 
 async function cargarVendedores(){
     try{
@@ -117,16 +161,30 @@ async function cargarReporte(){
     statusEl.innerHTML='<div class="status loading">⏳ Cargando reporte...</div>';exportBtn.disabled=true;
     try{
         let data;
-        if(TIPO==='mensual'){
-            const[anio,mes]=fechaInput.value.split('-');
-            const response=await fetch(urlConAuth(`${WORKER_URL}/api/reporte-rango?vendedor_id=${vendedorSeleccionadoId}&fecha_inicio=${anio}-${mes}-01&fecha_fin=${anio}-${mes}-31`),{cache:'no-store'});
-            if(!response.ok)throw new Error('No se pudo cargar el reporte mensual');
-            data=await response.json();mostrarTablaDesglosada(data,'mes');
-        }else if(TIPO==='rango'){
-            if(!fechaInicioInput.value||!fechaFinInput.value){viewerEl.innerHTML='<div class="placeholder">👆 Elige las dos fechas</div>';statusEl.innerHTML='';exportBtn.disabled=true;return;}
-            const response=await fetch(urlConAuth(`${WORKER_URL}/api/reporte-rango?vendedor_id=${vendedorSeleccionadoId}&fecha_inicio=${fechaInicioInput.value}&fecha_fin=${fechaFinInput.value}`),{cache:'no-store'});
-            if(!response.ok)throw new Error('No se pudo cargar el reporte por rango');
-            data=await response.json();mostrarTablaDesglosada(data,'rango');
+        if(TIPO==='mensual'||TIPO==='rango'){
+            if(TIPO==='rango'&&(!fechaInicioInput.value||!fechaFinInput.value)){viewerEl.innerHTML='<div class="placeholder">👆 Elige las dos fechas</div>';statusEl.innerHTML='';exportBtn.disabled=true;return;}
+            const{inicio,fin}=rangoActual();
+            const vid=vendedorSeleccionadoId;
+            // 1) Ventas del período, 2) ventas anteriores (para el saldo anterior), 3) abonos
+            const[respRango,respPrevio,respAbonos]=await Promise.all([
+                fetch(urlConAuth(`${WORKER_URL}/api/reporte-rango?vendedor_id=${vid}&fecha_inicio=${inicio}&fecha_fin=${fin}`),{cache:'no-store'}),
+                fetch(urlConAuth(`${WORKER_URL}/api/reporte-rango?vendedor_id=${vid}&fecha_inicio=2000-01-01&fecha_fin=${diaAnterior(inicio)}`),{cache:'no-store'}),
+                fetch(urlConAuth(`${WORKER_URL}/api/abonos?vendedor_id=${vid}&fecha_inicio=${inicio}&fecha_fin=${fin}`),{cache:'no-store'}).catch(()=>null)
+            ]);
+            if(!respRango.ok)throw new Error(TIPO==='mensual'?'No se pudo cargar el reporte mensual':'No se pudo cargar el reporte por rango');
+            data=await respRango.json();
+            const previo=respPrevio.ok?await respPrevio.json():[];
+            const netoPrevio=previo.reduce((s,r)=>s+(r.venta||0)-(r.comision||0)-(r.premio||0),0);
+            let infoAbonos={abonos:[],saldo_abonos_anterior:0,puede_editar:false},avisoAbonos='';
+            if(respAbonos&&respAbonos.ok){infoAbonos=await respAbonos.json();}
+            else{avisoAbonos='⚠️ No se pudieron cargar los abonos; el saldo mostrado no los incluye.';}
+            const abonosMap={};(infoAbonos.abonos||[]).forEach(a=>{abonosMap[a.fecha]=a;});
+            estadoReporte={inicio,fin,abonosMap,puedeEditar:!!infoAbonos.puede_editar,saldoAnterior:netoPrevio+(infoAbonos.saldo_abonos_anterior||0)};
+            historialBtn.style.display=estadoReporte.puedeEditar?'inline-block':'none';
+            mostrarTablaDesglosada(data,TIPO==='mensual'?'mes':'rango');
+            statusEl.innerHTML=avisoAbonos?`<div class="status error">${avisoAbonos}</div>`:'';
+            exportBtn.disabled=!viewerEl.querySelector('table');
+            return;
         }else{
             const response=await fetch(urlConAuth(`${WORKER_URL}/api/reporte-diario?vendedor_id=${vendedorSeleccionadoId}&fecha=${fechaInput.value}`),{cache:'no-store'});
             if(!response.ok)throw new Error('No se pudo cargar el reporte diario');
@@ -159,31 +217,44 @@ function mostrarReporteDiario(rowsOriginal){
 }
 
 function mostrarTablaDesglosada(rows, tipo){
-    if(rows.length===0){viewerEl.innerHTML=`<div class="placeholder">Este vendedor no tiene ventas registradas en ese ${tipo==='mes'?'mes':'período'}.</div>`;return;}
-    // Obtener grupos únicos ordenados
+    const est=estadoReporte||{abonosMap:{},puedeEditar:false,saldoAnterior:0};
+    const fechasAbono=Object.keys(est.abonosMap).filter(f=>est.abonosMap[f].monto);
+    if(rows.length===0&&fechasAbono.length===0&&!est.saldoAnterior&&!est.puedeEditar){viewerEl.innerHTML=`<div class="placeholder">Este vendedor no tiene ventas registradas en ese ${tipo==='mes'?'mes':'período'}.</div>`;return;}
+    // Grupos (tipos de sorteo) únicos ordenados
     const gruposSet=new Set();rows.forEach(r=>gruposSet.add(r.grupo_banca));
     const grupos=[...gruposSet].sort();
     // Pivot por fecha
-    const porFecha={};const fechas=[];
+    const porFecha={};
     rows.forEach(r=>{
-        if(!porFecha[r.fecha]){porFecha[r.fecha]={};fechas.push(r.fecha);}
+        if(!porFecha[r.fecha])porFecha[r.fecha]={};
         porFecha[r.fecha][r.grupo_banca]={venta:r.venta||0,comision:r.comision||0,premio:r.premio||0};
     });
+    // Fechas: las que tienen ventas o abonos. Si puede editar, todos los días del período para poder digitar.
+    const fechasSet=new Set(Object.keys(porFecha).concat(fechasAbono));
+    if(est.puedeEditar&&est.inicio&&est.fin){
+        const d=new Date(est.inicio+'T00:00:00'),f=new Date(est.fin+'T00:00:00');let n=0;
+        while(d<=f&&n<400){fechasSet.add(fechaISO(d));d.setDate(d.getDate()+1);n++;}
+    }
+    const fechas=[...fechasSet].sort();
     const totPorGrupo={};grupos.forEach(g=>{totPorGrupo[g]={venta:0,comision:0,premio:0};});
-    const totGen={venta:0,comision:0,premio:0};
-    // Cabecera: fila 1 grupos, fila 2 sub-columnas
+    const totGen={venta:0,comision:0,premio:0,abono:0,total:0};
+    const nCols=grupos.length*3+4;
     let html='<table><thead>';
     html+='<tr>';
     html+=`<th style="background:#2c3e50;min-width:90px;"></th>`;
     grupos.forEach(g=>{html+=`<th colspan="3" style="text-align:center;background:#2980b9;">${g}</th>`;});
     html+='<th colspan="4" style="text-align:center;background:#1a6a3a;">TOTALES</th>';
+    html+='<th rowspan="2" style="text-align:center;background:#b9770e;vertical-align:middle;">+Saldos /<br>−Abonos</th>';
+    html+='<th rowspan="2" style="text-align:center;background:#7b241c;vertical-align:middle;">TOTAL</th>';
     html+='</tr><tr>';
     html+=`<th style="background:#2c3e50;text-align:center;">Fecha</th>`;
     grupos.forEach(()=>{html+='<th>Venta</th><th>Comisión</th><th>Premio</th>';});
     html+='<th>Venta</th><th>Comisión</th><th>Premio</th><th style="background:#1a6a3a;">Neto</th>';
     html+='</tr></thead><tbody>';
+    // Fila de saldo anterior
+    html+=`<tr class="fila-saldo"><td>Saldo anterior</td>${'<td></td>'.repeat(nCols)}<td class="col-abono"></td><td class="col-total ${est.saldoAnterior<0?'negativo':''}">${formatoMoneda(est.saldoAnterior)}</td></tr>`;
     fechas.forEach(fecha=>{
-        const dia=porFecha[fecha];
+        const dia=porFecha[fecha]||{};
         let tV=0,tC=0,tP=0;
         html+=`<tr><td>${fecha}</td>`;
         grupos.forEach(g=>{
@@ -193,19 +264,75 @@ function mostrarTablaDesglosada(rows, tipo){
             totPorGrupo[g].venta+=d.venta;totPorGrupo[g].comision+=d.comision;totPorGrupo[g].premio+=d.premio;
         });
         const neto=tV-tC-tP;
-        totGen.venta+=tV;totGen.comision+=tC;totGen.premio+=tP;
-        html+=`<td>${formatoMoneda(tV)}</td><td>${formatoMoneda(tC)}</td><td>${formatoMoneda(tP)}</td><td class="${neto<0?'negativo':''}">${formatoMoneda(neto)}</td></tr>`;
+        const ab=est.abonosMap[fecha];const abono=ab?(ab.monto||0):0;
+        const totalDia=neto+abono;
+        totGen.venta+=tV;totGen.comision+=tC;totGen.premio+=tP;totGen.abono+=abono;totGen.total+=totalDia;
+        const editAttrs=est.puedeEditar?` class="col-abono editable ${abono<0?'negativo':''}" data-fecha="${fecha}" data-monto="${abono}"${ab&&ab.editado_por?` title="Editado por ${ab.editado_por}${ab.editado_en?' el '+ab.editado_en:''}"`:''}`:` class="col-abono ${abono<0?'negativo':''}"`;
+        html+=`<td>${formatoMoneda(tV)}</td><td>${formatoMoneda(tC)}</td><td>${formatoMoneda(tP)}</td><td class="${neto<0?'negativo':''}">${formatoMoneda(neto)}</td>`;
+        html+=`<td${editAttrs}>${formatoMoneda(abono)}</td><td class="col-total ${totalDia<0?'negativo':''}">${formatoMoneda(totalDia)}</td></tr>`;
     });
     const netoGen=totGen.venta-totGen.comision-totGen.premio;
+    const granTotal=est.saldoAnterior+totGen.total;
     html+='<tr class="fila-totales"><td>Totales</td>';
     grupos.forEach(g=>{
         const t=totPorGrupo[g];
         html+=`<td>${formatoMoneda(t.venta)}</td><td>${formatoMoneda(t.comision)}</td><td>${formatoMoneda(t.premio)}</td>`;
     });
-    html+=`<td>${formatoMoneda(totGen.venta)}</td><td>${formatoMoneda(totGen.comision)}</td><td>${formatoMoneda(totGen.premio)}</td><td class="${netoGen<0?'negativo':''}">${formatoMoneda(netoGen)}</td></tr>`;
+    html+=`<td>${formatoMoneda(totGen.venta)}</td><td>${formatoMoneda(totGen.comision)}</td><td>${formatoMoneda(totGen.premio)}</td><td class="${netoGen<0?'negativo':''}">${formatoMoneda(netoGen)}</td>`;
+    html+=`<td class="${totGen.abono<0?'negativo':''}">${formatoMoneda(totGen.abono)}</td><td class="${granTotal<0?'negativo':''}" style="background:#f9e79f;">${formatoMoneda(granTotal)}</td></tr>`;
     html+='</tbody></table>';
     viewerEl.innerHTML=html;
 }
+
+// ===== Edición de abonos (solo usuarios con permiso) =====
+const modalAbono=document.getElementById('modalAbono');
+const modalAbonoInput=document.getElementById('modalAbonoInput');
+const modalAbonoGuardar=document.getElementById('modalAbonoGuardar');
+let fechaEditando=null;
+viewerEl.addEventListener('click',function(e){
+    const td=e.target.closest('td.editable');if(!td||!estadoReporte||!estadoReporte.puedeEditar)return;
+    fechaEditando=td.dataset.fecha;
+    document.getElementById('modalAbonoTitulo').textContent=`+Saldos / −Abonos — ${fechaEditando}`;
+    const actual=parseFloat(td.dataset.monto)||0;modalAbonoInput.value=actual?actual:'';
+    modalAbono.style.display='flex';setTimeout(()=>modalAbonoInput.focus(),50);
+});
+document.getElementById('modalAbonoCancelar').addEventListener('click',()=>{modalAbono.style.display='none';});
+modalAbonoInput.addEventListener('keydown',e=>{if(e.key==='Enter')modalAbonoGuardar.click();});
+modalAbonoGuardar.addEventListener('click',async function(){
+    const txt=modalAbonoInput.value.trim();
+    const monto=txt===''?0:Number(txt);
+    if(isNaN(monto)){alert('Escribe un número válido');return;}
+    this.disabled=true;this.textContent='Guardando...';
+    try{
+        const resp=await fetch(urlConAuth(`${WORKER_URL}/api/abonos`),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:APP_TOKEN,vendedor_id:Number(vendedorSeleccionadoId),fecha:fechaEditando,monto:Math.round(monto*100)/100})});
+        const res=await resp.json().catch(()=>({}));
+        if(!resp.ok||res.ok===false)throw new Error(res.error||'No se pudo guardar');
+        modalAbono.style.display='none';
+        await cargarReporte();
+        statusEl.innerHTML=`<div class="status success">✅ Guardado ${fechaEditando}: ${formatoMoneda(monto)}</div>`;
+    }catch(err){alert('⚠️ '+err.message);}
+    finally{this.disabled=false;this.textContent='Guardar';}
+});
+
+// ===== Historial: quién editó y cuándo (no sale en la imagen) =====
+const modalHistorial=document.getElementById('modalHistorial');
+document.getElementById('modalHistorialCerrar').addEventListener('click',()=>{modalHistorial.style.display='none';});
+historialBtn.addEventListener('click',async function(){
+    if(!estadoReporte||!vendedorSeleccionadoId)return;
+    const cont=document.getElementById('historialContenido');
+    const nombre=VENDEDOR_FORZADO||(vendedores.find(v=>v.id==vendedorSeleccionadoId)?.nombre)||'';
+    document.getElementById('historialSub').textContent=`${nombre} — ${estadoReporte.inicio} a ${estadoReporte.fin}`;
+    cont.innerHTML='⏳ Cargando...';modalHistorial.style.display='flex';
+    try{
+        const resp=await fetch(urlConAuth(`${WORKER_URL}/api/abonos/historial?vendedor_id=${vendedorSeleccionadoId}&fecha_inicio=${estadoReporte.inicio}&fecha_fin=${estadoReporte.fin}`),{cache:'no-store'});
+        if(!resp.ok)throw new Error('No se pudo cargar el historial');
+        const lista=await resp.json();
+        if(lista.length===0){cont.innerHTML='<p class="ayuda">Sin cambios registrados en este período.</p>';return;}
+        let h='<table><thead><tr><th>Día</th><th>Antes</th><th>Ahora</th><th>Usuario</th><th>Cuándo</th></tr></thead><tbody>';
+        lista.forEach(x=>{h+=`<tr><td>${x.fecha}</td><td class="num">${x.monto_anterior==null?'-':formatoMoneda(x.monto_anterior)}</td><td class="num">${formatoMoneda(x.monto_nuevo)}</td><td>${x.username||'-'}</td><td>${x.creado_en||''}</td></tr>`;});
+        cont.innerHTML=h+'</tbody></table>';
+    }catch(err){cont.innerHTML=`<p class="ayuda">⚠️ ${err.message}</p>`;}
+});
 
 exportBtn.addEventListener('click',async function(){
     const table=viewerEl.querySelector('table');
@@ -217,6 +344,7 @@ exportBtn.addEventListener('click',async function(){
         const clone=table.cloneNode(true);
         // Quitar sticky para que html2canvas lo capture bien
         clone.querySelectorAll('th').forEach(th=>{th.style.position='static';});
+        clone.querySelectorAll('td.editable').forEach(td=>{td.classList.remove('editable');td.removeAttribute('title');});
         const wrapper=document.createElement('div');
         wrapper.style.cssText='position:fixed;top:0;left:-100000px;background:#fff;padding:10px;display:inline-block;font-family:Arial,sans-serif;';
         const titleEl=document.createElement('div');
