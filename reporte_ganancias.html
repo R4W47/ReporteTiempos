@@ -90,6 +90,18 @@ function fmt(n){return(n||0).toLocaleString('es-CR',{minimumFractionDigits:2});}
 function fmtSigned(n){const v=n||0;return(v>=0?'+':'')+v.toLocaleString('es-CR',{minimumFractionDigits:2});}
 
 let _gastosExistentes=[];
+// Montos fijos por defecto (se cargan desde Configuraciones → Salarios fijos)
+let SALARIO_OFICINA_FIJO=35000;
+let SALARIO_PUESTO_FIJO=15000;
+async function cargarSalariosFijos(){
+    try{
+        const r=await fetch(urlConAuth(`${WORKER_URL}/api/config-salarios`),{cache:'no-store'});
+        if(!r.ok)return;
+        const c=await r.json();
+        if(c&&c.salario_oficina!=null)SALARIO_OFICINA_FIJO=parseFloat(c.salario_oficina)||0;
+        if(c&&c.salario_puesto!=null)SALARIO_PUESTO_FIJO=parseFloat(c.salario_puesto)||0;
+    }catch(e){}
+}
 let _netoListas=0,_netoNoPasadas=0,_netoAjustes=0;
 let _hayNoPasadas=false,_hayAjustes=false;
 
@@ -144,7 +156,7 @@ function buildTablaPuestos(puestos){
     let html='<table><thead><tr><th>Vendedor</th><th>Venta</th><th>Com. a recibir</th><th>Premio a pagar</th><th>Premio a recibir</th><th>Salario</th><th>Neto</th></tr></thead><tbody>';
     puestos.forEach(p=>{
         const gs=buscarGasto('salario_puesto',p.vendedor_id);
-        const salVal=gs?gs.monto:15000;
+        const salVal=gs?gs.monto:SALARIO_PUESTO_FIJO;
         const salId=gs?gs.id:'';
         const comision=p.comision_recibir||0;
         const premioPagar=p.premio_pagar||0;
@@ -264,7 +276,7 @@ async function cargarReporte(){
 
         // SALARIO OFICINA
         const gsOficina=buscarGasto('oficina',null);
-        const oficinaVal=gsOficina?gsOficina.monto:35000;
+        const oficinaVal=gsOficina?gsOficina.monto:SALARIO_OFICINA_FIJO;
         const oficinaId=gsOficina?gsOficina.id:'';
         html+=`<div class="seccion"><h2>🏢 Gastos de Oficina</h2>
             <div class="gasto-oficina-row">
@@ -349,7 +361,7 @@ btnGuardarConfig.addEventListener('click',async function(){
 });
 
 fechaInput.addEventListener('change',cargarReporte);
-cargarReporte();
+cargarSalariosFijos().then(cargarReporte);
 </script>
 </body>
 </html>

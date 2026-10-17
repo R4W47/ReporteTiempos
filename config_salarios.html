@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Salarios fijos</title>
+<style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:Arial,sans-serif;background:#f5f5f5;padding:15px;}
+    .container{max-width:500px;margin:0 auto;background:white;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.1);overflow:hidden;}
+    .header{background:#2c3e50;color:white;padding:15px 20px;text-align:center;position:relative;}
+    .header h1{font-size:1.4em;}
+    .btn-menu{position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.15);color:white;border:none;border-radius:5px;padding:8px 12px;font-size:13px;cursor:pointer;text-decoration:none;}
+    .btn-menu:hover{background:rgba(255,255,255,0.25);}
+    .status{padding:10px 20px;font-size:14px;}
+    .status.success{background:#eafaf1;color:#27ae60;}
+    .status.error{background:#fdecea;color:#c0392b;}
+    .status.loading{background:#eaf2fa;color:#2980b9;}
+    .contenido{padding:20px;}
+    .nota{font-size:13px;color:#7f8c8d;margin-bottom:18px;line-height:1.4;}
+    .campo{display:flex;flex-direction:column;gap:6px;margin-bottom:18px;}
+    .campo label{font-weight:bold;color:#2c3e50;font-size:14px;}
+    .campo small{color:#7f8c8d;font-size:12px;}
+    .campo input{padding:10px;border:1px solid #bdc3c7;border-radius:5px;font-size:16px;text-align:right;}
+    .campo input:focus{border-color:#3498db;outline:none;}
+    .save-bar{padding:15px 20px;background:#ecf0f1;border-top:2px solid #bdc3c7;display:flex;justify-content:flex-end;}
+    #saveBtn{padding:12px 30px;background:#27ae60;color:white;border:none;border-radius:5px;font-size:15px;font-weight:bold;cursor:pointer;}
+    #saveBtn:hover{background:#219150;}
+    #saveBtn:disabled{background:#95a5a6;cursor:not-allowed;}
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <a href="configuraciones.html" class="btn-menu">← Volver</a>
+        <h1>💰 Salarios fijos</h1>
+    </div>
+    <div id="statusMsg"></div>
+    <div class="contenido">
+        <p class="nota">Estos son los montos que aparecen por defecto en el Reporte de Ganancias del Día. Los días que ya tienen salarios guardados conservan sus montos; el cambio aplica a los días sin guardar.</p>
+        <div class="campo">
+            <label for="inputOficina">🏢 Salarios de oficina (por día)</label>
+            <input type="number" id="inputOficina" min="0" step="any" disabled>
+        </div>
+        <div class="campo">
+            <label for="inputPuesto">🏪 Salario por puesto (por día)</label>
+            <small>Se aplica a cada vendedor de puesto.</small>
+            <input type="number" id="inputPuesto" min="0" step="any" disabled>
+        </div>
+    </div>
+    <div class="save-bar">
+        <button id="saveBtn" disabled>💾 Guardar</button>
+    </div>
+</div>
+<script>
+function getSession(){try{const s=sessionStorage.getItem('rt_session');return s?JSON.parse(s):null;}catch(e){return null;}}
+const _s=getSession();if(!_s||!_s.token){window.location.href='index.html';}
+const APP_TOKEN=_s.token;
+const WORKER_URL='https://frosty-base-53ff.watsonmraul.workers.dev';
+function urlConAuth(base){const sep=base.indexOf('?')===-1?'?':'&';return base+sep+'token='+encodeURIComponent(APP_TOKEN);}
+
+const statusEl=document.getElementById('statusMsg');
+const inputOficina=document.getElementById('inputOficina');
+const inputPuesto=document.getElementById('inputPuesto');
+const saveBtn=document.getElementById('saveBtn');
+
+async function cargar(){
+    statusEl.innerHTML='<div class="status loading">⏳ Cargando...</div>';
+    try{
+        const r=await fetch(urlConAuth(`${WORKER_URL}/api/config-salarios`),{cache:'no-store'});
+        const c=await r.json();
+        if(!r.ok)throw new Error(c.error||'No se pudo cargar');
+        inputOficina.value=c.salario_oficina??35000;
+        inputPuesto.value=c.salario_puesto??15000;
+        inputOficina.disabled=false;inputPuesto.disabled=false;saveBtn.disabled=false;
+        statusEl.innerHTML='';
+    }catch(e){statusEl.innerHTML=`<div class="status error">⚠️ ${e.message}</div>`;}
+}
+
+saveBtn.addEventListener('click',async function(){
+    const oficina=parseFloat(inputOficina.value);
+    const puesto=parseFloat(inputPuesto.value);
+    if(isNaN(oficina)||oficina<0||isNaN(puesto)||puesto<0){statusEl.innerHTML='<div class="status error">⚠️ Ingresa montos válidos</div>';return;}
+    this.disabled=true;this.textContent='⏳ Guardando...';
+    try{
+        const r=await fetch(urlConAuth(`${WORKER_URL}/api/config-salarios`),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({salario_oficina:oficina,salario_puesto:puesto})});
+        const res=await r.json();
+        if(!r.ok||!res.ok)throw new Error(res.error||'Error al guardar');
+        statusEl.innerHTML='<div class="status success">✅ Montos guardados</div>';
+    }catch(e){statusEl.innerHTML=`<div class="status error">⚠️ ${e.message}</div>`;}
+    finally{this.disabled=false;this.textContent='💾 Guardar';}
+});
+
+cargar();
+</script>
+</body>
+</html>
