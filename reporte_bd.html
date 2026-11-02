@@ -53,6 +53,8 @@
     .btn-cancelar { background:#bdc3c7; color:#2c3e50; }
     .modal table td, .modal table th { text-align:left; font-size:12px; padding:6px; }
     .modal table td.num { text-align:right; }
+    .check-saldo { display:none; align-items:center; gap:8px; padding:10px 12px; background:white; border:2px solid #3498db; border-radius:5px; font-size:14px; font-weight:bold; color:#2c3e50; cursor:pointer; user-select:none; white-space:nowrap; }
+    .check-saldo input { width:18px; height:18px; cursor:pointer; }
 </style>
 </head>
 <body>
@@ -67,6 +69,7 @@
             <select id="vendedorSelect"><option value="">-- Elige un vendedor --</option></select>
         </div>
         <div class="field" id="fechaField"></div>
+        <label class="check-saldo" id="checkSaldoLabel"><input type="checkbox" id="checkSaldo" checked> Con saldo anterior</label>
         <button id="exportBtn" disabled>📷 Exportar imagen</button>
         <button id="historialBtn">🕓 Historial de abonos</button>
     </div>
@@ -127,7 +130,18 @@ const fechaInput=TIPO==='rango'?null:document.getElementById('fechaInput');
 const fechaInicioInput=TIPO==='rango'?document.getElementById('fechaInicioInput'):null;
 const fechaFinInput=TIPO==='rango'?document.getElementById('fechaFinInput'):null;
 const historialBtn=document.getElementById('historialBtn');
-let estadoReporte=null;
+let estadoReporte=null,ultimosDatos=null;
+// Check "Con saldo anterior": solo en mensual y rango. Sin marcar = solo los datos del período.
+const checkSaldo=document.getElementById('checkSaldo');
+if(TIPO==='mensual'||TIPO==='rango'){
+    document.getElementById('checkSaldoLabel').style.display='flex';
+    try{const g=localStorage.getItem('rt_con_saldo');if(g!==null)checkSaldo.checked=(g==='1');}catch(e){}
+}
+function conSaldo(){return checkSaldo.checked;}
+checkSaldo.addEventListener('change',function(){
+    try{localStorage.setItem('rt_con_saldo',this.checked?'1':'0');}catch(e){}
+    if(ultimosDatos&&estadoReporte){mostrarTablaDesglosada(ultimosDatos,TIPO==='mensual'?'mes':'rango');exportBtn.disabled=!viewerEl.querySelector('table');}
+});
 
 function fechaISO(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function diaAnterior(fechaStr){const d=new Date(fechaStr+'T00:00:00');d.setDate(d.getDate()-1);return fechaISO(d);}
@@ -181,6 +195,7 @@ async function cargarReporte(){
             const abonosMap={};(infoAbonos.abonos||[]).forEach(a=>{abonosMap[a.fecha]=a;});
             estadoReporte={inicio,fin,abonosMap,puedeEditar:!!infoAbonos.puede_editar,saldoAnterior:netoPrevio+(infoAbonos.saldo_abonos_anterior||0)};
             historialBtn.style.display=estadoReporte.puedeEditar?'inline-block':'none';
+            ultimosDatos=data;
             mostrarTablaDesglosada(data,TIPO==='mensual'?'mes':'rango');
             statusEl.innerHTML=avisoAbonos?`<div class="status error">${avisoAbonos}</div>`:'';
             exportBtn.disabled=!viewerEl.querySelector('table');
@@ -218,8 +233,10 @@ function mostrarReporteDiario(rowsOriginal){
 
 function mostrarTablaDesglosada(rows, tipo){
     const est=estadoReporte||{abonosMap:{},puedeEditar:false,saldoAnterior:0};
+    const incluirSaldo=conSaldo();
+    const saldoAnt=incluirSaldo?est.saldoAnterior:0;
     const fechasAbono=Object.keys(est.abonosMap).filter(f=>est.abonosMap[f].monto);
-    if(rows.length===0&&fechasAbono.length===0&&!est.saldoAnterior&&!est.puedeEditar){viewerEl.innerHTML=`<div class="placeholder">Este vendedor no tiene ventas registradas en ese ${tipo==='mes'?'mes':'período'}.</div>`;return;}
+    if(rows.length===0&&fechasAbono.length===0&&!saldoAnt&&!est.puedeEditar){viewerEl.innerHTML=`<div class="placeholder">Este vendedor no tiene ventas registradas en ese ${tipo==='mes'?'mes':'período'}.</div>`;return;}
     // Grupos (tipos de sorteo) únicos ordenados
     const gruposSet=new Set();rows.forEach(r=>gruposSet.add(r.grupo_banca));
     const grupos=[...gruposSet].sort();
@@ -251,8 +268,8 @@ function mostrarTablaDesglosada(rows, tipo){
     grupos.forEach(()=>{html+='<th>Venta</th><th>Comisión</th><th>Premio</th>';});
     html+='<th>Venta</th><th>Comisión</th><th>Premio</th><th style="background:#1a6a3a;">Neto</th>';
     html+='</tr></thead><tbody>';
-    // Fila de saldo anterior
-    html+=`<tr class="fila-saldo"><td>Saldo anterior</td>${'<td></td>'.repeat(nCols)}<td class="col-abono"></td><td class="col-total ${est.saldoAnterior<0?'negativo':''}">${formatoMoneda(est.saldoAnterior)}</td></tr>`;
+    // Fila de saldo anterior (solo si el check está marcado)
+    if(incluirSaldo)html+=`<tr class="fila-saldo"><td>Saldo anterior</td>${'<td></td>'.repeat(nCols)}<td class="col-abono"></td><td class="col-total ${saldoAnt<0?'negativo':''}">${formatoMoneda(saldoAnt)}</td></tr>`;
     fechas.forEach(fecha=>{
         const dia=porFecha[fecha]||{};
         let tV=0,tC=0,tP=0;
@@ -272,7 +289,7 @@ function mostrarTablaDesglosada(rows, tipo){
         html+=`<td${editAttrs}>${formatoMoneda(abono)}</td><td class="col-total ${totalDia<0?'negativo':''}">${formatoMoneda(totalDia)}</td></tr>`;
     });
     const netoGen=totGen.venta-totGen.comision-totGen.premio;
-    const granTotal=est.saldoAnterior+totGen.total;
+    const granTotal=saldoAnt+totGen.total;
     html+='<tr class="fila-totales"><td>Totales</td>';
     grupos.forEach(g=>{
         const t=totPorGrupo[g];
@@ -349,7 +366,8 @@ exportBtn.addEventListener('click',async function(){
         wrapper.style.cssText='position:fixed;top:0;left:-100000px;background:#fff;padding:10px;display:inline-block;font-family:Arial,sans-serif;';
         const titleEl=document.createElement('div');
         titleEl.style.cssText='font-weight:bold;font-size:16px;color:#2c3e50;margin-bottom:10px;white-space:nowrap;';
-        titleEl.textContent=`${nombreVendedor} — ${etiquetaFecha} (${TIPO==='mensual'?'Mensual':(TIPO==='rango'?'Rango':'Diario')})`;
+        const etiquetaSaldo=(TIPO!=='diario'&&!conSaldo())?' — sin saldo anterior':'';
+        titleEl.textContent=`${nombreVendedor} — ${etiquetaFecha} (${TIPO==='mensual'?'Mensual':(TIPO==='rango'?'Rango':'Diario')})${etiquetaSaldo}`;
         wrapper.appendChild(titleEl);wrapper.appendChild(clone);document.body.appendChild(wrapper);
         await new Promise(resolve=>requestAnimationFrame(resolve));
         const MAX_DIMENSION=4000;const naturalWidth=wrapper.scrollWidth;const naturalHeight=wrapper.scrollHeight;
